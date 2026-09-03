@@ -1,0 +1,17 @@
+# Go
+/zmk-vim-mode
+/bin/
+/dist/
+*.test
+*.out
+
+# Firmware / editor / tooling
+/firmware/build/
+/editors/*/node_modules/
+/editors/*/out/
+*.vsix
+
+# Local junk
+.DS_Store
+.nvimlog
+.claude/.cc-writes/
