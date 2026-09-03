@@ -1,9 +1,15 @@
 # Go
 /zmk-vim-mode
+/zmk-vim-mode-linux-amd64
+/zmk-vim-mode-linux-arm64
 /bin/
+/build/
 /dist/
 *.test
 *.out
+
+# Runtime scratch (socket, logs) when running the daemon from the checkout
+/.run/
 
 # Firmware / editor / tooling
 /firmware/build/

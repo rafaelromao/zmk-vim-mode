@@ -1,0 +1,33 @@
+# Copyright (c) 2026 Rafael Romão
+# SPDX-License-Identifier: MIT
+
+# Kconfig functions split their arguments on commas, so the compatible (which
+# contains one) must go through a variable first. Same pattern as ZMK itself.
+DT_COMPAT_ZMK_HID_INDICATOR_CODE_LISTENER := zmk,hid-indicator-code-listener
+
+config ZMK_HID_INDICATOR_CODE_LISTENER
+    bool "Map multi-bit HID LED indicator codes to layer sets"
+    default $(dt_compat_enabled,$(DT_COMPAT_ZMK_HID_INDICATOR_CODE_LISTENER))
+    depends on !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
+    select ZMK_HID_INDICATORS
+    help
+      Decode a small integer from a set of HID LED indicator bits sent by the
+      host and activate the matching set of layers. Used by zmk-vim-mode to keep
+      the keyboard's vim layers in sync with the editor's real mode.
+
+      Enabled automatically when a zmk,hid-indicator-code-listener node is
+      present in the keymap. Only built on the central/unibody side: HID output
+      reports are received there.
+
+if ZMK_HID_INDICATOR_CODE_LISTENER
+
+config ZMK_HID_INDICATOR_CODE_LISTENER_LOG_LEVEL
+    int "Log level for the HID indicator code listener"
+    default 2
+    range 0 4
+    help
+      0 none, 1 error, 2 warning, 3 info, 4 debug. Debug logs every decoded
+      code and every layer change, which is useful when bringing the host
+      daemon up for the first time.
+
+endif # ZMK_HID_INDICATOR_CODE_LISTENER

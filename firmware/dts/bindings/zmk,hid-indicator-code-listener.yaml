@@ -1,0 +1,103 @@
+# Copyright (c) 2026 Rafael Romão
+# SPDX-License-Identifier: MIT
+
+description: |
+  Decodes a small integer ("code") from a set of HID LED indicator bits sent by
+  the host and applies the matching set of layers.
+
+  Each child node maps one code to the layers that must be active while that
+  code is current, and optionally to behaviors to invoke on entry. Code 0 is
+  implicit: every managed layer is deactivated.
+
+  Example:
+
+    #include <dt-bindings/zmk/hid_usage.h>
+
+    / {
+        vim_sync {
+            compatible = "zmk,hid-indicator-code-listener";
+            indicators = <HID_USAGE_LED_COMPOSE HID_USAGE_LED_KANA HID_USAGE_LED_SCROLL_LOCK>;
+            managed-layers = <VIM_NORMAL VIM_VISUAL VIM_INSERT VIM_CMDLINE>;
+
+            normal  { code = <1>; layers = <VIM_NORMAL>; };
+            insert  { code = <2>; layers = <VIM_INSERT>; };
+            visual  { code = <3>; layers = <VIM_NORMAL VIM_VISUAL>; };
+            legacy  { code = <4>; bindings = <&vim_mode_on>; };
+            cmdline { code = <5>; layers = <VIM_CMDLINE>; };
+        };
+    };
+
+compatible: "zmk,hid-indicator-code-listener"
+
+properties:
+  indicators:
+    type: array
+    required: true
+    description: |
+      HID LED usages (from dt-bindings/zmk/hid_usage.h) carrying the code bits,
+      least significant bit first. Up to 5 usages, i.e. codes 0..31. Choose
+      usages no operating system drives on its own: Compose and Kana are never
+      set by any compositor, Scroll Lock is not bound in the default keymap.
+      Never use Caps Lock or Num Lock, which the OS owns.
+
+  managed-layers:
+    type: array
+    required: true
+    description: |
+      Every layer this node may activate or deactivate, as layer identifiers
+      (the same numbers passed to &mo/&to/&tog). Layers listed here but not in
+      the active code's "layers" are deactivated, so include layers that are
+      entered locally by the keymap (sticky change/replace layers) to have them
+      cleared when the host reports a new state.
+
+  off-delay-ms:
+    type: int
+    default: 60
+    description: |
+      Code 0 is applied only after it has been stable for this long. On Linux
+      the compositor rewrites all LED bits whenever the kernel emits its own
+      LED report, briefly zeroing the code; the host daemon rewrites it
+      immediately, and this delay keeps that round trip invisible.
+
+  local-guard-ms:
+    type: int
+    default: 150
+    description: |
+      After a layer change caused by the keyboard itself, host codes are parked
+      for this long and only the most recent one is applied when it elapses.
+      A host code describes the editor as of an earlier keystroke, so without
+      this a fast roll (Enter then i) could be overridden by a stale code.
+
+  tap-ms:
+    type: int
+    default: 5
+    description: Delay between press and release of an invoked binding.
+
+  wait-ms:
+    type: int
+    default: 5
+    description: Delay after a binding's release before the next one runs.
+
+child-binding:
+  description: One code and the state it selects.
+  properties:
+    code:
+      type: int
+      required: true
+      description: |
+        The decoded value this child matches (1..31; 0 is implicit and clears
+        every managed layer).
+
+    layers:
+      type: array
+      description: |
+        Layers to activate for this code. Every managed layer not listed is
+        deactivated. Omit for a code that should clear all layers but still
+        run bindings.
+
+    bindings:
+      type: phandle-array
+      description: |
+        Behaviors to invoke (press then release) when this code becomes
+        current. Use sparingly: a behavior that types keys will re-type them
+        on every transition into this code.

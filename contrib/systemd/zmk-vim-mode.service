@@ -1,0 +1,18 @@
+[Unit]
+Description=zmk-vim-mode: sync ZMK keyboard layers with the editor's vim state
+Documentation=https://github.com/rafaelromao/zmk-vim-mode
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# %h is the user's home; adjust if the binary lives elsewhere.
+ExecStart=%h/.local/bin/zmk-vim-mode daemon
+Restart=always
+RestartSec=2
+# The daemon opens /dev/hidraw* and /dev/input/event* for the ZMK keyboard;
+# access comes from the udev rule, not from privileges.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=graphical-session.target
