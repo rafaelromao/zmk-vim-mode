@@ -50,13 +50,15 @@ find_nodes() {
   return $((1 - found))
 }
 
-# The node that actually carries the LED bits: capabilities/led must have
-# compose (bit 3) and kana (bit 4).
+# First node whose capabilities/led contains every bit in $1 (a mask over
+# LED_* codes). Default: compose|kana, the bits the 3-bit code needs.
+# rc 0 = found (prints "evnode<TAB>hidraw"), 1 = keyboard present but no such
+# node, 2 = keyboard not found.
 led_node() {
-  local row
+  local want=${1:-$(( (1<<3) | (1<<4) ))} row
   while IFS=$'\t' read -r evnode raw led bus name hid; do
     local v=$((16#${led:-0}))
-    if (( (v >> 3) & 1 )) && (( (v >> 4) & 1 )); then
+    if (( (v & want) == want )); then
       printf '%s\t%s\n' "$evnode" "$raw"
       return 0
     fi
@@ -114,11 +116,13 @@ cmd_caps() {
 }
 
 # Write a raw indicator bitmap to the keyboard's LED output report.
+# $3 (optional) is the LED-capability mask the target node must have; it
+# defaults to compose|kana because that is what the mode code rides on.
 write_bits() {
-  local bits=$1 what=$2 raw
-  raw=$(led_node | cut -f2)
-  case $? in
-    1) die "found the keyboard but no node exposes compose+kana LEDs. Run '$0 caps'." ;;
+  local bits=$1 what=$2 want=${3:-} raw rc
+  raw=$(led_node ${want:+"$want"} | cut -f2); rc=${PIPESTATUS[0]}
+  case $rc in
+    1) die "found the keyboard, but no node exposes the required LEDs. Run '$0 caps' / '$0 dump'." ;;
     2) die "no device $VID:$PID found. Is the keyboard connected?" ;;
   esac
   [[ -n "$raw" && "$raw" != "-" ]] || die "no hidraw node paired with the LED node; check the udev rule"
@@ -140,13 +144,83 @@ cmd_write() {
 }
 
 # numlock <on|off> — validate the whole write path against the CURRENT firmware,
-# which already maps NUM LOCK to vim mode. No flashing required.
+# which already maps NUM LOCK to vim mode. No flashing required, and it only
+# needs LED_NUML, so it works even when compose/kana are missing.
 cmd_numlock() {
+  local numonly=$(( 1 << 0 ))
   case "${1:-}" in
-    on) write_bits $BIT_NUM "num lock on (expect vim mode ON: an Esc is sent and the NORMAL layer activates)" ;;
-    off) write_bits 0 "num lock off (expect vim mode OFF)" ;;
+    on) write_bits $BIT_NUM "num lock on (expect vim mode ON: an Esc is sent and the NORMAL layer activates)" "$numonly" ;;
+    off) write_bits 0 "num lock off (expect vim mode OFF)" "$numonly" ;;
     *) die "usage: $0 numlock <on|off>" ;;
   esac
+}
+
+# Ground truth: what the firmware actually declares, straight from the HID
+# report descriptor, plus the raw sysfs values behind `caps`.
+cmd_dump() {
+  local any=0
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    any=1
+    local base sys
+    base=$(basename "$evnode")
+    sys=$(readlink -f "/sys/class/input/$base/device" 2>/dev/null)
+    echo "=============================================================="
+    echo "$evnode  ->  $sys"
+    echo "  hidraw:      $raw"
+    echo "  hid parent:  $hid"
+    for f in name phys uniq; do
+      printf '  %-11s %s\n' "$f:" "$(cat "$sys/$f" 2>/dev/null || echo '<unreadable>')"
+    done
+    for f in ev led key rel abs; do
+      printf '  cap/%-8s %s\n' "$f:" "$(cat "$sys/capabilities/$f" 2>/dev/null || echo '-')"
+    done
+    local ledv=$((16#${led:-0}))
+    printf '  led bits:    0x%x ->' "$ledv"
+    for pair in "0:num" "1:caps" "2:scroll" "3:compose" "4:kana"; do
+      (( (ledv >> ${pair%%:*}) & 1 )) && printf ' %s' "${pair##*:}"
+    done
+    echo
+  done < <(find_nodes)
+  (( any )) || die "no device $VID:$PID found"
+
+  echo
+  echo "=============================================================="
+  echo "HID report descriptors"
+  echo "=============================================================="
+  local seen=""
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    [[ -n "$raw" && "$raw" != "-" ]] || continue
+    case " $seen " in *" $raw "*) continue ;; esac
+    seen+=" $raw"
+    local rd="/sys/class/hidraw/$(basename "$raw")/device/report_descriptor"
+    echo
+    echo "--- $raw ($hid)"
+    if [[ ! -r "$rd" ]]; then
+      echo "    $rd not readable"
+      continue
+    fi
+    local hex
+    hex=$(od -An -tx1 -v "$rd" | tr -s ' ' | tr -d '\n' | sed 's/^ //')
+    echo "    bytes: $(wc -c < "$rd")"
+    echo "$hex" | fold -w 72 | sed 's/^/    /'
+    echo
+    # Usage Page (LED) is "05 08". What follows tells us how many indicator
+    # bits the firmware declares as an OUTPUT report.
+    if [[ "$hex" == *"05 08"* ]]; then
+      echo "    LED usage page (05 08) IS present:"
+      echo "$hex" | grep -o '05 08\( [0-9a-f][0-9a-f]\)\{0,14\}' | sed 's/^/      /'
+      echo "      expect: 19 01 (usage min NumLock) 29 05 (usage max Kana)"
+      echo "              75 01 (1 bit) 95 05 (5 of them) 91 02 (output,var,abs)"
+    else
+      echo "    LED usage page (05 08) IS ABSENT."
+      echo "    => this firmware declares no LED indicators at all"
+      echo "       (CONFIG_ZMK_HID_INDICATORS is not enabled in the build that is flashed)"
+    fi
+  done < <(find_nodes)
+  echo
+  echo "If 05 08 is present but followed by '29 03' instead of '29 05', the"
+  echo "firmware declares only 3 indicators (num/caps/scroll) and Compose+Kana"
+  echo "are unavailable: the code must then fit in the bits that do exist."
 }
 
 cmd_watch() {
@@ -231,6 +305,8 @@ usage: $0 <command>
 
   find          list the ZMK keyboard's evdev and hidraw nodes
   caps          check which node exposes compose/kana/scrolllock LEDs
+  dump          full diagnostic: sysfs values + HID report descriptor
+                (says definitively what the firmware declares)
   numlock on|off  toggle vim mode through the CURRENT firmware's num-lock
                   listener — proves the write path without flashing anything
   write N       write mode code N (0-7) as a HID output report
@@ -247,6 +323,7 @@ EOF
 case "${1:-}" in
   find) cmd_find ;;
   caps) cmd_caps ;;
+  dump) cmd_dump ;;
   numlock) shift; cmd_numlock "$@" ;;
   write) shift; cmd_write "$@" ;;
   watch) cmd_watch ;;
