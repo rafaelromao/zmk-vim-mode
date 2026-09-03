@@ -19,17 +19,24 @@ BIT_NUM=1; BIT_CAPS=2; BIT_SCROLL=4; BIT_COMPOSE=8; BIT_KANA=16
 
 die() { echo "error: $*" >&2; exit 1; }
 
+# Emits one tab-separated row per matching evdev node:
+#   evnode  hidraw  ledhex  bus  name  hidparent
+# ledhex is the last word of capabilities/led ("0" when the node has none).
+# A ZMK keyboard exposes several HID collections, so expect more than one row:
+# only the keyboard collection carries the LED bits.
 find_nodes() {
   local found=0
   for ev in /sys/class/input/event*; do
     [[ -r "$ev/device/id/vendor" ]] || continue
     local v p
     v=$(<"$ev/device/id/vendor"); p=$(<"$ev/device/id/product")
-    [[ "$v" == "$VID" && "$p" == "$PID" ]] || continue
-    local evname hid raw name bus
+    [[ "${v,,}" == "${VID,,}" && "${p,,}" == "${PID,,}" ]] || continue
+    local evname hid raw name bus led
     evname=/dev/input/$(basename "$ev")
     name=$(<"$ev/device/name" 2>/dev/null) || name="?"
     bus=$(<"$ev/device/id/bustype")
+    led=$(<"$ev/device/capabilities/led" 2>/dev/null) || led=0
+    led=${led##* }
     hid=$(readlink -f "$ev/device/device" 2>/dev/null || true)
     raw=""
     if [[ -n "$hid" ]]; then
@@ -37,53 +44,109 @@ find_nodes() {
         [[ "$(readlink -f "$hr/device")" == "$hid" ]] && raw=/dev/$(basename "$hr") && break
       done
     fi
-    printf '%s\t%s\t%s\tbus=%s\t%s\n' "$evname" "${raw:--}" "$name" "$bus" "$(basename "${hid:-–}")"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$evname" "${raw:--}" "$led" "$bus" "$name" "$(basename "${hid:--}")"
     found=1
   done
   return $((1 - found))
 }
 
+# The node that actually carries the LED bits: capabilities/led must have
+# compose (bit 3) and kana (bit 4).
+led_node() {
+  local row
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    local v=$((16#${led:-0}))
+    if (( (v >> 3) & 1 )) && (( (v >> 4) & 1 )); then
+      printf '%s\t%s\n' "$evnode" "$raw"
+      return 0
+    fi
+    row=1
+  done < <(find_nodes)
+  [[ -n "${row:-}" ]] && return 1
+  return 2
+}
+
 cmd_find() {
-  echo "event node      hidraw       name                    bus   hid parent"
-  find_nodes || die "no device $VID:$PID found. Is the keyboard connected/paired?"
+  local any=0 rows=""
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    any=1
+    rows+=$(printf '%-18s %-13s %-7s %-5s %s\n' "$evnode" "$raw" "$led" "$bus" "$name")$'\n'
+  done < <(find_nodes)
+  (( any )) || die "no device $VID:$PID found. Is the keyboard connected/paired?"
+  printf '%-18s %-13s %-7s %-5s %s\n' "event node" "hidraw" "led" "bus" "name"
+  printf '%s' "$rows"
   echo
-  echo "bus=3 is USB, bus=5 is Bluetooth LE."
-  echo "A missing hidraw column means no HID parent was resolved; writes fall back to evdev."
+  echo "bus=3 is USB, bus=5 is Bluetooth LE. ZMK keeps indicator state per endpoint,"
+  echo "so a result on one transport says nothing about the other: test both."
+  echo "Several rows are normal (keyboard, consumer, mouse collections); only the"
+  echo "row with a non-zero led column receives the indicator report."
+  echo "A '-' hidraw column means no HID parent resolved; writes fall back to evdev."
 }
 
 cmd_caps() {
-  local ev
-  ev=$(find_nodes | head -1 | cut -f1) || die "device not found"
-  [[ -n "$ev" ]] || die "device not found"
-  echo "checking LED capabilities of $ev"
-  local sys="/sys/class/input/$(basename "$ev")/device/capabilities/led"
-  local bits; bits=$(<"$sys")
-  echo "  capabilities/led = $bits"
-  # LED_COMPOSE=3, LED_KANA=4 must be present for the 3-bit code to work.
-  local v=$((16#${bits##* }))
-  for pair in "0:numlock" "1:capslock" "2:scrolllock" "3:compose" "4:kana"; do
-    local n=${pair%%:*} label=${pair##*:}
-    if (( (v >> n) & 1 )); then echo "  has $label"; else echo "  MISSING $label"; fi
-  done
-  echo
-  echo "compose+kana+scrolllock must all be present."
-  echo "If they are not, CONFIG_ZMK_HID_INDICATORS is off in the firmware."
+  local any=0
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    any=1
+    local v=$((16#${led:-0}))
+    printf '%s (%s)\n  capabilities/led = %s\n' "$evnode" "$name" "$led"
+    local missing=0
+    for pair in "0:numlock" "1:capslock" "2:scrolllock" "3:compose" "4:kana"; do
+      local n=${pair%%:*} label=${pair##*:}
+      if (( (v >> n) & 1 )); then
+        echo "  has $label"
+      else
+        echo "  MISSING $label"
+        missing=1
+      fi
+    done
+    if (( v == 0 )); then
+      echo "  → not the keyboard collection; ignore this node"
+    elif (( missing )); then
+      echo "  → some indicators are absent"
+    else
+      echo "  → this node carries the 3-bit code"
+    fi
+    echo
+  done < <(find_nodes)
+  (( any )) || die "no device $VID:$PID found"
+  echo "compose+kana+scrolllock must all be present on at least one node."
+  echo "If no node has them, CONFIG_ZMK_HID_INDICATORS is not enabled in the firmware."
+}
+
+# Write a raw indicator bitmap to the keyboard's LED output report.
+write_bits() {
+  local bits=$1 what=$2 raw
+  raw=$(led_node | cut -f2)
+  case $? in
+    1) die "found the keyboard but no node exposes compose+kana LEDs. Run '$0 caps'." ;;
+    2) die "no device $VID:$PID found. Is the keyboard connected?" ;;
+  esac
+  [[ -n "$raw" && "$raw" != "-" ]] || die "no hidraw node paired with the LED node; check the udev rule"
+  [[ -w "$raw" ]] || die "$raw is not writable. Install contrib/udev/60-zmk-vim-mode.rules, reload udev, then reconnect the keyboard."
+  printf "writing %s: report 0x%02x 0x%02x to %s\n" "$what" "$REPORT_ID" "$bits" "$raw"
+  printf "\\x$(printf %02x "$REPORT_ID")\\x$(printf %02x "$bits")" > "$raw" \
+    && echo "ok" || die "write failed"
 }
 
 # write <code>  — code 0..7 (b0 compose, b1 kana, b2 scroll)
 cmd_write() {
-  local code=${1:-} raw
+  local code=${1:-}
   [[ "$code" =~ ^[0-7]$ ]] || die "usage: $0 write <0-7>"
-  raw=$(find_nodes | head -1 | cut -f2)
-  [[ -n "$raw" && "$raw" != "-" ]] || die "no hidraw node; check the udev rule"
-  [[ -w "$raw" ]] || die "$raw is not writable. Install contrib/udev/60-zmk-vim-mode.rules, reload udev, reconnect the keyboard."
   local bits=0
   (( code & 1 )) && bits=$((bits | BIT_COMPOSE))
   (( code & 2 )) && bits=$((bits | BIT_KANA))
   (( code & 4 )) && bits=$((bits | BIT_SCROLL))
-  printf "writing code %d (report 0x%02x 0x%02x) to %s\n" "$code" "$REPORT_ID" "$bits" "$raw"
-  printf "\\x$(printf %02x $REPORT_ID)\\x$(printf %02x $bits)" > "$raw" \
-    && echo "ok" || die "write failed"
+  write_bits "$bits" "code $code"
+}
+
+# numlock <on|off> — validate the whole write path against the CURRENT firmware,
+# which already maps NUM LOCK to vim mode. No flashing required.
+cmd_numlock() {
+  case "${1:-}" in
+    on) write_bits $BIT_NUM "num lock on (expect vim mode ON: an Esc is sent and the NORMAL layer activates)" ;;
+    off) write_bits 0 "num lock off (expect vim mode OFF)" ;;
+    *) die "usage: $0 numlock <on|off>" ;;
+  esac
 }
 
 cmd_watch() {
@@ -98,26 +161,41 @@ cmd_watch() {
 
 cmd_spike_a() {
   cat <<'EOF'
-Spike (a): do the three carrier bits reach ZMK over BLE?
+Spike (a): do the carrier bits reach ZMK?
 
-1. In ~/projects/keyboards/src/features/vim.dtsi, temporarily add inside the
-   existing hid_listeners node:
+Step 0 — no flashing needed. Your current firmware already maps NUM LOCK to
+vim mode (the num_lock node in src/features/vim.dtsi), so the whole write path
+can be proven right now:
+
+       ./scripts/spike-linux.sh numlock on    # expect: vim mode ON (an Esc is
+                                              # typed, the NORMAL layer engages)
+       ./scripts/spike-linux.sh numlock off   # expect: vim mode OFF
+
+PASS: host → hidraw → kernel → HID output report → ZMK all work on this
+transport. Only the choice of *which* bits remains to be proven.
+FAIL: run `caps`, then check the udev rule and that the write reported "ok".
+
+Step 1 — prove the three carrier bits. In ~/projects/keyboards/src/features/
+vim.dtsi, temporarily add inside the existing hid_listeners node:
 
        compose_probe { indicator = <HID_USAGE_LED_COMPOSE>; bindings = <&kp A &kp B>; };
        kana_probe    { indicator = <HID_USAGE_LED_KANA>;    bindings = <&kp C &kp D>; };
        scroll_probe  { indicator = <HID_USAGE_LED_SCROLL_LOCK>; bindings = <&kp E &kp F>; };
 
-2. Build and flash the central/dongle, then open a text editor and run:
+Build and flash the central/dongle, then in a text editor:
 
        ./scripts/spike-linux.sh write 1   # expect: A     (compose on)
        ./scripts/spike-linux.sh write 0   # expect: B     (compose off)
        ./scripts/spike-linux.sh write 2   # expect: C
        ./scripts/spike-linux.sh write 4   # expect: E
 
-PASS: the letters appear. The 3-bit channel works over BLE and the whole
-design is viable with zero new firmware C.
-FAIL: check `caps` output first, then whether the keyboard is on the BLE
-profile paired with this machine (indicators are stored per endpoint).
+PASS: the 3-bit channel works and the design is viable with no new firmware C.
+FAIL: check `caps` first.
+
+Step 2 — repeat on the other transport. `find` shows bus=3 for USB and bus=5
+for Bluetooth LE. ZMK stores the indicator byte per endpoint, so a pass over
+USB does not imply a pass over BLE. Switch the keyboard's output (&out OUT_BLE
+/ the BLE profile paired with this machine) and run step 1 again.
 EOF
 }
 
@@ -151,12 +229,16 @@ usage() {
   cat <<EOF
 usage: $0 <command>
 
-  find      list the ZMK keyboard's evdev and hidraw nodes
-  caps      check that the firmware exposes compose/kana/scrolllock LEDs
-  write N   write mode code N (0-7) as a HID output report
-  watch     print EV_LED echoes (needs evtest) — shows real clobbers
-  spike-a   instructions for spike (a): bits reach ZMK over BLE
-  spike-b   instructions for spike (b): bits survive Hyprland
+  find          list the ZMK keyboard's evdev and hidraw nodes
+  caps          check which node exposes compose/kana/scrolllock LEDs
+  numlock on|off  toggle vim mode through the CURRENT firmware's num-lock
+                  listener — proves the write path without flashing anything
+  write N       write mode code N (0-7) as a HID output report
+  watch         print EV_LED echoes (needs evtest) — shows real clobbers
+  spike-a       instructions for spike (a): bits reach ZMK
+  spike-b       instructions for spike (b): bits survive Hyprland
+
+Suggested order: find → caps → numlock on/off → spike-a → spike-b
 
 Environment: VID=$VID PID=$PID
 EOF
@@ -165,6 +247,7 @@ EOF
 case "${1:-}" in
   find) cmd_find ;;
   caps) cmd_caps ;;
+  numlock) shift; cmd_numlock "$@" ;;
   write) shift; cmd_write "$@" ;;
   watch) cmd_watch ;;
   spike-a) cmd_spike_a ;;

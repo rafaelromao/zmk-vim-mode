@@ -29,6 +29,8 @@ const UdevRule = `# zmk-vim-mode: let the active seat user write LED output repo
 #   sudo udevadm control --reload-rules && sudo udevadm trigger
 # uaccess grants an ACL to the user of the active logind session. If that does
 # not fit (headless, SSH-only), replace TAG+="uaccess" with GROUP="input", MODE="0660".
+# bus 0003 = USB, 0005 = Bluetooth; this form needs no ancestor attributes.
+SUBSYSTEM=="hidraw", KERNELS=="0003:1D50:615E.*", TAG+="uaccess"
 SUBSYSTEM=="hidraw", KERNELS=="0005:1D50:615E.*", TAG+="uaccess"
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="615e", TAG+="uaccess"
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1d50", ATTRS{id/product}=="615e", TAG+="uaccess"

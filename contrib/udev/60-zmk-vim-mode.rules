@@ -17,10 +17,12 @@
 #   SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="615e", GROUP="input", MODE="0660"
 # and add yourself to the input group (a permanent, broader grant).
 
-# Bluetooth LE: the HID parent's name carries bus:VID:PID (bus 0005 = Bluetooth).
+# The HID parent's name is bus:VID:PID.NNNN, with bus 0003 = USB, 0005 = Bluetooth.
+# This form needs no ancestor attributes, so it covers both transports.
+SUBSYSTEM=="hidraw", KERNELS=="0003:1D50:615E.*", TAG+="uaccess"
 SUBSYSTEM=="hidraw", KERNELS=="0005:1D50:615E.*", TAG+="uaccess"
 
-# USB: VID/PID live on the usb_device ancestor.
+# USB again via the usb_device ancestor, in case the HID parent is named differently.
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="615e", TAG+="uaccess"
 
 # The matching evdev node is read (never written) for EV_LED echoes, which is
