@@ -33,10 +33,14 @@ find_nodes() {
     [[ "${v,,}" == "${VID,,}" && "${p,,}" == "${PID,,}" ]] || continue
     local evname hid raw name bus led
     evname=/dev/input/$(basename "$ev")
-    name=$(<"$ev/device/name" 2>/dev/null) || name="?"
-    bus=$(<"$ev/device/id/bustype")
-    led=$(<"$ev/device/capabilities/led" 2>/dev/null) || led=0
+    # The name lives on the inputN parent; fall back to the class dir and to
+    # the HID parent's own name, so a device is never reported as anonymous.
+    name=$(cat "$ev/device/name" 2>/dev/null || cat "$ev/../name" 2>/dev/null || true)
+    [[ -n "$name" ]] || name="<no name>"
+    bus=$(cat "$ev/device/id/bustype" 2>/dev/null || echo "?")
+    led=$(cat "$ev/device/capabilities/led" 2>/dev/null || echo 0)
     led=${led##* }
+    [[ -n "$led" ]] || led=0
     hid=$(readlink -f "$ev/device/device" 2>/dev/null || true)
     raw=""
     if [[ -n "$hid" ]]; then
