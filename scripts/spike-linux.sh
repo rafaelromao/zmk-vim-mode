@@ -54,14 +54,26 @@ find_nodes() {
   return $((1 - found))
 }
 
-# First node whose capabilities/led contains every bit in $1 (a mask over
+# LED capability bitmap of one event node, read straight from sysfs.
+# Deliberately not taken from find_nodes' output: relying on field position
+# across functions is what made `caps` report the bustype as the LED mask.
+led_bits_of() {
+  local base v
+  base=$(basename "$1")
+  v=$(cat "/sys/class/input/$base/device/capabilities/led" 2>/dev/null || echo 0)
+  v=${v##* }
+  printf '%d' "$((16#${v:-0}))"
+}
+
+# First node whose LED capabilities contain every bit in $1 (a mask over
 # LED_* codes). Default: compose|kana, the bits the 3-bit code needs.
 # rc 0 = found (prints "evnode<TAB>hidraw"), 1 = keyboard present but no such
 # node, 2 = keyboard not found.
 led_node() {
   local want=${1:-$(( (1<<3) | (1<<4) ))} row
   while IFS=$'\t' read -r evnode raw led bus name hid; do
-    local v=$((16#${led:-0}))
+    local v
+    v=$(led_bits_of "$evnode")
     if (( (v & want) == want )); then
       printf '%s\t%s\n' "$evnode" "$raw"
       return 0
@@ -76,7 +88,7 @@ cmd_find() {
   local any=0 rows=""
   while IFS=$'\t' read -r evnode raw led bus name hid; do
     any=1
-    rows+=$(printf '%-18s %-13s %-7s %-5s %s\n' "$evnode" "$raw" "$led" "$bus" "$name")$'\n'
+    rows+=$(printf '%-18s %-13s %-7x %-5s %s\n' "$evnode" "$raw" "$(led_bits_of "$evnode")" "$bus" "$name")$'\n'
   done < <(find_nodes)
   (( any )) || die "no device $VID:$PID found. Is the keyboard connected/paired?"
   printf '%-18s %-13s %-7s %-5s %s\n' "event node" "hidraw" "led" "bus" "name"
@@ -93,8 +105,9 @@ cmd_caps() {
   local any=0
   while IFS=$'\t' read -r evnode raw led bus name hid; do
     any=1
-    local v=$((16#${led:-0}))
-    printf '%s (%s)\n  capabilities/led = %s\n' "$evnode" "$name" "$led"
+    local v
+    v=$(led_bits_of "$evnode")
+    printf '%s (%s)\n  capabilities/led = %x\n' "$evnode" "$name" "$v"
     local missing=0
     for pair in "0:numlock" "1:capslock" "2:scrolllock" "3:compose" "4:kana"; do
       local n=${pair%%:*} label=${pair##*:}
