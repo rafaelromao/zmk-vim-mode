@@ -365,6 +365,26 @@ Daemon → client: `{"v":1,"t":"welcome","daemon":"0.1.0","code":1}`, `{"t":"res
 mode + focus), or `{"t":"error","code":"unsupported_version"}` + close. CLI: `{"v":1,"t":"set","mode":"legacy","ttl_ms":0,"clear_on_focus_change":true}`,
 `status`, `devices` → one response line. Unknown `t`/fields ignored; 64 KiB line cap; 5 malformed lines → close.
 
+## Spike results (2026-09-03, Omarchy + Diamond)
+
+Phase 0(a) is **confirmed on hardware**, so the transport choice stands:
+
+- The Diamond's HID report descriptor contains
+  `05 08 19 01 29 05 75 01 95 05 91 02` — usage page LED, usage min NumLock
+  through usage max **Kana**, five 1-bit outputs, plus `05 08 75 03 95 01 91 03`
+  padding. Report ID `01`. `capabilities/led` is `0x1f` on the keyboard node.
+  All three carrier bits (Compose, Kana, Scroll Lock) exist and the
+  `[0x01, bits]` hidraw write is the right shape.
+- The keyboard appears **twice, on both endpoints at once**: `0003:1D50:615E`
+  (USB) and `0005:1D50:615E` (BLE), each with its own hidraw and a
+  keyboard + mouse input node (`CONFIG_ZMK_MOUSE=y`). Since ZMK stores the
+  indicator byte per endpoint and only the selected one raises the event, the
+  daemon must write to every matching device — it does, keying by HID parent.
+- Only the keyboard collection carries LEDs; the mouse node reports
+  `capabilities/led = 0`, and `openEvdev` rejects it for lacking `EV_LED`.
+- Remaining before phase 1 can be validated end to end: the udev rule, since
+  `/dev/hidraw*` is not writable by the user yet.
+
 ## Phases (Omarchy first)
 
 **Step 0 (first action of the implementation session):** `git init` this directory and commit this plan as
