@@ -65,25 +65,6 @@ led_bits_of() {
   printf '%d' "$((16#${v:-0}))"
 }
 
-# First node whose LED capabilities contain every bit in $1 (a mask over
-# LED_* codes). Default: compose|kana, the bits the 3-bit code needs.
-# rc 0 = found (prints "evnode<TAB>hidraw"), 1 = keyboard present but no such
-# node, 2 = keyboard not found.
-led_node() {
-  local want=${1:-$(( (1<<3) | (1<<4) ))} row
-  while IFS=$'\t' read -r evnode raw led bus name hid; do
-    local v
-    v=$(led_bits_of "$evnode")
-    if (( (v & want) == want )); then
-      printf '%s\t%s\n' "$evnode" "$raw"
-      return 0
-    fi
-    row=1
-  done < <(find_nodes)
-  [[ -n "${row:-}" ]] && return 1
-  return 2
-}
-
 cmd_find() {
   local any=0 rows=""
   while IFS=$'\t' read -r evnode raw led bus name hid; do
@@ -132,21 +113,58 @@ cmd_caps() {
   echo "If no node has them, CONFIG_ZMK_HID_INDICATORS is not enabled in the firmware."
 }
 
-# Write a raw indicator bitmap to the keyboard's LED output report.
-# $3 (optional) is the LED-capability mask the target node must have; it
-# defaults to compose|kana because that is what the mode code rides on.
+# Write a raw indicator bitmap to EVERY matching keyboard.
+#
+# The same keyboard usually appears on more than one endpoint (USB and BLE at
+# once is normal), and ZMK stores the indicator byte per endpoint while only
+# the currently selected one raises the event. Writing just the first match is
+# a coin flip, so write them all — this is what the daemon does too.
+#
+# $3 (optional) is the LED-capability mask a node must have; it defaults to
+# compose|kana because that is what the mode code rides on.
 write_bits() {
-  local bits=$1 what=$2 want=${3:-} raw rc
-  raw=$(led_node ${want:+"$want"} | cut -f2); rc=${PIPESTATUS[0]}
-  case $rc in
-    1) die "found the keyboard, but no node exposes the required LEDs. Run '$0 caps' / '$0 dump'." ;;
-    2) die "no device $VID:$PID found. Is the keyboard connected?" ;;
-  esac
-  [[ -n "$raw" && "$raw" != "-" ]] || die "no hidraw node paired with the LED node; check the udev rule"
-  [[ -w "$raw" ]] || die "$raw is not writable. Install contrib/udev/60-zmk-vim-mode.rules, reload udev, then reconnect the keyboard."
-  printf "writing %s: report 0x%02x 0x%02x to %s\n" "$what" "$REPORT_ID" "$bits" "$raw"
-  printf "\\x$(printf %02x "$REPORT_ID")\\x$(printf %02x "$bits")" > "$raw" \
-    && echo "ok" || die "write failed"
+  local bits=$1 what=$2 want=${3:-$(( (1<<3) | (1<<4) ))}
+  local any=0 candidates=0 wrote=0 failed=0 seen=""
+
+  printf 'writing %s: report 0x%02x 0x%02x\n' "$what" "$REPORT_ID" "$bits"
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    any=1
+    local v
+    v=$(led_bits_of "$evnode")
+    (( (v & want) == want )) || continue
+    candidates=1
+    if [[ -z "$raw" || "$raw" == "-" ]]; then
+      printf '  skip  %-14s %s (no hidraw node paired)\n' "$evnode" "$name"
+      continue
+    fi
+    case " $seen " in *" $raw "*) continue ;; esac   # keyboard+mouse share one hidraw
+    seen+=" $raw"
+    local transport="bus $bus"
+    [[ "$bus" == "3" ]] && transport="USB"
+    [[ "$bus" == "5" ]] && transport="BLE"
+    if [[ ! -w "$raw" ]]; then
+      printf '  FAIL  %-14s %s [%s] not writable\n' "$raw" "$name" "$transport"
+      failed=$((failed + 1))
+      continue
+    fi
+    if printf "\\x$(printf %02x "$REPORT_ID")\\x$(printf %02x "$bits")" > "$raw" 2>/dev/null; then
+      printf '  ok    %-14s %s [%s]\n' "$raw" "$name" "$transport"
+      wrote=$((wrote + 1))
+    else
+      printf '  FAIL  %-14s %s [%s] write error\n' "$raw" "$name" "$transport"
+      failed=$((failed + 1))
+    fi
+  done < <(find_nodes)
+
+  (( any )) || die "no device $VID:$PID found. Is the keyboard connected?"
+  (( candidates )) || die "found the keyboard, but no node exposes the required LEDs. Run '$0 caps' / '$0 dump'."
+  if (( wrote == 0 )); then
+    die "no endpoint could be written. Install contrib/udev/60-zmk-vim-mode.rules, reload udev, then reconnect the keyboard."
+  fi
+  if (( failed )); then
+    echo "  ($wrote written, $failed failed — ZMK only acts on the selected endpoint," >&2
+    echo "   so a failure here may be why nothing changed)" >&2
+  fi
 }
 
 # write <code>  — code 0..7 (b0 compose, b1 kana, b2 scroll)
