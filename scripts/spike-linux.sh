@@ -54,6 +54,15 @@ find_nodes() {
   return $((1 - found))
 }
 
+# sysfs prints id/bustype as zero-padded hex, so compare numerically.
+bus_name() {
+  case $((16#${1:-0})) in
+    3) printf 'USB' ;;
+    5) printf 'BLE' ;;
+    *) printf 'bus %s' "$1" ;;
+  esac
+}
+
 # LED capability bitmap of one event node, read straight from sysfs.
 # Deliberately not taken from find_nodes' output: relying on field position
 # across functions is what made `caps` report the bustype as the LED mask.
@@ -139,9 +148,8 @@ write_bits() {
     fi
     case " $seen " in *" $raw "*) continue ;; esac   # keyboard+mouse share one hidraw
     seen+=" $raw"
-    local transport="bus $bus"
-    [[ "$bus" == "3" ]] && transport="USB"
-    [[ "$bus" == "5" ]] && transport="BLE"
+    local transport
+    transport=$(bus_name "$bus")
     if [[ ! -w "$raw" ]]; then
       printf '  FAIL  %-14s %s [%s] not writable\n' "$raw" "$name" "$transport"
       failed=$((failed + 1))
@@ -259,12 +267,30 @@ cmd_dump() {
 }
 
 cmd_watch() {
-  local ev
-  ev=$(find_nodes | head -1 | cut -f1) || die "device not found"
   command -v evtest >/dev/null || die "evtest not installed (sudo pacman -S evtest)"
-  echo "watching $ev for EV_LED events; toggle Caps Lock, type, switch workspaces."
-  echo "Every line here is the kernel telling all readers that an LED changed —"
-  echo "this is what the daemon uses to notice a clobber. Ctrl-C to stop."
+  local want=$(( (1<<3) | (1<<4) )) ev="" others=""
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    local v
+    v=$(led_bits_of "$evnode")
+    (( (v & want) == want )) || continue
+    if [[ -z "$ev" ]]; then
+      ev=$evnode
+      echo "watching $evnode  ($name, $(bus_name "$bus"))"
+    else
+      others+="  $evnode ($name, $(bus_name "$bus"))"$'\n'
+    fi
+  done < <(find_nodes)
+  [[ -n "$ev" ]] || die "no node exposes the carrier LEDs. Run '$0 caps' / '$0 dump'."
+  if [[ -n "$others" ]]; then
+    echo "other endpoints (evtest watches one at a time; rerun in another terminal):"
+    printf '%s' "$others"
+  fi
+  echo
+  echo "Each line below means the kernel changed LED state and therefore sent a"
+  echo "HID output report -- which zeroes our bits. Silence while typing is the"
+  echo "PASS condition; lines on Caps Lock or reconnect are expected and are what"
+  echo "the daemon re-asserts on. Ctrl-C to stop."
+  echo
   evtest --grab=0 "$ev" 2>/dev/null | grep --line-buffered "EV_LED" || true
 }
 
@@ -315,22 +341,48 @@ Spike (b): does a written bit survive Hyprland's per-keystroke LED writes?
 Hyprland pushes LED state to every keyboard on every key and modifier event,
 and libinput writes all five indicator bits, zeroing ours. The bet is that the
 kernel's own LED cache stays 0 for Compose/Kana, so those writes change nothing
-and are dropped before they reach the keyboard (input_get_disposition).
+and are dropped before they ever reach the keyboard (input_get_disposition).
 
-1. ./scripts/spike-linux.sh write 1        (probe firmware types A)
-2. Type a paragraph in any window, switch workspaces, move the mouse.
-3. ./scripts/spike-linux.sh write 0        (expect B)
+The decisive observation needs NO firmware change. An EV_LED event on the
+evdev node means the kernel's LED state actually changed, which means it sent
+a HID output report to the keyboard -- and that report carries zeros in our
+bits. So:
 
-PASS: exactly one A at step 1 and one B at step 3. Nothing in between, i.e.
-typing did not clobber the bit.
-FAIL (B appears while typing): the kernel is echoing our bits back. The daemon
-still recovers via the evdev echo path, but re-assert traffic will be constant;
-consider the raw-HID transport instead (PLAN.md, "Alternatives rejected").
+    no EV_LED while typing  =>  our bits are never overwritten  =>  PASS
 
-Then check the real clobbers, in another terminal:
-   ./scripts/spike-linux.sh watch
-and toggle Caps Lock, unplug/replug or re-pair the keyboard. Each of those
-should print EV_LED lines: that is the signal the daemon re-asserts on.
+Method 1 (no flashing, no daemon) -- needs evtest:
+
+    ./spike-linux.sh watch
+    # then type a paragraph, switch workspaces, move the mouse
+
+PASS: the stream stays silent while you type.
+FAIL: an EV_LED line per keystroke.
+
+Now provoke the real clobbers, with `watch` still running: toggle Caps Lock,
+then re-pair or replug the keyboard. Each SHOULD print EV_LED lines -- that is
+the signal the daemon re-asserts on, so seeing them here is the good outcome.
+
+Method 2 (exercises the real code) -- run the daemon itself:
+
+    zmk-vim-mode daemon --log-level debug
+    zmk-vim-mode set normal      # in another terminal: writes the compose bit
+    # type a paragraph
+
+Watch the daemon log. "led echo" lines during typing mean the kernel is
+rewriting our bits; silence means it is not. Either way the daemon recovers,
+but constant re-assert traffic on a BLE link is worth avoiding.
+
+Method 3 (definitive, needs the probe firmware from spike-a):
+
+    ./spike-linux.sh write 1     # probe firmware types A
+    # type a paragraph
+    ./spike-linux.sh write 0     # expect B
+
+PASS: exactly one A and one B, nothing in between.
+
+If this FAILS, the daemon still works via the evdev echo path, but re-assert
+traffic will be constant and raw HID becomes the better transport
+(see PLAN.md, "Alternatives rejected").
 EOF
 }
 
