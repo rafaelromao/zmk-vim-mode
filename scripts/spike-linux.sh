@@ -279,61 +279,93 @@ pick_led_node() {
   return 1
 }
 
+# Capture EV_LED events from $1 for $2 seconds into $3; echo the count.
+capture_led() {
+  local ev=$1 secs=$2 log=$3 pid
+  evtest "$ev" > "$log" 2>&1 &
+  pid=$!
+  sleep "$secs"
+  kill "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  if ! grep -q '^Testing' "$log"; then
+    echo "evtest did not start cleanly:" >&2
+    sed -n '1,10p' "$log" >&2
+    die "could not capture events"
+  fi
+  grep -cE '^Event:.*EV_LED' "$log" || true
+}
+
+# Which LED codes changed, as a compact summary ("LED_NUML x4").
+led_breakdown() {
+  grep -E '^Event:.*EV_LED' "$1" |
+    sed -n 's/.*code [0-9]* (\([A-Z_]*\)).*/\1/p' |
+    sort | uniq -c | awk '{printf "    %s x%s\n", $2, $1}'
+}
+
 # clobber [seconds] — the unambiguous version of spike (b).
 #
-# `watch` is hard to read because the terminal echoes what you type, mixing
-# your own keystrokes into the output. This captures to a file instead and
-# just counts, so the verdict does not depend on reading a scrolling stream.
+# Runs both halves of the experiment in one go, each clearly labelled, because
+# reading `watch` live is unreliable: evtest does not grab the device, so the
+# terminal echoes your own keystrokes into the stream you are trying to read.
+#
+# Phase 1 (typing) must be silent: any LED event means the kernel sent a HID
+# output report, and that report carries zeros in our Compose/Kana bits.
+# Phase 2 (a lock key) must NOT be silent: that is the clobber the daemon
+# detects and re-asserts on.
 cmd_clobber() {
-  local secs=${1:-20} row ev label
+  local secs=${1:-15} row ev label
   command -v evtest >/dev/null || die "evtest not installed (sudo pacman -S evtest)"
   row=$(pick_led_node) || die "no node exposes the carrier LEDs. Run '$0 caps' / '$0 dump'."
   ev=${row%%$'\t'*}
   label=${row#*$'\t'}
   [[ -r "$ev" ]] || die "$ev is not readable. Install contrib/udev/60-zmk-vim-mode.rules, reload udev, then reconnect the keyboard."
 
-  local log="${TMPDIR:-/tmp}/zmk-vim-mode-clobber.$$.log"
-  echo "capturing LED events from $ev ($label) for ${secs}s"
+  local base="${TMPDIR:-/tmp}/zmk-vim-mode-clobber.$$"
+  echo "watching $ev ($label)"
   echo
-  echo "  >>> TYPE CONTINUOUSLY NOW <<<   (anywhere; do NOT touch Caps Lock yet)"
+
+  echo "PHASE 1/2 -- ${secs}s"
+  echo "  >>> TYPE CONTINUOUSLY <<<  do NOT touch any lock key"
   echo
-  evtest "$ev" > "$log" 2>&1 &
-  local pid=$!
-  sleep "$secs"
-  kill "$pid" 2>/dev/null
-  wait "$pid" 2>/dev/null
+  local n1
+  n1=$(capture_led "$ev" "$secs" "$base.typing.log")
+  echo "  LED events while typing: $n1"
+  (( n1 > 0 )) && led_breakdown "$base.typing.log"
+  echo
 
-  if ! grep -q '^Testing' "$log"; then
-    echo "evtest did not start cleanly:" >&2
-    sed -n '1,10p' "$log" >&2
-    die "could not capture events"
-  fi
+  echo "PHASE 2/2 -- ${secs}s"
+  echo "  >>> PRESS A LOCK KEY REPEATEDLY <<<  Num Lock, Scroll Lock or Caps"
+  echo "  (whichever your keymap actually has; on this keyboard Num Lock is"
+  echo "   on the TOGGLES layer. Any of them proves the point.)"
+  echo
+  local n2
+  n2=$(capture_led "$ev" "$secs" "$base.lock.log")
+  echo "  LED events while toggling a lock key: $n2"
+  (( n2 > 0 )) && led_breakdown "$base.lock.log"
+  echo
 
-  local n
-  n=$(grep -cE '^Event:.*EV_LED' "$log" || true)
-  echo "LED events during typing: $n"
-  if (( n > 0 )); then
-    echo
-    grep -E '^Event:.*EV_LED' "$log" | sed 's/^/  /' | head -10
-    echo
+  echo "=============================================================="
+  if (( n1 > 0 )); then
     echo "FAIL: the kernel rewrote LED state while you typed, so it sent HID"
-    echo "output reports that zero our Compose/Kana bits. The daemon recovers"
-    echo "through the evdev echo path, but it will re-assert constantly over"
-    echo "BLE. Prefer the raw-HID transport (PLAN.md, 'Alternatives rejected')."
+    echo "output reports that zero our Compose/Kana bits on every keystroke."
+    echo "The daemon still recovers through the evdev echo path, but it would"
+    echo "re-assert constantly over BLE. Prefer the raw-HID transport"
+    echo "(PLAN.md, 'Alternatives rejected')."
+  elif (( n2 == 0 )); then
+    echo "INCONCLUSIVE: typing was silent (good), but so was phase 2, so no"
+    echo "lock key was actually toggled. Rerun and press one during phase 2 --"
+    echo "without that, the echo path the daemon relies on is unproven."
   else
-    echo
     echo "PASS: typing produced no LED traffic, so a code written over hidraw"
-    echo "is not disturbed by Hyprland's per-keystroke LED pushes."
+    echo "survives Hyprland's per-keystroke LED pushes; and a lock key does"
+    echo "produce events, which is the signal the daemon re-asserts on."
   fi
+  echo "=============================================================="
   echo
-  echo "log kept at $log"
+  echo "logs: $base.typing.log, $base.lock.log"
   echo
-  echo "Now the opposite check: rerun with Caps Lock toggles instead of typing."
-  echo "There you WANT events -- that is the clobber the daemon re-asserts on:"
-  echo "    $0 clobber 10     # and press Caps Lock a few times"
-  echo
-  echo "Note: a disconnect ends the capture, because the evdev node disappears."
-  echo "The daemon handles reconnects through hotplug (inotify on /dev/input),"
+  echo "Note: a disconnect ends a capture, because the evdev node disappears."
+  echo "The daemon covers reconnects through hotplug (inotify on /dev/input),"
   echo "not through this stream, so that case is not testable here."
 }
 
@@ -360,7 +392,7 @@ cmd_watch() {
   echo
   echo "Each line below means the kernel changed LED state and therefore sent a"
   echo "HID output report -- which zeroes our bits. Silence while typing is the"
-  echo "PASS condition; lines on Caps Lock or reconnect are expected and are what"
+  echo "PASS condition; lines on a lock key (Num Lock, Scroll Lock) or reconnect are"
   echo "the daemon re-asserts on. Ctrl-C to stop."
   echo
   # Never pass --grab: it is EVIOCGRAB, which takes the keyboard exclusively
@@ -434,7 +466,7 @@ Method 1 (no flashing, no daemon) -- needs evtest:
 PASS: the stream stays silent while you type.
 FAIL: an EV_LED line per keystroke.
 
-Now provoke the real clobbers, with `watch` still running: toggle Caps Lock,
+Now provoke the real clobbers, with `watch` still running: toggle a lock key
 then re-pair or replug the keyboard. Each SHOULD print EV_LED lines -- that is
 the signal the daemon re-asserts on, so seeing them here is the good outcome.
 
