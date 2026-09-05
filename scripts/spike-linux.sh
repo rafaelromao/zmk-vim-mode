@@ -266,6 +266,77 @@ cmd_dump() {
   echo "are unavailable: the code must then fit in the bits that do exist."
 }
 
+# Pick the first node carrying the carrier LEDs. Prints "evnode<TAB>label".
+pick_led_node() {
+  local want=$(( (1<<3) | (1<<4) ))
+  while IFS=$'\t' read -r evnode raw led bus name hid; do
+    local v
+    v=$(led_bits_of "$evnode")
+    (( (v & want) == want )) || continue
+    printf '%s\t%s (%s)\n' "$evnode" "$name" "$(bus_name "$bus")"
+    return 0
+  done < <(find_nodes)
+  return 1
+}
+
+# clobber [seconds] — the unambiguous version of spike (b).
+#
+# `watch` is hard to read because the terminal echoes what you type, mixing
+# your own keystrokes into the output. This captures to a file instead and
+# just counts, so the verdict does not depend on reading a scrolling stream.
+cmd_clobber() {
+  local secs=${1:-20} row ev label
+  command -v evtest >/dev/null || die "evtest not installed (sudo pacman -S evtest)"
+  row=$(pick_led_node) || die "no node exposes the carrier LEDs. Run '$0 caps' / '$0 dump'."
+  ev=${row%%$'\t'*}
+  label=${row#*$'\t'}
+  [[ -r "$ev" ]] || die "$ev is not readable. Install contrib/udev/60-zmk-vim-mode.rules, reload udev, then reconnect the keyboard."
+
+  local log="${TMPDIR:-/tmp}/zmk-vim-mode-clobber.$$.log"
+  echo "capturing LED events from $ev ($label) for ${secs}s"
+  echo
+  echo "  >>> TYPE CONTINUOUSLY NOW <<<   (anywhere; do NOT touch Caps Lock yet)"
+  echo
+  evtest "$ev" > "$log" 2>&1 &
+  local pid=$!
+  sleep "$secs"
+  kill "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+
+  if ! grep -q '^Testing' "$log"; then
+    echo "evtest did not start cleanly:" >&2
+    sed -n '1,10p' "$log" >&2
+    die "could not capture events"
+  fi
+
+  local n
+  n=$(grep -cE '^Event:.*EV_LED' "$log" || true)
+  echo "LED events during typing: $n"
+  if (( n > 0 )); then
+    echo
+    grep -E '^Event:.*EV_LED' "$log" | sed 's/^/  /' | head -10
+    echo
+    echo "FAIL: the kernel rewrote LED state while you typed, so it sent HID"
+    echo "output reports that zero our Compose/Kana bits. The daemon recovers"
+    echo "through the evdev echo path, but it will re-assert constantly over"
+    echo "BLE. Prefer the raw-HID transport (PLAN.md, 'Alternatives rejected')."
+  else
+    echo
+    echo "PASS: typing produced no LED traffic, so a code written over hidraw"
+    echo "is not disturbed by Hyprland's per-keystroke LED pushes."
+  fi
+  echo
+  echo "log kept at $log"
+  echo
+  echo "Now the opposite check: rerun with Caps Lock toggles instead of typing."
+  echo "There you WANT events -- that is the clobber the daemon re-asserts on:"
+  echo "    $0 clobber 10     # and press Caps Lock a few times"
+  echo
+  echo "Note: a disconnect ends the capture, because the evdev node disappears."
+  echo "The daemon handles reconnects through hotplug (inotify on /dev/input),"
+  echo "not through this stream, so that case is not testable here."
+}
+
 cmd_watch() {
   command -v evtest >/dev/null || die "evtest not installed (sudo pacman -S evtest)"
   local want=$(( (1<<3) | (1<<4) )) ev="" others=""
@@ -402,7 +473,9 @@ usage: $0 <command>
   numlock on|off  toggle vim mode through the CURRENT firmware's num-lock
                   listener — proves the write path without flashing anything
   write N       write mode code N (0-7) as a HID output report
-  watch         print EV_LED echoes (needs evtest) — shows real clobbers
+  watch         stream EV_LED echoes live (needs evtest)
+  clobber [s]   capture LED events for s seconds and give a PASS/FAIL verdict
+                — this is spike (b); easier to read than watch
   spike-a       instructions for spike (a): bits reach ZMK
   spike-b       instructions for spike (b): bits survive Hyprland
 
@@ -419,6 +492,7 @@ case "${1:-}" in
   numlock) shift; cmd_numlock "$@" ;;
   write) shift; cmd_write "$@" ;;
   watch) cmd_watch ;;
+  clobber) shift; cmd_clobber "$@" ;;
   spike-a) cmd_spike_a ;;
   spike-b) cmd_spike_b ;;
   *) usage; exit 2 ;;
