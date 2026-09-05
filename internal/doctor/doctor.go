@@ -181,11 +181,17 @@ func Run(w io.Writer, socket string) error {
 	return nil
 }
 
+// serviceHint tells the user how to find out *why* the daemon is not there,
+// not just how to start it again: a socket that is missing usually means the
+// daemon exited, and the reason is in the service log.
 func serviceHint() string {
 	if runtime.GOOS == "darwin" {
-		return "start it: launchctl bootstrap gui/$UID ~/Library/LaunchAgents/dev.rafaelromao.zmk-vim-mode.plist (or run: zmk-vim-mode daemon)"
+		return "run it in the foreground to see the error: zmk-vim-mode daemon --log-level debug" +
+			" (service: launchctl bootstrap gui/$UID ~/Library/LaunchAgents/dev.rafaelromao.zmk-vim-mode.plist," +
+			" log: ~/Library/Logs/zmk-vim-mode.log)"
 	}
-	return "start it: systemctl --user start zmk-vim-mode.service (or run: zmk-vim-mode daemon)"
+	return "run it in the foreground to see the error: zmk-vim-mode daemon --log-level debug" +
+		" (service: systemctl --user status zmk-vim-mode; log: journalctl --user -u zmk-vim-mode -n 40)"
 }
 
 func hasBinary(name string) bool {
