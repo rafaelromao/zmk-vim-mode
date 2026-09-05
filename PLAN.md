@@ -382,8 +382,25 @@ Phase 0(a) is **confirmed on hardware**, so the transport choice stands:
   daemon must write to every matching device — it does, keying by HID parent.
 - Only the keyboard collection carries LEDs; the mouse node reports
   `capabilities/led = 0`, and `openEvdev` rejects it for lacking `EV_LED`.
-- Remaining before phase 1 can be validated end to end: the udev rule, since
-  `/dev/hidraw*` is not writable by the user yet.
+- The udev rule is installed and both endpoints are writable: `numlock on`
+  drives the existing firmware's num-lock listener and toggles vim mode, over
+  USB and BLE together.
+
+Phase 0(b) is **confirmed** too, so the LED transport stands and raw HID is not
+needed:
+
+- **Typing produces zero `EV_LED` events.** The kernel's LED cache holds 0 for
+  Compose/Kana, so libinput's "write all five bits" on every keystroke changes
+  nothing and is dropped by `input_get_disposition` before any HID report is
+  emitted. A code written over hidraw is therefore undisturbed by ordinary use,
+  and there is no re-assert traffic in the steady state.
+- **Toggling a lock key produces ~25 events.** That is the real clobber, and it
+  is visible on the evdev node, which is exactly the signal
+  `internal/leds/linux` re-asserts on.
+- This keyboard has no physical Caps Lock (Num Lock lives on the TOGGLES
+  layer); any OS-owned lock key demonstrates the same thing.
+
+Still untested: 0(d), whether Ghostty/tmux deliver `FocusGained`/`FocusLost`.
 
 ## Phases (Omarchy first)
 
