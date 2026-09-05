@@ -285,13 +285,18 @@ cmd_watch() {
     echo "other endpoints (evtest watches one at a time; rerun in another terminal):"
     printf '%s' "$others"
   fi
+  [[ -r "$ev" ]] || die "$ev is not readable. Install contrib/udev/60-zmk-vim-mode.rules, reload udev, then reconnect the keyboard."
   echo
   echo "Each line below means the kernel changed LED state and therefore sent a"
   echo "HID output report -- which zeroes our bits. Silence while typing is the"
   echo "PASS condition; lines on Caps Lock or reconnect are expected and are what"
   echo "the daemon re-asserts on. Ctrl-C to stop."
   echo
-  evtest --grab=0 "$ev" 2>/dev/null | grep --line-buffered "EV_LED" || true
+  # Never pass --grab: it is EVIOCGRAB, which takes the keyboard exclusively
+  # and would cut input off from the rest of the session. Match only real
+  # events ("Event: ... EV_LED"), not evtest's capability header, which also
+  # contains the string EV_LED. stderr is left alone so evtest can complain.
+  evtest "$ev" | grep --line-buffered -E '^Event:.*EV_LED'
 }
 
 cmd_spike_a() {
