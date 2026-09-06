@@ -402,6 +402,19 @@ needed:
 
 Still untested: 0(d), whether Ghostty/tmux deliver `FocusGained`/`FocusLost`.
 
+Phase 1 is **running on Omarchy** (systemd user service, stable over 15 h). Two
+things the live run corrected:
+
+- **LED capability is not a usable device discriminator.** The daemon happily
+  adopted a `Cougar700k Gaming Keyboard` (`060b:700a`), because ordinary
+  keyboards also declare all five HID LED indicators. The default filter now
+  matches ZMK's `1d50:615e` as well — the same identifiers the shipped udev
+  rule uses — with `--any-vendor` to opt out and `--vid`/`--pid` for forks that
+  change them. Skipped devices are logged with the reason at debug level.
+- **Device ids change across reconnects** (`0005:…0011` → `…0016`), so a
+  reconnect is a remove followed by an add. That is handled, and re-assert on
+  add is what restores the code.
+
 ## Phases (Omarchy first)
 
 **Step 0 (first action of the implementation session):** `git init` this directory and commit this plan as

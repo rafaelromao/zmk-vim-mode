@@ -45,6 +45,13 @@ Usage:
 Environment: ZMK_VIM_MODE_SOCKET overrides the socket path (default ~/.local/state/zmk-vim-mode/daemon.sock).
 `
 
+// ZMK's default USB/BLE identifiers, shared by every stock ZMK board and by
+// the udev rule this project ships.
+const (
+	zmkVendorID  = 0x1d50
+	zmkProductID = 0x615e
+)
+
 type deviceFilter struct {
 	vid, pid    uint16
 	name        string
@@ -109,10 +116,13 @@ func runDaemon(args []string) error {
 	fs.Var(&terminals, "terminal-app", "extra terminal app class (repeatable)")
 	fs.Var(&guis, "gui-nvim-app", "extra Neovim GUI app class (repeatable)")
 	noTitle := fs.Bool("no-title-heuristic", false, "disable 'nvim in window title → legacy' fallback")
-	vid := fs.String("vid", "", "only drive keyboards with this USB/BLE vendor id (hex)")
-	pid := fs.String("pid", "", "only drive keyboards with this product id (hex)")
+	vid := fs.String("vid", "", "vendor id to drive, hex (default ZMK's 1d50)")
+	pid := fs.String("pid", "", "product id to drive, hex (default ZMK's 615e)")
 	name := fs.String("device-name", "", "only drive keyboards whose name contains this")
 	anyKb := fs.Bool("any-keyboard", false, "do not require Compose+Kana+Scroll LED capability")
+	anyVendor := fs.Bool("any-vendor", false,
+		"drive any vendor's keyboards, not just ZMK's 1d50:615e — most keyboards declare the same "+
+			"five LED indicators, so this will write to unrelated keyboards too")
 	offDelay := fs.Duration("startup-off-delay", 1500*time.Millisecond, "delay before the first OFF write after start")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -134,12 +144,22 @@ func runDaemon(args []string) error {
 	if *noTitle {
 		rules.TitleLegacy = nil
 	}
-	f := deviceFilter{name: *name, anyKeyboard: *anyKb}
-	if f.vid, err = parseHex16(*vid); err != nil {
-		return fmt.Errorf("--vid: %w", err)
+	// Default to ZMK's identifiers. LED capability alone is not a usable
+	// discriminator: ordinary keyboards declare the same five indicators, so a
+	// capability-only filter writes to unrelated devices.
+	f := deviceFilter{name: *name, anyKeyboard: *anyKb, vid: zmkVendorID, pid: zmkProductID}
+	if *anyVendor {
+		f.vid, f.pid = 0, 0
 	}
-	if f.pid, err = parseHex16(*pid); err != nil {
-		return fmt.Errorf("--pid: %w", err)
+	if *vid != "" {
+		if f.vid, err = parseHex16(*vid); err != nil {
+			return fmt.Errorf("--vid: %w", err)
+		}
+	}
+	if *pid != "" {
+		if f.pid, err = parseHex16(*pid); err != nil {
+			return fmt.Errorf("--pid: %w", err)
+		}
 	}
 
 	d, err := daemon.New(daemon.Options{

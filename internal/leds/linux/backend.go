@@ -182,7 +182,10 @@ func (b *Backend) rescan() {
 			}
 			continue
 		}
-		if !b.matches(ev) {
+		if why, ok := b.matches(ev); !ok {
+			b.log.Debug("skipping keyboard", "path", path, "product", ev.name,
+				"vid", fmt.Sprintf("%04x", ev.id.Vendor), "pid", fmt.Sprintf("%04x", ev.id.Product),
+				"reason", why)
 			ev.Close()
 			continue
 		}
@@ -229,20 +232,23 @@ func (b *Backend) rescan() {
 	}
 }
 
-func (b *Backend) matches(ev *evdevDev) bool {
+// matches reports whether the device should be driven, and if not, why — the
+// reason is logged, because "my keyboard is not picked up" and "it is writing
+// to a keyboard it should not" are both easy to hit and hard to guess at.
+func (b *Backend) matches(ev *evdevDev) (string, bool) {
 	if b.filter.VID != 0 && ev.id.Vendor != b.filter.VID {
-		return false
+		return fmt.Sprintf("vendor %04x is not %04x (use --vid or --any-vendor)", ev.id.Vendor, b.filter.VID), false
 	}
 	if b.filter.PID != 0 && ev.id.Product != b.filter.PID {
-		return false
+		return fmt.Sprintf("product %04x is not %04x (use --pid or --any-vendor)", ev.id.Product, b.filter.PID), false
 	}
 	if b.filter.RequireCodeLEDs && !ev.hasCodeLEDs() {
-		return false
+		return "no Compose+Kana+Scroll LED indicators (CONFIG_ZMK_HID_INDICATORS off?)", false
 	}
 	if s := b.filter.NameSubstring; s != "" && !strings.Contains(strings.ToLower(ev.name), strings.ToLower(s)) {
-		return false
+		return "name does not contain " + s, false
 	}
-	return true
+	return "", true
 }
 
 func (b *Backend) closeDev(d *dev) {
