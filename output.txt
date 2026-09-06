@@ -1,27 +1,34 @@
-zmk-vim-mode/scripts main  ❯ ./spike-linux.sh numlock on
-writing num lock on (expect vim mode ON: an Esc is sent and the NORMAL layer activates): report 0x01 0x01
-  ok    /dev/hidraw9   ZMK Project Diamond Keyboard [bus 0003]
-  ok    /dev/hidraw7   Diamond Keyboard [bus 0005]
+zmk-vim-mode main  ❯ systemctl --user status zmk-vim-mode --no-pager -l ; journalctl --user -u zmk-vim-mode -n 40 --no-pager
+● zmk-vim-mode.service - zmk-vim-mode: sync ZMK keyboard layers with the editor's vim state
+     Loaded: loaded (/home/romao/.config/systemd/user/zmk-vim-mode.service; enabled; preset: enabled)
+     Active: active (running) since Sat 2026-09-05 20:02:32 -03; 15h ago
+ Invocation: 0c96c7e684204f5287b21f4f64b36dc6
+   Main PID: 399178 (zmk-vim-mode)
+      Tasks: 13 (limit: 38058)
+     Memory: 10.9M (peak: 14M, swap: 16K, swap peak: 16K)
+        CPU: 28.275s
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/zmk-vim-mode.service
+             └─399178 /home/romao/.local/bin/zmk-vim-mode daemon
 
-zmk-vim-mode/scripts main  ❯ ./spike-linux.sh spike-b
-Spike (b): does a written bit survive Hyprland's per-keystroke LED writes?
-
-Hyprland pushes LED state to every keyboard on every key and modifier event,
-and libinput writes all five indicator bits, zeroing ours. The bet is that the
-kernel's own LED cache stays 0 for Compose/Kana, so those writes change nothing
-and are dropped before they reach the keyboard (input_get_disposition).
-
-1. ./scripts/spike-linux.sh write 1        (probe firmware types A)
-2. Type a paragraph in any window, switch workspaces, move the mouse.
-3. ./scripts/spike-linux.sh write 0        (expect B)
-
-PASS: exactly one A at step 1 and one B at step 3. Nothing in between, i.e.
-typing did not clobber the bit.
-FAIL (B appears while typing): the kernel is echoing our bits back. The daemon
-still recovers via the evdev echo path, but re-assert traffic will be constant;
-consider the raw-HID transport instead (PLAN.md, "Alternatives rejected").
-
-Then check the real clobbers, in another terminal:
-   ./scripts/spike-linux.sh watch
-and toggle Caps Lock, unplug/replug or re-pair the keyboard. Each of those
-should print EV_LED lines: that is the signal the daemon re-asserts on.
+Sep 05 20:02:32 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:32.833-03:00 level=INFO msg="keyboard found" id=0005:1D50:615E.0011 product="Diamond Keyboard" transport=bluetooth vid=1d50 pid=615e writable=true
+Sep 05 20:02:32 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:32.971-03:00 level=INFO msg="keyboard found" id=0003:1D50:615E.0012 product="ZMK Project Diamond Keyboard" transport=usb vid=1d50 pid=615e writable=true
+Sep 05 20:02:32 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:32.975-03:00 level=INFO msg="keyboard found" id=0003:060B:700A.0001 product="Cougar700k Cougar700k Gaming Keyboard" transport=usb vid=060b pid=700a writable=true
+Sep 05 20:02:33 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:33.043-03:00 level=INFO msg=decision mode=off code=0 reason="frontmost unknown; no clients" client=0
+Sep 05 20:07:52 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:07:52.729-03:00 level=INFO msg="keyboard removed" id=0003:1D50:615E.0012
+Sep 05 21:42:40 omarchy zmk-vim-mode[399178]: time=2026-09-05T21:42:40.171-03:00 level=INFO msg="keyboard removed" id=0005:1D50:615E.0011
+Sep 06 06:55:07 omarchy zmk-vim-mode[399178]: time=2026-09-06T06:55:07.015-03:00 level=INFO msg="keyboard found" id=0005:1D50:615E.0016 product="Diamond Keyboard" transport=bluetooth vid=1d50 pid=615e writable=true
+Sep 06 06:55:07 omarchy zmk-vim-mode[399178]: time=2026-09-06T06:55:07.105-03:00 level=INFO msg="keyboard found" id=0003:1D50:615E.0017 product="ZMK Project Diamond Keyboard" transport=usb vid=1d50 pid=615e writable=true
+Sep 06 11:07:15 omarchy zmk-vim-mode[399178]: time=2026-09-06T11:07:15.476-03:00 level=INFO msg="keyboard removed" id=0003:1D50:615E.0017
+Sep 06 11:07:19 omarchy zmk-vim-mode[399178]: time=2026-09-06T11:07:19.573-03:00 level=INFO msg="keyboard found" id=0003:1D50:615E.0018 product="ZMK Project Diamond Keyboard" transport=usb vid=1d50 pid=615e writable=true
+Sep 05 20:02:32 omarchy systemd[1072]: Started zmk-vim-mode: sync ZMK keyboard layers with the editor's vim state.
+Sep 05 20:02:32 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:32.808-03:00 level=INFO msg=listening socket=/home/romao/.local/state/zmk-vim-mode/daemon.sock version=5b974c7-dirty
+Sep 05 20:02:32 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:32.833-03:00 level=INFO msg="keyboard found" id=0005:1D50:615E.0011 product="Diamond Keyboard" transport=bluetooth vid=1d50 pid=615e writable=true
+Sep 05 20:02:32 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:32.971-03:00 level=INFO msg="keyboard found" id=0003:1D50:615E.0012 product="ZMK Project Diamond Keyboard" transport=usb vid=1d50 pid=615e writable=true
+Sep 05 20:02:32 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:32.975-03:00 level=INFO msg="keyboard found" id=0003:060B:700A.0001 product="Cougar700k Cougar700k Gaming Keyboard" transport=usb vid=060b pid=700a writable=true
+Sep 05 20:02:33 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:02:33.043-03:00 level=INFO msg=decision mode=off code=0 reason="frontmost unknown; no clients" client=0
+Sep 05 20:07:52 omarchy zmk-vim-mode[399178]: time=2026-09-05T20:07:52.729-03:00 level=INFO msg="keyboard removed" id=0003:1D50:615E.0012
+Sep 05 21:42:40 omarchy zmk-vim-mode[399178]: time=2026-09-05T21:42:40.171-03:00 level=INFO msg="keyboard removed" id=0005:1D50:615E.0011
+Sep 06 06:55:07 omarchy zmk-vim-mode[399178]: time=2026-09-06T06:55:07.015-03:00 level=INFO msg="keyboard found" id=0005:1D50:615E.0016 product="Diamond Keyboard" transport=bluetooth vid=1d50 pid=615e writable=true
+Sep 06 06:55:07 omarchy zmk-vim-mode[399178]: time=2026-09-06T06:55:07.105-03:00 level=INFO msg="keyboard found" id=0003:1D50:615E.0017 product="ZMK Project Diamond Keyboard" transport=usb vid=1d50 pid=615e writable=true
+Sep 06 11:07:15 omarchy zmk-vim-mode[399178]: time=2026-09-06T11:07:15.476-03:00 level=INFO msg="keyboard removed" id=0003:1D50:615E.0017
+Sep 06 11:07:19 omarchy zmk-vim-mode[399178]: time=2026-09-06T11:07:19.573-03:00 level=INFO msg="keyboard found" id=0003:1D50:615E.0018 product="ZMK Project Diamond Keyboard" transport=usb vid=1d50 pid=615e writable=true
