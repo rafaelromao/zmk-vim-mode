@@ -91,7 +91,19 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	go d.rec.Run(ctx, events)
 	go func() {
-		if err := d.o.Focus.Run(ctx, d.store.SetFrontmost); err != nil && ctx.Err() == nil {
+		// Log every frontmost change: "frontmost unknown" is otherwise
+		// indistinguishable between a watcher that has not reported yet and one
+		// that cannot find the compositor. Window titles stay at debug level.
+		emit := func(a focus.App) {
+			if a.Known {
+				d.log.Info("frontmost", "class", a.Class, "pid", a.PID)
+				d.log.Debug("frontmost title", "title", a.Title)
+			} else {
+				d.log.Info("frontmost unknown (focus backend unavailable); trusting editor clients")
+			}
+			d.store.SetFrontmost(a)
+		}
+		if err := d.o.Focus.Run(ctx, emit); err != nil && ctx.Err() == nil {
 			d.log.Warn("focus watcher stopped", "err", err)
 			d.store.SetFrontmost(focus.App{}) // unknown → fail open
 		}
