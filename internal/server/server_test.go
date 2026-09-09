@@ -110,6 +110,44 @@ func TestStaleSocketIsReplaced(t *testing.T) {
 	s.Close()
 }
 
+// A command run right after `systemctl restart` reaches the socket before the
+// daemon has created it; Request must wait rather than declare it dead.
+func TestRequestWaitsForADaemonThatIsStillStarting(t *testing.T) {
+	path := tmpSock(t)
+	go func() {
+		time.Sleep(400 * time.Millisecond)
+		s, err := Listen(path, &recHandler{}, nil)
+		if err != nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = s.Serve(ctx)
+	}()
+	start := time.Now()
+	reply, err := Request(path, proto.Msg{V: 1, T: proto.TStatus}, 3*time.Second)
+	if err != nil {
+		t.Fatalf("Request should have waited for the daemon: %v", err)
+	}
+	if reply.T != proto.TOK {
+		t.Fatalf("unexpected reply %+v", reply)
+	}
+	if elapsed := time.Since(start); elapsed < 300*time.Millisecond {
+		t.Fatalf("expected to wait for the daemon, returned after %s", elapsed)
+	}
+}
+
+func TestRequestGivesUpWhenNothingEverListens(t *testing.T) {
+	path := tmpSock(t)
+	start := time.Now()
+	if _, err := Request(path, proto.Msg{V: 1, T: proto.TStatus}, 500*time.Millisecond); err == nil {
+		t.Fatal("expected an error when no daemon exists")
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("gave up too late: %s", elapsed)
+	}
+}
+
 func TestServeProtocol(t *testing.T) {
 	path := tmpSock(t)
 	h := &recHandler{}

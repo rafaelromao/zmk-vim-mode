@@ -123,12 +123,21 @@ func Run(w io.Writer, o Options) error {
 			return err
 		}
 		fmt.Fprintf(w, "wrote %s\n", path)
-		fmt.Fprintln(w, "\nenable it with:")
 		if runtime.GOOS == "darwin" {
+			fmt.Fprintln(w, "\nenable it with:")
 			fmt.Fprintf(w, "  launchctl bootstrap gui/$UID %s\n", path)
 		} else {
-			fmt.Fprintln(w, "  systemctl --user daemon-reload")
+			// Rewriting the unit without telling systemd leaves it acting on a
+			// stale copy, and its warning is easy to miss in build output.
+			if err := exec.Command("systemctl", "--user", "daemon-reload").Run(); err != nil {
+				fmt.Fprintf(w, "\ncould not run systemctl --user daemon-reload (%v); run it yourself\n", err)
+			} else {
+				fmt.Fprintln(w, "ran systemctl --user daemon-reload")
+			}
+			fmt.Fprintln(w, "\nstart it with:")
 			fmt.Fprintln(w, "  systemctl --user enable --now zmk-vim-mode.service")
+			fmt.Fprintln(w, "  # already enabled? restart to pick up the new binary:")
+			fmt.Fprintln(w, "  systemctl --user restart zmk-vim-mode.service")
 		}
 	}
 	if o.Udev {

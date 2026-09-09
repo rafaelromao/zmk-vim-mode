@@ -70,7 +70,16 @@ type conn struct {
 const (
 	maxMalformed = 5
 	writeTimeout = time.Second
+	// retryInterval paces Request's redial attempts while a daemon starts up.
+	retryInterval = 100 * time.Millisecond
 )
+
+// startingUp reports whether a dial error is the kind a daemon that is still
+// coming up produces: the socket file is not there yet, or nothing is
+// listening on it. Anything else (permission denied, for instance) is final.
+func startingUp(err error) bool {
+	return errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ECONNREFUSED)
+}
 
 // Listen prepares the socket: creates the directory (0700), takes the
 // single-instance lock, removes a stale socket (only if nobody answers on it)
@@ -254,10 +263,24 @@ func (s *Server) Close() error {
 
 // Request dials the daemon, sends one message and returns the first reply.
 // Used by the CLI.
+//
+// Dialling is retried within the timeout budget: with Type=simple, systemctl
+// returns as soon as the daemon is spawned, so a command run right after
+// `systemctl restart` would otherwise report a perfectly healthy daemon as
+// unreachable.
 func Request(path string, m proto.Msg, timeout time.Duration) (proto.Msg, error) {
-	c, err := net.DialTimeout("unix", path, timeout)
-	if err != nil {
-		return proto.Msg{}, fmt.Errorf("daemon not reachable at %s: %w", path, err)
+	deadline := time.Now().Add(timeout)
+	var c net.Conn
+	var err error
+	for {
+		c, err = net.DialTimeout("unix", path, time.Until(deadline))
+		if err == nil {
+			break
+		}
+		if !startingUp(err) || !time.Now().Add(retryInterval).Before(deadline) {
+			return proto.Msg{}, fmt.Errorf("daemon not reachable at %s: %w", path, err)
+		}
+		time.Sleep(retryInterval)
 	}
 	defer c.Close()
 	_ = c.SetDeadline(time.Now().Add(timeout))
