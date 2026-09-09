@@ -1,5 +1,7 @@
-zmk-vim-mode main ❯ make install && systemctl --user restart zmk-vim-mode && zmk-vim-mode status
-CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=e87c0dc" -o zmk-vim-mode ./cmd/zmk-vim-mode
+
+zmk-vim-mode main ❯ git pull --no-rebase && make install && systemctl --user restart zmk-vim-mode && zmk-vim-mode status
+Already up to date.
+CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=5fb5b97" -o zmk-vim-mode ./cmd/zmk-vim-mode
 install -m 0755 zmk-vim-mode /home/romao/.local/bin/zmk-vim-mode
 installed /home/romao/.local/bin/zmk-vim-mode
 wrote /home/romao/.config/systemd/user/zmk-vim-mode.service
