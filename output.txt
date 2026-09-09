@@ -1,14 +1,15 @@
-
 zmk-vim-mode main ❯ git pull --no-rebase && make install && systemctl --user restart zmk-vim-mode && zmk-vim-mode status
 Already up to date.
-CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=5fb5b97" -o zmk-vim-mode ./cmd/zmk-vim-mode
+CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=aea13e9" -o zmk-vim-mode ./cmd/zmk-vim-mode
 install -m 0755 zmk-vim-mode /home/romao/.local/bin/zmk-vim-mode
 installed /home/romao/.local/bin/zmk-vim-mode
 wrote /home/romao/.config/systemd/user/zmk-vim-mode.service
+ran systemctl --user daemon-reload
 
-enable it with:
-  systemctl --user daemon-reload
+start it with:
   systemctl --user enable --now zmk-vim-mode.service
+  # already enabled? restart to pick up the new binary:
+  systemctl --user restart zmk-vim-mode.service
 
 --- /etc/udev/rules.d/60-zmk-vim-mode.rules (needs sudo) ---
 # zmk-vim-mode: let the active seat user write LED output reports to the ZMK keyboard.
@@ -36,5 +37,10 @@ return {
 --- tmux ---
 # ~/.tmux.conf — required so Neovim sees FocusGained/FocusLost inside tmux
 set -g focus-events on
-Warning: The unit file, source configuration file or drop-ins of zmk-vim-mode.service changed on disk. Run 'systemctl --user daemon-reload' to reload units.
-error: daemon not reachable at /home/romao/.local/state/zmk-vim-mode/daemon.sock: dial unix /home/romao/.local/state/zmk-vim-mode/daemon.sock: connect: no such file or directory
+decision : off (code 0) — frontmost unknown; no clients
+frontmost: unknown (no focus backend) — trusting clients
+clients  : 0
+devices  : 2
+  0003:1D50:615E.0039  ZMK Project Diamond Keyboard  usb  1d50:615e  last=-  writable
+  0005:1D50:615E.003A  Diamond Keyboard  bluetooth  1d50:615e  last=-  writable
+uptime   : 0s
