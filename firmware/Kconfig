@@ -19,15 +19,7 @@ config ZMK_HID_INDICATOR_CODE_LISTENER
       present in the keymap. Only built on the central/unibody side: HID output
       reports are received there.
 
-if ZMK_HID_INDICATOR_CODE_LISTENER
-
-config ZMK_HID_INDICATOR_CODE_LISTENER_LOG_LEVEL
-    int "Log level for the HID indicator code listener"
-    default 2
-    range 0 4
-    help
-      0 none, 1 error, 2 warning, 3 info, 4 debug. Debug logs every decoded
-      code and every layer change, which is useful when bringing the host
-      daemon up for the first time.
-
-endif # ZMK_HID_INDICATOR_CODE_LISTENER
+# This module logs through ZMK's own log module (LOG_MODULE_DECLARE(zmk, ...)),
+# so its verbosity follows CONFIG_ZMK_LOG_LEVEL. There is deliberately no
+# per-module log level: one would be ignored, which is worse than not offering
+# it. Set CONFIG_ZMK_LOG_LEVEL_DBG=y to see every decoded code and layer change.
