@@ -153,12 +153,12 @@ Keymap node (in `src/features/vim.dtsi`):
     vim_sync {
         compatible = "zmk,hid-indicator-code-listener";
         indicators = <HID_USAGE_LED_COMPOSE HID_USAGE_LED_KANA HID_USAGE_LED_SCROLL_LOCK>;  // b0 b1 b2
-        managed-layers = <VIM_NORMAL VIM_VISUAL VIM_CHANGE VIM_LEADER VIM_INSERT VIM_REPLACE VIM_CMDLINE>;
+        managed-layers = <VIM_NORMAL VIM_VISUAL VIM_CHANGE VIM_INSERT VIM_REPLACE VIM_CMDLINE>;  // VIM_LEADER removed, see phase 3 notes
         off-delay-ms = <60>; local-guard-ms = <150>;
         normal        { code = <1>; layers = <VIM_NORMAL>; };
         insert        { code = <2>; layers = <VIM_INSERT>; };
         visual        { code = <3>; layers = <VIM_NORMAL VIM_VISUAL>; };
-        legacy        { code = <4>; bindings = <&vim_mode_on>; };     // existing idempotent macro, one ESC
+        legacy        { code = <4>; layers = <VIM_NORMAL>; bindings = <&vim_mode_on_host>; };  // plain Esc; lives in vim_legacy.dtsi (phase 3 notes)
         cmdline       { code = <5>; layers = <VIM_CMDLINE>; };
         raw           { code = <6>; };                                // no vim layers
         legacy_silent { code = <7>; layers = <VIM_NORMAL>; };
@@ -424,9 +424,29 @@ Phase 1 is **complete and verified on Omarchy**: `status` reports two devices
 `frontmost: com.mitchellh.ghostty`, so device discovery, the LED writer and the
 Hyprland focus watcher all work from inside the systemd user service.
 
-Next: the Neovim plugin (phase 2), which is what makes `clients` non-zero;
-then the firmware module (phase 3), until which the daemon's writes are
-invisible because nothing decodes the code yet.
+Phases 2 (Neovim plugin) and 3 (firmware module) are **complete and verified
+on Omarchy** (2026-09-09): the module decodes every code, the plugin reports
+modes, and the combos announce manual entry/exit through Hyper+Esc / Meh+Esc.
+Deviations from the design above, all in the keyboards repo:
+
+- Code 4 does not run `&vim_mode_on`. The listener clears managed layers before
+  a code's bindings run, so that layer-morph's guard never fires from a host
+  code and it always echoed Hyper+Esc -- which, bound to `set legacy`,
+  cancelled the host's own override. Code 4 now sets `VIM_NORMAL` and taps a
+  plain Esc (`&vim_mode_on_host`).
+- `VIM_LEADER` was removed. Leader handling is host-driven (`raw` while
+  pending); legacy apps never had it. Layers above it were renumbered.
+- Everything that exists only for legacy mode lives in
+  `src/features/vim_legacy.dtsi` (codes 4/7, enter/leave combos, the
+  Hyper+Esc / Meh+Esc macros), included last so it can extend the labelled
+  `vim_sync` and `combos` nodes. Retiring legacy = delete file + include +
+  the two Hyprland binds.
+- `tc_cancel` uses `&vim_off` instead of `&vim_mode_off`: a panic key must not
+  toggle a sticky `off` override on the host.
+- The old `scripts/vimmode/` watchers, `listeners.dtsi` and the
+  `ssbb/zmk-listeners` module are gone from the keyboards repo.
+
+Next: phase 4 (editor integrations), starting with `vscode-neovim`.
 
 ## Phases (Omarchy first)
 
