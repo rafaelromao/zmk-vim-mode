@@ -414,6 +414,19 @@ things the live run corrected:
 - **Device ids change across reconnects** (`0005:…0011` → `…0016`), so a
   reconnect is a remove followed by an add. That is handled, and re-assert on
   add is what restores the code.
+- **A rewritten unit needs `daemon-reload`**, and with `Type=simple` a command
+  issued right after `systemctl restart` reaches the socket before it exists.
+  Both made a healthy daemon look dead; `install` now reloads systemd itself
+  and `server.Request` retries within its timeout.
+
+Phase 1 is **complete and verified on Omarchy**: `status` reports two devices
+(Diamond over USB and BLE, both writable, no unrelated keyboards) and
+`frontmost: com.mitchellh.ghostty`, so device discovery, the LED writer and the
+Hyprland focus watcher all work from inside the systemd user service.
+
+Next: the Neovim plugin (phase 2), which is what makes `clients` non-zero;
+then the firmware module (phase 3), until which the daemon's writes are
+invisible because nothing decodes the code yet.
 
 ## Phases (Omarchy first)
 
