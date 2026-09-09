@@ -65,9 +65,17 @@ Notes on the choices:
   keyboard `VIM_REPLACE` is the "next key is a literal" layer behind
   `r<char>`/`q<reg>`/`@<reg>`, not Neovim's `R` mode. The all-`&trans`
   `VIM_INSERT` layer with its Esc handling is the right shape for `R`.
-- **Code 4 runs `&vim_mode_on`,** the existing idempotent macro: it injects one
-  Esc only when no vim layer is active. Code 7 is the same state without the
-  binding, so a re-assert after a reconnect or a clobber never re-types Esc.
+- **Code 4 must not reuse `&vim_mode_on`.** That macro is a layer-morph whose
+  "already in vim → `&none`" branch looks idempotent, but the listener clears
+  every managed layer *before* invoking a code's bindings, so from code 4 the
+  guard can never fire: it would always take the notify branch and send
+  Esc **and** Hyper+Esc. Since the host binds Hyper+Esc to
+  `zmk-vim-mode set legacy`, the keyboard would then cancel the very override
+  the host had just set. Code 4 therefore selects `VIM_NORMAL` declaratively and
+  binds a plain `&kp ESC` (`&vim_mode_on_host`); `&vim_mode_on` stays for the
+  combos, where nothing has pre-cleared the layers and the guard does work.
+  Code 7 is the same state with no binding at all, so a re-assert after a
+  reconnect or a clobber never re-types Esc.
 - **Code 6 (raw) lists no layers.** Keys reach the host untouched. Bind a tool
   layer here later if you want one.
 
@@ -89,8 +97,11 @@ listener re-fires `&vim_mode_on` and injects an Esc. Manual entry into vim mode
 remains available through:
 
 - the `cb_vim_mode` combo (`src/features/combos.dtsi:36`),
-- `&to VIM_NORMAL` on the TOGGLES layer,
+- `cb_enter_vim` / `cb_leave_vim` on the MACROS layer (`combos.dtsi:221-222`),
 - `zmk-vim-mode set legacy` from the host.
+
+There is deliberately no `&to VIM_NORMAL` key on the TOGGLES layer; that layer's
+`&kp KP_NUM` used to be the manual toggle, and is now just an OS num-lock key.
 
 Keep the node only if you use these keyboards on a machine that will never run
 the daemon (a Windows box, someone else's laptop).
