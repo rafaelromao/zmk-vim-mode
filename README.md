@@ -16,33 +16,108 @@ See [PLAN.md](PLAN.md) for the full design and the reasoning behind it.
 
 ## How it works
 
-The host encodes the editor state as a 3-bit code and writes it into the
-keyboard's HID LED output report, using the three indicators no operating
-system drives on its own: **Compose**, **Kana** and **Scroll Lock**. This is
-the only channel that works identically over USB and Bluetooth with stock ZMK.
-Caps Lock and Num Lock are never touched.
+### The channel
 
-| code | state | keyboard |
-|---|---|---|
-| 0 | off | no vim layers |
-| 1 | normal | `VIM_NORMAL` |
-| 2 | insert | `VIM_INSERT` (Neovim's Replace maps here too) |
-| 3 | visual | `VIM_NORMAL` + `VIM_VISUAL` |
-| 4 | legacy | vim-like app with no mode feed; the keyboard infers modes itself |
-| 5 | cmdline | `VIM_CMDLINE` |
-| 6 | raw | no vim layers: keys pass through untouched |
-| 7 | legacy silent | same state as 4, re-asserted without re-injecting Esc |
+A HID keyboard has an *output* report: a byte the host sends **to** the
+keyboard, normally to light the Caps Lock and Num Lock lamps. It is the only
+standard host-to-keyboard channel that works identically over USB and Bluetooth
+with stock ZMK, needs no pairing or custom protocol, and requires nothing of
+the firmware beyond `CONFIG_ZMK_HID_INDICATORS=y`. This project uses it as a
+data bus rather than as lamp control.
 
-**Raw** is the state that ad-hoc focus watchers cannot produce. It is reported
-for plugin UI buffers whose letters are commands (dashboard, file explorer,
-lazy, mason, trouble), for terminal-job mode, and while a `<leader>` sequence
-is pending. Without it, the keyboard's NORMAL layer would remap those letters
-and the UI would be unusable.
+ZMK declares five indicator bits. You can confirm this in your own keyboard's
+HID report descriptor, where `19 01 29 05` means "usage minimum NumLock,
+usage maximum Kana":
 
-The keyboard keeps its own local inference, which the host only corrects. A
-firmware guard parks host codes for 150 ms after any keyboard-driven layer
-change, so a stale code cannot undo a faster local transition; and code 0 is
-held off for 60 ms, so the LED clobber Linux compositors cause is invisible.
+```
+05 08  19 01  29 05  75 01  95 05  91 02
+│      │      │      │      │      └─ output: data, variable, absolute
+│      │      │      │      └──────── five of them
+│      │      │      └─────────────── one bit each
+│      │      └────────────────────── usage max = Kana      (0x05)
+│      └───────────────────────────── usage min = Num Lock  (0x01)
+└──────────────────────────────────── usage page = LED
+```
+
+Three of those five are free: no operating system ever *sets* **Compose**,
+**Kana** or **Scroll Lock** on its own. Num Lock and Caps Lock are deliberately
+left alone, because the OS owns them — a stray lock keypress would otherwise
+change your editor state. Those three free bits are read as one 3-bit number.
+
+### The codes on the wire
+
+| code | state | Scroll `0x04` | Kana `0x10` | Compose `0x08` | byte | keyboard |
+|---|---|---|---|---|---|---|
+| 0 | off | · | · | · | `0x00` | no vim layers |
+| 1 | normal | · | · | ● | `0x08` | `VIM_NORMAL` |
+| 2 | insert | · | ● | · | `0x10` | `VIM_INSERT` (Neovim's Replace maps here too) |
+| 3 | visual | · | ● | ● | `0x18` | `VIM_NORMAL` + `VIM_VISUAL` |
+| 4 | legacy | ● | · | · | `0x04` | vim-like app with no mode feed; the keyboard infers modes itself |
+| 5 | cmdline | ● | · | ● | `0x0c` | `VIM_CMDLINE` |
+| 6 | raw | ● | ● | · | `0x14` | no vim layers: keys pass through untouched |
+| 7 | legacy silent | ● | ● | ● | `0x1c` | same state as 4, re-asserted without re-injecting Esc |
+
+The lamps stay dark: unless the keymap has a `zmk,indicator-leds` node, nothing
+physically lights up. It is a silent side channel that happens to travel on the
+LED wire.
+
+### End to end, pressing `i` in Neovim
+
+```
+nvim ModeChanged ──► plugin ──► unix socket ──► daemon
+                                                  │ decides code 2 (insert)
+                                                  ▼
+                              write [0x01, 0x10] to /dev/hidrawN
+                                                  │  report id, LED byte
+                     kernel ──► USB SET_REPORT  /  BLE GATT write
+                                                  ▼
+                     ZMK zmk_hid_indicators_process_report()
+                                                  ▼
+                       event: zmk_hid_indicators_changed
+                                                  ▼
+                       this module: decode 0x10 → code 2
+                                                  ▼
+             deactivate the managed layers, activate VIM_INSERT
+```
+
+The firmware side does no scanning and types no keys: it tests three bits,
+rebuilds the integer, and if it differs from the last one, switches the layer
+set. That is a bitmask change, so it is effectively instant.
+
+Writes go to **every** matching endpoint. A keyboard commonly enumerates on USB
+and Bluetooth at the same time, and ZMK stores the indicator byte per endpoint
+while only the selected one raises the event, so writing just one is a coin
+flip.
+
+### Raw, the state focus watchers cannot produce
+
+**Raw** is reported for plugin UI buffers whose letters are commands
+(dashboard, file explorer, lazy, mason, trouble), for terminal-job mode, and
+while a `<leader>` sequence is pending. Without it, the keyboard's NORMAL layer
+would remap those letters and the UI would be unusable. It is deliberately
+distinct from insert: insert keeps the keyboard's local inference alive, so Esc
+would flip it to normal — wrong when Esc belongs to a terminal job or a picker.
+
+### Two timing rules that make it survive real use
+
+The keyboard keeps its own local inference and the host only *corrects* it.
+Two rules in the firmware keep that hybrid honest:
+
+- **OFF hold-off, 60 ms.** When the kernel sends its own LED report — you
+  pressed Num Lock, or a compositor pushed lock state — it sends the whole
+  byte, zeroing our bits. Code 0 is therefore applied only after it has been
+  stable for 60 ms. The daemon sees the `EV_LED` echo and rewrites within about
+  a millisecond, so the blip never reaches your layers.
+- **Local guard, 150 ms.** A host code describes the editor as of an earlier
+  keystroke. Type `Esc` then `i` quickly and an in-flight stale code could undo
+  a correct local transition, so after any keyboard-driven layer change host
+  codes are parked and only the newest is applied. The keyboard wins in motion,
+  the host wins at rest.
+
+On Linux the steady state is quiet: typing produces no LED reports at all,
+because the kernel's cache holds 0 for Compose and Kana, so a compositor
+writing "all five bits" changes nothing and is dropped before any report is
+emitted. Re-assertion happens only on a real clobber or a reconnect.
 
 ## Install (Omarchy / Hyprland)
 
