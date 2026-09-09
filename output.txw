@@ -1,0 +1,38 @@
+zmk-vim-mode main ❯ make install && systemctl --user restart zmk-vim-mode && zmk-vim-mode status
+CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=e87c0dc" -o zmk-vim-mode ./cmd/zmk-vim-mode
+install -m 0755 zmk-vim-mode /home/romao/.local/bin/zmk-vim-mode
+installed /home/romao/.local/bin/zmk-vim-mode
+wrote /home/romao/.config/systemd/user/zmk-vim-mode.service
+
+enable it with:
+  systemctl --user daemon-reload
+  systemctl --user enable --now zmk-vim-mode.service
+
+--- /etc/udev/rules.d/60-zmk-vim-mode.rules (needs sudo) ---
+# zmk-vim-mode: let the active seat user write LED output reports to the ZMK keyboard.
+# Install as /etc/udev/rules.d/60-zmk-vim-mode.rules, then:
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+# uaccess grants an ACL to the user of the active logind session. If that does
+# not fit (headless, SSH-only), replace TAG+="uaccess" with GROUP="input", MODE="0660".
+# bus 0003 = USB, 0005 = Bluetooth; this form needs no ancestor attributes.
+SUBSYSTEM=="hidraw", KERNELS=="0003:1D50:615E.*", TAG+="uaccess"
+SUBSYSTEM=="hidraw", KERNELS=="0005:1D50:615E.*", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="615e", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1d50", ATTRS{id/product}=="615e", TAG+="uaccess"
+
+--- Neovim (lazy.nvim) ---
+-- ~/.config/nvim/lua/plugins/zmk-vim-mode.lua
+return {
+  {
+    "rafaelromao/zmk-vim-mode",
+    -- while developing: dir = vim.fn.expand("~/projects/zmk-vim-mode"),
+    lazy = false,
+    opts = {},
+  },
+}
+
+--- tmux ---
+# ~/.tmux.conf — required so Neovim sees FocusGained/FocusLost inside tmux
+set -g focus-events on
+Warning: The unit file, source configuration file or drop-ins of zmk-vim-mode.service changed on disk. Run 'systemctl --user daemon-reload' to reload units.
+error: daemon not reachable at /home/romao/.local/state/zmk-vim-mode/daemon.sock: dial unix /home/romao/.local/state/zmk-vim-mode/daemon.sock: connect: no such file or directory
