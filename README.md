@@ -158,7 +158,7 @@ zmk-vim-mode daemon      run the daemon (normally via the user service)
 zmk-vim-mode status      current decision, frontmost app, clients, devices
 zmk-vim-mode devices     keyboards the daemon can write to
 zmk-vim-mode set <mode>  manual override; repeating the same mode returns to auto
-zmk-vim-mode doctor      check permissions, devices, old watchers, tmux, udev
+zmk-vim-mode doctor      check the daemon, devices, udev, tmux, old watchers, and the VSCode/Obsidian setups
 ```
 
 `set` is the escape hatch for anything the daemon cannot detect (an SSH

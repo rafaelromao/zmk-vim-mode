@@ -84,7 +84,7 @@ func main() {
 	case "uninstall":
 		err = install.Uninstall(os.Stdout)
 	case "doctor":
-		err = doctor.Run(os.Stdout, server.DefaultSocketPath())
+		err = doctor.Run(os.Stdout, server.DefaultSocketPath(), Version)
 	case "version", "--version", "-v":
 		fmt.Printf("zmk-vim-mode %s (%s)\n", Version, platformName)
 	case "help", "-h", "--help":

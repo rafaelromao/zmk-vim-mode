@@ -45,9 +45,10 @@ type check struct {
 	hint   string
 }
 
-// Run prints the diagnostics. It returns an error only if a check could not be
+// Run prints the diagnostics. cliVersion is this binary's version, compared
+// with the running daemon's. It returns an error only if a check could not be
 // performed at all; failing checks are reported, not returned.
-func Run(w io.Writer, socket string) error {
+func Run(w io.Writer, socket, cliVersion string) error {
 	var checks []check
 	add := func(name string, r result, detail, hint string) {
 		checks = append(checks, check{name, r, detail, hint})
@@ -61,6 +62,10 @@ func Run(w io.Writer, socket string) error {
 		st := status.Status
 		add("daemon", ok, fmt.Sprintf("up %s, decision %s (code %d) — %s",
 			(time.Duration(st.UptimeS)*time.Second), st.Mode, st.Code, st.Reason), "")
+		if st.Version != "" && cliVersion != "" && st.Version != cliVersion {
+			add("daemon version", warn, fmt.Sprintf("running %s, this CLI is %s", st.Version, cliVersion),
+				"make install replaces the binary but not the process: systemctl --user restart zmk-vim-mode")
+		}
 		if st.Frontmost != nil && !st.Frontmost.Known {
 			add("focus backend", warn, "frontmost app unknown; decisions trust editor clients",
 				"on Hyprland make sure the daemon runs inside the graphical session")
@@ -73,7 +78,11 @@ func Run(w io.Writer, socket string) error {
 		} else {
 			var parts []string
 			for _, c := range st.Clients {
-				parts = append(parts, fmt.Sprintf("#%d %s mode=%s", c.ID, c.Kind, c.Mode))
+				p := fmt.Sprintf("#%d %s mode=%s", c.ID, c.Kind, c.Mode)
+				if c.App != "" {
+					p += " app=" + c.App
+				}
+				parts = append(parts, p)
 			}
 			add("editor clients", ok, strings.Join(parts, ", "), "")
 		}
@@ -118,12 +127,17 @@ func Run(w io.Writer, socket string) error {
 	}
 	if len(old) > 0 {
 		add("old watchers", warn, strings.Join(old, ", "),
-			"retire them: they fight this daemon over Num Lock (Hammerspoon require, hyprland.conf exec-once, systemd unit)")
+			"retire them: they toggle Num Lock on every focus change for nothing (Hammerspoon require, hyprland.conf exec-once, systemd unit)")
 	} else {
 		add("old watchers", ok, "none found", "")
 	}
 
-	// 5. tmux focus events
+	// 5. editor setups (VSCode, Obsidian)
+	if home, err := os.UserHomeDir(); err == nil {
+		checks = append(checks, editorChecks(home)...)
+	}
+
+	// 6. tmux focus events
 	if os.Getenv("TMUX") != "" || hasBinary("tmux") {
 		out, err := exec.Command("tmux", "show", "-gv", "focus-events").Output()
 		switch {
@@ -137,26 +151,14 @@ func Run(w io.Writer, socket string) error {
 		}
 	}
 
-	// 6. Linux specifics
+	// 7. Linux specifics. (The numlock_by_default check is gone with the
+	// keymap's num-lock listener: Num Lock no longer means anything to it.)
 	if runtime.GOOS == "linux" {
 		if _, err := os.Stat("/etc/udev/rules.d/60-zmk-vim-mode.rules"); err == nil {
 			add("udev rule", ok, "/etc/udev/rules.d/60-zmk-vim-mode.rules", "")
 		} else {
 			add("udev rule", warn, "not installed",
 				"zmk-vim-mode install --udev, then sudo udevadm control --reload-rules && sudo udevadm trigger")
-		}
-		if hasBinary("hyprctl") {
-			out, err := exec.Command("hyprctl", "getoption", "input:numlock_by_default").Output()
-			s := strings.ToLower(string(out))
-			switch {
-			case err != nil:
-				add("hyprland numlock_by_default", info, "hyprctl not answering", "")
-			case strings.Contains(s, "int: 1") || strings.Contains(s, "true"):
-				add("hyprland numlock_by_default", warn, "enabled",
-					"set it false: with a num-lock listener in the keymap it can re-trigger vim mode")
-			default:
-				add("hyprland numlock_by_default", ok, "disabled", "")
-			}
 		}
 	}
 
