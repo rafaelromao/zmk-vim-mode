@@ -10,10 +10,14 @@ mutually exclusive). vscode-neovim embeds a real Neovim, which loads your
 config, which loads the zmk-vim-mode Neovim plugin, which reports the exact
 mode to the daemon -- nothing VSCode-specific to add.
 
-Check your lazy spec is not disabled inside VSCode: many configs guard plugins
-with `cond = not vim.g.vscode`. The zmk-vim-mode spec must stay enabled.
+The spec must stay enabled inside VSCode. LazyVim loads its `vscode` extra
+automatically there and disables every plugin except a whitelist and those
+marked `vscode = true` -- `contrib/nvim-lazy-spec.lua` sets it; add it to your
+copy if it predates this note. Other configs: no `cond = not vim.g.vscode`.
 
-`zmk-vim-mode status` then shows a client `nvim app=vscode`.
+`zmk-vim-mode status` then shows a client `nvim app=vscode`. If it does not,
+open the Neovim output channel in VSCode (*Output* → *vscode-neovim*) and run
+`:ZmkVimMode status` through the command palette's *Neovim: Run command*.
 
 ## 2. Tool windows: publish the focused view in the title
 

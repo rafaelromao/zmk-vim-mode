@@ -5,6 +5,9 @@ return {
     -- While developing, point at the checkout instead of fetching from GitHub:
     -- dir = vim.fn.expand("~/projects/zmk-vim-mode"),
     lazy = false, -- the daemon needs to know the mode from the first keystroke
+    -- LazyVim's vscode extra disables every plugin inside vscode-neovim unless
+    -- it says so; without this the keyboard falls back to legacy in VSCode.
+    vscode = true,
     opts = {
       -- terminal_state = "raw",  -- "insert" if you prefer vim layers in :terminal
       -- leader_raw = true,       -- report raw while a <leader> sequence is pending
