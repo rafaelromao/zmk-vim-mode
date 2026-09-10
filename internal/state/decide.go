@@ -95,8 +95,11 @@ const VSCodeWindowTitle = "${dirty}${activeEditorShort}${separator}${rootName} [
 var VSCodeFocusedView = regexp.MustCompile(`\[([^\[\]]*)\]\s*$`)
 
 // VSCodeEditorViews are the marker values VSCode uses while the text editor
-// has focus.
-var VSCodeEditorViews = []string{"", "Text Editor", "Editor"}
+// has focus. Current builds say "Text Editor"; an empty marker means focus is
+// in a widget outside any view (a viewlet's search box, the Extensions search)
+// and is therefore a tool window. Builds older than that reported the editor
+// as empty -- unsupported here.
+var VSCodeEditorViews = []string{"Text Editor", "Editor"}
 
 // Rules is the app classification configuration.
 type Rules struct {
@@ -242,6 +245,9 @@ func toolWindow(rule AppRule, title string) (string, bool) {
 		return "", false
 	}
 	view := strings.TrimSpace(m[1])
+	if view == "" {
+		view = "widget outside any view"
+	}
 	for _, e := range rule.EditorViews {
 		if strings.EqualFold(view, strings.TrimSpace(e)) {
 			return view, false

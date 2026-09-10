@@ -15,7 +15,7 @@ func TestClassifyVSCode(t *testing.T) {
 		{"code editor, no name", Focused{Role: "entry", Attrs: monaco}, true, false},
 		{"code editor as seen on the box (native-edit-context div)",
 			Focused{Role: "entry", Name: "The editor is not accessible at this time. To enable screen reader optimized mode, use Shift+Alt+F4",
-				Attrs: map[string]string{"tag": "div", "class": "native-edit-context", "roledescription": "editor", "xml-roles": "textbox"},
+				Attrs:           map[string]string{"tag": "div", "class": "native-edit-context", "roledescription": "editor", "xml-roles": "textbox"},
 				AncestorClasses: []string{"overflow-guard", "monaco-editor no-user-select  showUnused showDeprecated vs-dark focused", "editor-instance"}}, true, false},
 		{"palette list row as seen on the box",
 			Focused{Role: "list item", Name: "Go to File, Go to File", Attrs: map[string]string{"tag": "div", "class": "monaco-list-row focused", "xml-roles": "option"}}, false, false},
