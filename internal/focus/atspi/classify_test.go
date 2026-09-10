@@ -1,0 +1,46 @@
+package atspi
+
+import "testing"
+
+func TestClassifyVSCode(t *testing.T) {
+	monaco := map[string]string{"tag": "textarea", "class": "inputarea monaco-mouse-cursor-text", "roledescription": "editor"}
+	cases := []struct {
+		name   string
+		f      Focused
+		editor bool
+		ignore bool
+	}{
+		{"code editor, accessibility off label",
+			Focused{Role: "entry", Name: "The editor is not accessible at this time. To enable screen reader optimized mode, use Shift+Alt+F1", Attrs: monaco}, true, false},
+		{"code editor, no name", Focused{Role: "entry", Attrs: monaco}, true, false},
+		{"code editor, file label", Focused{Role: "entry", Name: "main.go", Attrs: monaco}, true, false},
+		{"find widget input (Monaco) by name", Focused{Role: "entry", Name: "Find", Attrs: monaco}, false, false},
+		{"replace input by name", Focused{Role: "entry", Name: "Replace", Attrs: monaco}, false, false},
+		{"scm input by name", Focused{Role: "entry", Name: "Source Control Input", Attrs: monaco}, false, false},
+		{"settings search by name", Focused{Role: "entry", Name: "Search settings", Attrs: monaco}, false, false},
+		{"find widget by ancestor, unknown name",
+			Focused{Role: "entry", Name: "whatever", Attrs: monaco, AncestorClasses: []string{"monaco-inputbox", "find-widget visible"}}, false, false},
+		{"quick input box", Focused{Role: "entry", Name: "Type the name of a command to run.", Attrs: map[string]string{"tag": "input", "class": "input"}}, false, false},
+		{"rename input", Focused{Role: "entry", Name: "Rename input. Type new name and press Enter to commit.", Attrs: map[string]string{"tag": "input", "class": "rename-input"}}, false, false},
+		{"terminal helper textarea", Focused{Role: "entry", Attrs: map[string]string{"tag": "textarea", "class": "xterm-helper-textarea"}}, false, false},
+		{"terminal role", Focused{Role: "terminal", Name: "Terminal 1, zsh"}, false, false},
+		{"explorer tree item", Focused{Role: "tree item", Name: "main.go"}, false, false},
+		{"a tab", Focused{Role: "page tab", Name: "main.go, tab"}, false, false},
+		{"a button", Focused{Role: "push button", Name: "Run"}, false, false},
+		{"the window itself", Focused{Role: "frame", Name: "main.go — zmk [Text Editor]"}, false, true},
+		{"document web container", Focused{Role: "document web"}, false, true},
+		{"empty role", Focused{}, false, true},
+	}
+	for _, c := range cases {
+		v := ClassifyVSCode(c.f)
+		if v.Ignore != c.ignore || v.Editor != c.editor {
+			t.Errorf("%s: got editor=%v ignore=%v (%s); want editor=%v ignore=%v", c.name, v.Editor, v.Ignore, v.Detail, c.editor, c.ignore)
+		}
+		if v.Detail == "" {
+			t.Errorf("%s: empty detail", c.name)
+		}
+	}
+	if d := ClassifyVSCode(Focused{Role: "entry", Name: "Type the name of a command to run.", Attrs: map[string]string{"tag": "input", "class": "input"}}).Detail; d != "input.input (Type the name of a command to run.)" {
+		t.Errorf("detail: %q", d)
+	}
+}

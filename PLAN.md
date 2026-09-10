@@ -306,7 +306,19 @@ heavy Neovim user the embedded-nvim option is the consensus, and the only one th
      rename — not views/terminal, which the title handles both ways) makes the nvim client report `raw` until
      a typed key reaches Neovim again, the companion reports the close (`zmkVimMode.rawHint` forward,
      `vscode-neovim.lua` callback), or a 20 s TTL.
-  4. **Decide** combines them per app: title → own client `raw` → best opinionated client → `legacy`.
+  4. **Accessibility bus (opt-in, `--atspi`)** — the user chose it after seeing the mouse-opened Command
+     Center stay in NORMAL. `internal/dbus` is a minimal wire client (no dependency: AT-SPI apps only emit to a
+     listener registered from a *live* connection, so shelling out to `busctl` cannot work, and no Go binding
+     was available offline). `internal/focus/atspi` sets `org.a11y.Status.IsEnabled`, registers
+     `object:state-changed:focused`, joins events to windows by pid (Electron's a11y connection is the main
+     process, the same pid Hyprland reports), reads role/name/`tag`/`class`/`roledescription` and classifies:
+     Monaco text area → editor unless a known widget name/ancestor (find, replace, SCM, settings, rename…);
+     everything else → other. `Decide`: title → widget other → Raw; widget editor → clients' raw hints ignored.
+     The daemon sends `editor_focus` to the app's clients on transitions so hints clear with no first-key
+     glitch. `atspi-watch` prints events for tuning. Cost: accessibility on for the whole session (what a
+     screen reader does); `install --vscode` sets `editor.accessibilitySupport: off` to keep Monaco normal.
+  5. **Decide** combines them per app: title → a11y widget → own client `raw` → best opinionated client →
+     `legacy`.
 - Zero migration cost: `~/.vscodevimrc` is empty. Uninstall VSCodeVim (the affinity setting already present is
   vscode-neovim's documented setup). Cheap interim if the switch is postponed: VSCodeVim's built-in
   `vim.autoSwitchInputMethod.switchIMCmd` shells out on insert-like transitions — binary only, no focus info.

@@ -79,6 +79,11 @@ type AppRule struct {
 	// Compared case-insensitively. VSCode reports "Text Editor" (older builds:
 	// an empty string).
 	EditorViews []string
+	// Widget names the accessibility-bus classifier whose verdicts apply to
+	// this app ("vscode"); empty ignores widget focus for it. Only apps whose
+	// DOM the classifier knows can use it -- for Obsidian the CodeMirror
+	// editor would look like "some other input".
+	Widget string
 }
 
 // VSCodeWindowTitle is the `window.title` setting that makes VSCode publish
@@ -119,7 +124,7 @@ func DefaultRules() Rules {
 		GUINvimApps: []string{"neovide", "com.neovide.neovide", "nvim-qt"},
 		LegacyApps: []AppRule{
 			{Kind: "vscode", Classes: []string{"code", "code-oss", "code-url-handler", "com.microsoft.vscode", "cursor", "codium"},
-				TitleView: VSCodeFocusedView, EditorViews: VSCodeEditorViews},
+				TitleView: VSCodeFocusedView, EditorViews: VSCodeEditorViews, Widget: "vscode"},
 			{Kind: "obsidian", Classes: []string{"obsidian", "md.obsidian"}},
 			{Kind: "intellij", Classes: []string{"jetbrains-*", "com.jetbrains.*"}},
 		},
@@ -130,9 +135,21 @@ func DefaultRules() Rules {
 // Snapshot is the input to Decide.
 type Snapshot struct {
 	Frontmost focus.App
-	Clients   []Client
-	Override  *Override
-	Now       time.Time
+	// Widget is where keyboard focus sits inside the frontmost app, when the
+	// accessibility bus has told us; nil otherwise.
+	Widget   *focus.Widget
+	Clients  []Client
+	Override *Override
+	Now      time.Time
+}
+
+// AppKind returns the client kind that may report for a window class, or ""
+// for plain legacy apps and non-editor apps.
+func (r Rules) AppKind(class string) string {
+	if rule, ok := legacyRule(r, class); ok {
+		return rule.Kind
+	}
+	return ""
 }
 
 // Decision is the output of Decide.
@@ -154,11 +171,13 @@ func decision(m Mode, reason string, client uint64) Decision {
 // Neovim client → title heuristic → OFF. An unknown frontmost (focus backend
 // down) fails open and trusts the clients.
 //
-// Inside a vim-enabled app (VSCode, Obsidian) three sources combine, in order:
-// the window title (a focused tool window → Raw), the app's own client saying
-// Raw (quick input open, no text editor), then the best client with a real
-// mode (Neovim embedded by vscode-neovim, or the app's own plugin). With none
-// of those the app is Legacy and the keyboard infers modes by itself.
+// Inside a vim-enabled app (VSCode, Obsidian) the sources combine, in order:
+// the window title (a focused tool window → Raw), the accessibility bus (focus
+// in anything but the text editor → Raw; in the editor → the clients' own
+// focus guesses are ignored), the app's own client saying Raw (quick input
+// open, no text editor), then the best client with a real mode (Neovim
+// embedded by vscode-neovim, or the app's own plugin). With none of those the
+// app is Legacy and the keyboard infers modes by itself.
 func Decide(r Rules, s Snapshot) Decision {
 	now := s.Now
 	if s.Override.Active(now) {
@@ -180,7 +199,18 @@ func Decide(r Rules, s Snapshot) Decision {
 				return decision(Raw, "tool window focused: "+view, 0)
 			}
 			appClients := clientsOfApp(s.Clients, rule.Kind)
-			if g, ok := ownClient(appClients); ok && g.Mode == Raw && !g.Expired(now) {
+			inEditor := false
+			if rule.Widget != "" && s.Widget != nil && front.PID != 0 && s.Widget.PID == front.PID {
+				if !s.Widget.Editor {
+					return decision(Raw, "focus in "+s.Widget.Detail, 0)
+				}
+				inEditor = true
+			}
+			if inEditor {
+				// The bus is authoritative about focus: the app's own client only
+				// ever guesses about it, so its stale raw must not compete.
+				appClients = notOwn(appClients)
+			} else if g, ok := ownClient(appClients); ok && g.Mode == Raw && !g.Expired(now) {
 				return decision(Raw, rule.Kind+" client raw", g.ID)
 			}
 			if c, ok := best(opinionated(appClients, now)); ok {
@@ -240,6 +270,17 @@ func opinionated(cs []Client, now time.Time) []Client {
 	out := cs[:0:0]
 	for _, c := range cs {
 		if c.Opinion(now) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// notOwn drops the app's own client(s), keeping the embedded editors.
+func notOwn(cs []Client) []Client {
+	out := cs[:0:0]
+	for _, c := range cs {
+		if c.Kind != c.App || c.App == "" {
 			out = append(out, c)
 		}
 	}

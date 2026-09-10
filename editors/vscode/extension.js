@@ -25,7 +25,7 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 
-const PLUGIN = '0.1.2';
+const PLUGIN = '0.1.3';
 const RECONNECT_MIN = 250;
 const RECONNECT_MAX = 5000;
 
@@ -157,10 +157,27 @@ function connect() {
     log('connected', p);
     hello();
   });
+  let pending = '';
   s.on('data', (chunk) => {
-    // The daemon may ask us to re-send our state (e.g. after a restart).
-    if (String(chunk).includes('"resync"')) {
-      hello();
+    pending += String(chunk);
+    let nl;
+    while ((nl = pending.indexOf('\n')) >= 0) {
+      const line = pending.slice(0, nl);
+      pending = pending.slice(nl + 1);
+      let msg;
+      try {
+        msg = JSON.parse(line);
+      } catch (e) {
+        continue;
+      }
+      if (msg.t === 'resync') {
+        // The daemon asks us to re-send our state (e.g. after a restart).
+        hello();
+      } else if (msg.t === 'editor_focus' && msg.focused === true) {
+        // The accessibility bus saw focus return to the text editor: any
+        // quick-input hint is stale.
+        clearQuickInput('editor focused (a11y)');
+      }
     }
   });
   s.on('error', (e) => {

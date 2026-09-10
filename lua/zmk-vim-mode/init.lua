@@ -179,6 +179,7 @@ function M.connect()
     S.connected = true
     S.connecting = false
     S.backoff = S.opts.reconnect_min
+    local pending = ""
     pipe:read_start(function(rerr, chunk)
       if rerr or not chunk then
         vim.schedule(function()
@@ -187,13 +188,31 @@ function M.connect()
         end)
         return
       end
-      -- The daemon may ask us to re-send our state (e.g. after a restart).
-      if chunk:find('"resync"', 1, true) then
-        vim.schedule(function()
-          S.last_sent = nil
-          hello()
-          M.report()
-        end)
+      pending = pending .. chunk
+      while true do
+        local nl = pending:find("\n", 1, true)
+        if not nl then
+          break
+        end
+        local line = pending:sub(1, nl - 1)
+        pending = pending:sub(nl + 1)
+        local ok, msg = pcall(vim.json.decode, line) -- plain Lua, safe in a uv callback
+        if ok and type(msg) == "table" then
+          if msg.t == "resync" then
+            -- The daemon asks us to re-send our state (e.g. after a restart).
+            vim.schedule(function()
+              S.last_sent = nil
+              hello()
+              M.report()
+            end)
+          elseif msg.t == "editor_focus" and msg.focused == true then
+            -- The accessibility bus saw focus return to the text editor: any
+            -- quick-input hint we raised is stale.
+            vim.schedule(function()
+              M.clear_vscode_raw("editor focused (a11y)")
+            end)
+          end
+        end
       end
     end)
     -- hello on every connect, not just VimEnter, so a restarted daemon is seeded.

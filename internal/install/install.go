@@ -21,7 +21,9 @@ type Options struct {
 	Udev    bool
 	// VSCode applies the settings the daemon relies on and installs the
 	// companion extension and vscode-neovim through the `code` CLI.
-	VSCode  bool
+	VSCode bool
+	// ATSPI starts the service with --atspi.
+	ATSPI   bool
 	Version string
 }
 
@@ -64,7 +66,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%s daemon
+ExecStart=%s daemon%s
 Restart=always
 RestartSec=2
 
@@ -121,7 +123,11 @@ func Run(w io.Writer, o Options) error {
 			home, _ := os.UserHomeDir()
 			content = fmt.Sprintf(launchdPlist, exe, filepath.Join(home, "Library", "Logs", "zmk-vim-mode.log"))
 		} else {
-			content = fmt.Sprintf(systemdUnit, exe)
+			extra := ""
+			if o.ATSPI {
+				extra = " --atspi"
+			}
+			content = fmt.Sprintf(systemdUnit, exe, extra)
 		}
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			return err

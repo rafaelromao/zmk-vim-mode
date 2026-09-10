@@ -79,6 +79,16 @@ func TestDecide(t *testing.T) {
 			Snapshot{Frontmost: vscodeTitled("main.go — zmk — Visual Studio Code"), Clients: []Client{embedded}}, Insert, CodeInsert, 9},
 		{"vscode title marker not at the end is ignored",
 			Snapshot{Frontmost: vscodeTitled("[Terminal] main.go — zmk"), Clients: []Client{embedded}}, Insert, CodeInsert, 9},
+		{"a11y: focus in a quick input → raw, whatever the clients say",
+			Snapshot{Frontmost: vscode, Widget: &focus.Widget{PID: 100, Detail: "input.input"}, Clients: []Client{embedded}}, Raw, CodeRaw, 0},
+		{"a11y: focus in the editor overrides the companion's stale raw hint",
+			Snapshot{Frontmost: vscode, Widget: &focus.Widget{PID: 100, Editor: true, Detail: "monaco editor"}, Clients: []Client{embedded, companion(5, Raw, 4, time.Time{})}}, Insert, CodeInsert, 9},
+		{"a11y: widget of another pid is not this window",
+			Snapshot{Frontmost: vscode, Widget: &focus.Widget{PID: 999, Editor: true}, Clients: []Client{embedded, companion(5, Raw, 4, time.Time{})}}, Raw, CodeRaw, 5},
+		{"a11y: title tool window still comes first",
+			Snapshot{Frontmost: vscodeTitled("x [terminal]"), Widget: &focus.Widget{PID: 100, Editor: true}, Clients: []Client{embedded}}, Raw, CodeRaw, 0},
+		{"a11y: apps without a classifier ignore widget focus",
+			Snapshot{Frontmost: app("obsidian"), Widget: &focus.Widget{PID: 100, Detail: "entry"}, Clients: []Client{{ID: 3, Kind: "obsidian", App: "obsidian", Mode: Insert, EventSeq: 1}}}, Insert, CodeInsert, 3},
 		{"obsidian own client with a mode → that mode",
 			Snapshot{Frontmost: app("obsidian"), Clients: []Client{{ID: 3, Kind: "obsidian", App: "obsidian", Mode: Insert, EventSeq: 1}}}, Insert, CodeInsert, 3},
 		{"obsidian own client with no opinion → legacy",
@@ -244,6 +254,32 @@ func TestStore(t *testing.T) {
 	if d := s.Decision(); d.Mode != Off {
 		t.Fatalf("no clients → off: %+v", d)
 	}
+	// Accessibility-bus widget focus, joined on the frontmost pid.
+	s.SetFrontmost(app("Code"))
+	s.Hello(3, HelloInfo{Kind: "nvim", App: "vscode", Mode: Normal})
+	if d := s.Decision(); d.Mode != Normal {
+		t.Fatalf("embedded nvim: %+v", d)
+	}
+	if !s.SetWidget(focus.Widget{PID: 100, Detail: "input.input"}) {
+		t.Fatal("first widget report is a change")
+	}
+	if d := s.Decision(); d.Mode != Raw {
+		t.Fatalf("quick input focused → raw: %+v", d)
+	}
+	if s.SetWidget(focus.Widget{PID: 100, Detail: "tree item"}) {
+		t.Fatal("other → other is not an editor-focus change")
+	}
+	if !s.SetWidget(focus.Widget{PID: 100, Editor: true, Detail: "monaco editor"}) {
+		t.Fatal("back to the editor is a change")
+	}
+	if d := s.Decision(); d.Mode != Normal {
+		t.Fatalf("editor focused → nvim mode again: %+v", d)
+	}
+	s.SetWidget(focus.Widget{PID: 4242, Detail: "somewhere else"}) // another app: no effect here
+	if d := s.Decision(); d.Mode != Normal {
+		t.Fatalf("other pid must not matter: %+v", d)
+	}
+	s.Gone(3)
 	if len(got) == 0 {
 		t.Fatal("onChange never called")
 	}

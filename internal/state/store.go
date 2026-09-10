@@ -14,6 +14,7 @@ type Store struct {
 	rules    Rules
 	clients  map[uint64]*Client
 	front    focus.App
+	widgets  map[int]focus.Widget // by pid, from the accessibility bus
 	override *Override
 	seq      uint64
 	now      func() time.Time
@@ -26,9 +27,29 @@ func NewStore(rules Rules, onChange func(Decision)) *Store {
 	return &Store{
 		rules:    rules,
 		clients:  map[uint64]*Client{},
+		widgets:  map[int]focus.Widget{},
 		now:      time.Now,
 		onChange: onChange,
 	}
+}
+
+// SetWidget records where keyboard focus is inside an application. It reports
+// whether that application's editor-focus state flipped, which is when its
+// clients should be told to drop their own guesses.
+func (s *Store) SetWidget(w focus.Widget) (editorChanged bool) {
+	s.mu.Lock()
+	prev, had := s.widgets[w.PID]
+	editorChanged = !had || prev.Editor != w.Editor
+	s.widgets[w.PID] = w
+	if len(s.widgets) > 64 { // pids come and go; keep the map bounded
+		for pid := range s.widgets {
+			if pid != w.PID && pid != s.front.PID {
+				delete(s.widgets, pid)
+			}
+		}
+	}
+	s.recomputeLocked()
+	return editorChanged
 }
 
 // SetClock overrides the clock (tests).
@@ -167,7 +188,14 @@ func (s *Store) snapshotLocked() Snapshot {
 		cp := *s.override
 		o = &cp
 	}
-	return Snapshot{Frontmost: s.front, Clients: cs, Override: o, Now: s.now()}
+	var wd *focus.Widget
+	if s.front.Known && s.front.PID != 0 {
+		if w, ok := s.widgets[s.front.PID]; ok {
+			cp := w
+			wd = &cp
+		}
+	}
+	return Snapshot{Frontmost: s.front, Widget: wd, Clients: cs, Override: o, Now: s.now()}
 }
 
 // Decision returns the current decision (computing it if needed).

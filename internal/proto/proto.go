@@ -30,6 +30,10 @@ const (
 	TWelcome = "welcome"
 	TResync  = "resync"
 	TError   = "error"
+	// TEditorFocus tells an app's clients that keyboard focus entered (focused
+	// true) or left the text editor, as seen on the accessibility bus. Clients
+	// drop their own focus guesses (quick-input hints) on "true".
+	TEditorFocus = "editor_focus"
 	// CLI → daemon
 	TSet     = "set"
 	TStatus  = "status"
@@ -78,6 +82,7 @@ type Status struct {
 	Mode      string         `json:"mode"`
 	Reason    string         `json:"reason"`
 	Frontmost *FrontmostInfo `json:"frontmost,omitempty"`
+	Widget    *WidgetInfo    `json:"widget,omitempty"` // accessibility-bus focus inside the frontmost app
 	Clients   []ClientInfo   `json:"clients"`
 	Override  *OverrideInfo  `json:"override,omitempty"`
 	Devices   []Device       `json:"devices"`
@@ -90,6 +95,12 @@ type FrontmostInfo struct {
 	Class string `json:"class,omitempty"`
 	Title string `json:"title,omitempty"`
 	PID   int    `json:"pid,omitempty"`
+}
+
+// WidgetInfo says where keyboard focus is inside the frontmost app.
+type WidgetInfo struct {
+	Editor bool   `json:"editor"`
+	Detail string `json:"detail,omitempty"`
 }
 
 // ClientInfo describes one connected editor client.

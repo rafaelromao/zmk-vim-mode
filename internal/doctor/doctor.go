@@ -2,6 +2,7 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rafaelromao/zmk-vim-mode/internal/focus/atspi"
 	"github.com/rafaelromao/zmk-vim-mode/internal/install"
 	"github.com/rafaelromao/zmk-vim-mode/internal/proto"
 	"github.com/rafaelromao/zmk-vim-mode/internal/server"
@@ -109,12 +111,33 @@ func Run(w io.Writer, socket, cliVersion string) error {
 		}
 	}
 
-	// 3. service installed
+	// 3. service installed; accessibility bus when the unit asks for it
 	if p, err := install.ServicePath(); err == nil {
-		if _, err := os.Stat(p); err == nil {
-			add("service unit", ok, install.TrimHome(p), "")
-		} else {
+		unit, err := os.ReadFile(p)
+		if err != nil {
 			add("service unit", warn, "not installed", "run: zmk-vim-mode install")
+		} else {
+			add("service unit", ok, install.TrimHome(p), "")
+			if runtime.GOOS == "linux" {
+				if !strings.Contains(string(unit), "--atspi") {
+					add("accessibility bus", info, "off: focus inside VSCode is guessed, mouse-opened quick inputs are missed",
+						"zmk-vim-mode install --atspi, then systemctl --user restart zmk-vim-mode")
+				} else {
+					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+					on, err := atspi.Enabled(ctx)
+					cancel()
+					switch {
+					case err != nil:
+						add("accessibility bus", warn, "cannot read org.a11y.Status: "+err.Error(),
+							"is at-spi2-core installed and the session bus reachable?")
+					case !on:
+						add("accessibility bus", warn, "IsEnabled is false: applications expose nothing",
+							"the daemon sets it at start -- is it running? then restart VSCode")
+					default:
+						add("accessibility bus", ok, "enabled (restart applications started before it was)", "")
+					}
+				}
+			}
 		}
 	}
 

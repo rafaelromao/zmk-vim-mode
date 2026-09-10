@@ -143,9 +143,44 @@ Check everything with `zmk-vim-mode doctor`.
 | Obsidian | own plugin (CodeMirror vim events) | own plugin (`focusin`) | [editors/obsidian](editors/obsidian/README.md) |
 | IntelliJ, anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
 
-Inside an app the sources rank: window title (a focused tool window) → the
-app's own client saying `raw` → the best client with a real mode → `legacy`.
-The title wins because no client can see focus leave the text editor.
+Inside an app the sources rank: window title (a focused tool window) →
+accessibility bus (focus anywhere but the text editor) → the app's own client
+saying `raw` → the best client with a real mode → `legacy`. The title wins
+because no client can see focus leave the text editor.
+
+### Following focus through the accessibility bus (optional)
+
+Two things nothing above can see: a quick input opened with the mouse, and the
+exact moment focus returns to the editor. Both are visible on AT-SPI2, the
+Linux accessibility bus, which every toolkit reports focus changes to -- when
+accessibility is on.
+
+```bash
+zmk-vim-mode install --atspi && systemctl --user restart zmk-vim-mode   # then restart VSCode once
+```
+
+The daemon then keeps one connection to the bus, registers as a focus
+listener and classifies each focused widget of the frontmost VSCode: the
+Monaco code editor → the clients decide; anything else (the palette's input,
+the terminal, a tree, a rename box, the find widget) → raw. It also tells the
+VSCode companion and the embedded Neovim when the editor regained focus, so
+their own guesses clear instantly.
+
+What it costs, and why it is opt-in: the daemon sets `org.a11y.Status.IsEnabled`
+on the session, which is what a screen reader does -- GTK, Qt and Chromium
+applications start maintaining accessibility trees (a little CPU and memory,
+nothing visible). `install --vscode` already sets
+`editor.accessibilitySupport: off` so VSCode does not switch Monaco into
+screen-reader mode because of it. Applications read the flag at startup:
+restart VSCode after enabling. The daemon reads only roles, labels and HTML
+tag/class names of focused widgets -- never text -- and logs labels at debug
+only.
+
+`zmk-vim-mode atspi-watch` prints every focus event with the classifier's
+verdict; if a VSCode update renames a widget, that is where the new name shows
+up. `zmk-vim-mode status` shows `focus : elsewhere (input.input …)` while a
+quick input is open. No D-Bus library is involved: `internal/dbus` is a
+300-line client for the handful of calls this needs.
 
 macOS is not wired up yet: the daemon runs with a logging-only LED backend, so
 the socket protocol and the plugin work, but nothing reaches the keyboard. See

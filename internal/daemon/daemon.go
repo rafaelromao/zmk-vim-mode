@@ -22,9 +22,12 @@ type Options struct {
 	SocketPath string
 	Rules      state.Rules
 	Focus      focus.Watcher
-	Backend    leds.Backend
-	Log        *slog.Logger
-	Version    string
+	// Widget, when set, reports keyboard focus inside applications (the
+	// accessibility bus). Optional.
+	Widget  focus.WidgetWatcher
+	Backend leds.Backend
+	Log     *slog.Logger
+	Version string
 	// StartupOffDelay delays the first OFF write after start so clients of a
 	// restarted daemon can reconnect without a visible OFF flicker.
 	StartupOffDelay time.Duration
@@ -41,10 +44,15 @@ type Daemon struct {
 	srv   *server.Server
 
 	mu        sync.Mutex
-	clients   map[server.ConnID]bool // connections that sent hello
+	clients   map[server.ConnID]clientInfo // connections that sent hello
 	started   time.Time
 	gateUntil time.Time
 	gateTimer *time.Timer
+}
+
+// clientInfo is what the daemon remembers about a connection after hello.
+type clientInfo struct {
+	kind, app string
 }
 
 // New creates a Daemon. Backend and Focus are required.
@@ -67,7 +75,7 @@ func New(o Options) (*Daemon, error) {
 	if o.Version == "" {
 		o.Version = "dev"
 	}
-	d := &Daemon{o: o, log: o.Log, clients: map[server.ConnID]bool{}}
+	d := &Daemon{o: o, log: o.Log, clients: map[server.ConnID]clientInfo{}}
 	d.store = state.NewStore(o.Rules, d.onDecision)
 	d.rec = leds.NewReconciler(o.Backend, o.Log)
 	return d, nil
@@ -115,6 +123,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 			d.store.SetFrontmost(focus.App{}) // unknown → fail open
 		}
 	}()
+	if d.o.Widget != nil {
+		go func() {
+			if err := d.o.Widget.Run(ctx, d.onWidget); err != nil && ctx.Err() == nil {
+				d.log.Warn("widget focus watcher stopped", "err", err)
+			}
+		}()
+	}
 	go d.tick(ctx)
 
 	// Apply the initial decision (usually OFF, gated).
@@ -138,6 +153,37 @@ func (d *Daemon) tick(ctx context.Context) {
 				continue // nothing expired yet
 			}
 			d.store.Recompute()
+		}
+	}
+}
+
+// onWidget records accessibility-bus focus and, when the frontmost app's
+// editor gained or lost focus, tells that app's clients so they drop their own
+// guesses (a quick-input hint that outlived the quick input).
+func (d *Daemon) onWidget(w focus.Widget) {
+	d.log.Debug("widget focus", "pid", w.PID, "editor", w.Editor, "detail", w.Detail)
+	if !d.store.SetWidget(w) {
+		return
+	}
+	snap := d.store.Snapshot()
+	if !snap.Frontmost.Known || snap.Frontmost.PID != w.PID {
+		return
+	}
+	kind := d.o.Rules.AppKind(snap.Frontmost.Class)
+	if kind == "" {
+		return
+	}
+	d.mu.Lock()
+	var ids []server.ConnID
+	for id, ci := range d.clients {
+		if ci.app == kind {
+			ids = append(ids, id)
+		}
+	}
+	d.mu.Unlock()
+	for _, id := range ids {
+		if err := d.srv.Send(id, proto.Msg{T: proto.TEditorFocus, Focused: proto.Bool(w.Editor)}); err != nil {
+			d.log.Debug("editor_focus not delivered", "conn", id, "err", err)
 		}
 	}
 }
@@ -178,7 +224,7 @@ func (d *Daemon) OnMessage(id server.ConnID, m proto.Msg) (*proto.Msg, bool) {
 			Nested: m.Nested, TTL: time.Duration(m.TTLMs) * time.Millisecond,
 		})
 		d.mu.Lock()
-		d.clients[id] = true
+		d.clients[id] = clientInfo{kind: m.Client, app: m.App}
 		d.mu.Unlock()
 		d.log.Info("client connected", "conn", id, "kind", m.Client, "app", m.App, "pid", m.PID, "plugin", m.Plugin, "tmux", m.Tmux, "nested", m.Nested)
 		dec := d.store.Decision()
@@ -229,12 +275,13 @@ func (d *Daemon) OnClose(id server.ConnID) { d.forget(id) }
 func (d *Daemon) isClient(id server.ConnID) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.clients[id]
+	_, ok := d.clients[id]
+	return ok
 }
 
 func (d *Daemon) forget(id server.ConnID) {
 	d.mu.Lock()
-	was := d.clients[id]
+	_, was := d.clients[id]
 	delete(d.clients, id)
 	d.mu.Unlock()
 	if was {
@@ -280,6 +327,9 @@ func (d *Daemon) status() *proto.Status {
 	}
 	if d.log.Enabled(context.Background(), slog.LevelDebug) {
 		st.Frontmost.Title = snap.Frontmost.Title
+	}
+	if snap.Widget != nil {
+		st.Widget = &proto.WidgetInfo{Editor: snap.Widget.Editor, Detail: snap.Widget.Detail}
 	}
 	for _, c := range snap.Clients {
 		ci := proto.ClientInfo{ID: c.ID, Kind: c.Kind, App: c.App, PID: c.PID, Mode: c.Mode.String(),

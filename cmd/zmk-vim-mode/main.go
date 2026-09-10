@@ -36,10 +36,12 @@ Usage:
                                         (re-issuing the same mode toggles back to auto)
   zmk-vim-mode status [--json]          show decision, frontmost app, clients, devices
   zmk-vim-mode devices                  list keyboards the daemon can write to
-  zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode]
+  zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode] [--atspi]
                                         install the user service; print editor/tmux snippets;
-                                        --vscode writes settings.json and installs the extensions
+                                        --vscode writes settings.json and installs the extensions;
+                                        --atspi makes the service follow focus inside VSCode
   zmk-vim-mode uninstall
+  zmk-vim-mode atspi-watch              print accessibility-bus focus events with the classifier's verdict
   zmk-vim-mode doctor                   check permissions, devices, old watchers, tmux, udev
   zmk-vim-mode version
 
@@ -86,6 +88,8 @@ func main() {
 		err = install.Uninstall(os.Stdout)
 	case "doctor":
 		err = doctor.Run(os.Stdout, server.DefaultSocketPath(), Version)
+	case "atspi-watch":
+		err = runATSPIWatch(args)
 	case "version", "--version", "-v":
 		fmt.Printf("zmk-vim-mode %s (%s)\n", Version, platformName)
 	case "help", "-h", "--help":
@@ -125,6 +129,9 @@ func runDaemon(args []string) error {
 		"drive any vendor's keyboards, not just ZMK's 1d50:615e — most keyboards declare the same "+
 			"five LED indicators, so this will write to unrelated keyboards too")
 	offDelay := fs.Duration("startup-off-delay", 1500*time.Millisecond, "delay before the first OFF write after start")
+	atspiOn := fs.Bool("atspi", false,
+		"follow keyboard focus inside VSCode through the accessibility bus (AT-SPI2); "+
+			"turns accessibility on for every application of the session, as a screen reader would")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -165,7 +172,7 @@ func runDaemon(args []string) error {
 
 	d, err := daemon.New(daemon.Options{
 		SocketPath: *sock, Rules: rules, Log: log, Version: Version, StartupOffDelay: *offDelay,
-		Backend: newBackend(log, f), Focus: newFocusWatcher(log),
+		Backend: newBackend(log, f), Focus: newFocusWatcher(log), Widget: newWidgetWatcher(log, *atspiOn),
 	})
 	if err != nil {
 		return err
@@ -254,6 +261,13 @@ func runStatus(args []string) error {
 			fmt.Println("frontmost: unknown (no focus backend) — trusting clients")
 		}
 	}
+	if st.Widget != nil {
+		where := "text editor"
+		if !st.Widget.Editor {
+			where = "elsewhere"
+		}
+		fmt.Printf("focus    : %s (%s, via the accessibility bus)\n", where, st.Widget.Detail)
+	}
 	if st.Override != nil {
 		fmt.Printf("override : %s", st.Override.Mode)
 		if st.Override.LeftMs > 0 {
@@ -331,10 +345,11 @@ func runInstall(args []string) error {
 	udev := fs.Bool("udev", false, "print the udev rule (Linux)")
 	noService := fs.Bool("no-service", false, "do not install/enable the user service")
 	vscode := fs.Bool("vscode", false, "apply the VSCode settings the daemon relies on and install the companion extension + vscode-neovim via the `code` CLI")
+	atspiOn := fs.Bool("atspi", false, "start the daemon with --atspi (follow focus inside VSCode through the accessibility bus)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Service: !*noService, Version: Version})
+	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, ATSPI: *atspiOn, Service: !*noService, Version: Version})
 }
 
 func deref(p *uint8) uint8 {

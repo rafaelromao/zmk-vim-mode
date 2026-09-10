@@ -30,3 +30,18 @@ func (a App) SameIdentity(b App) bool {
 type Watcher interface {
 	Run(ctx context.Context, emit func(App)) error
 }
+
+// Widget says where keyboard focus is *inside* an application: in its text
+// editor, or in some other control (a quick input, a tree, a terminal). It
+// comes from the accessibility bus and is keyed by process id, which is what
+// the window watcher also reports, so the two can be joined.
+type Widget struct {
+	PID    int
+	Editor bool
+	Detail string // for logs and status, never anything typed
+}
+
+// WidgetWatcher streams Widget facts for every application that exposes them.
+type WidgetWatcher interface {
+	Run(ctx context.Context, emit func(Widget)) error
+}

@@ -71,9 +71,9 @@ to add.
 Manual alternatives, should you prefer them:
 
 ```bash
-cd editors/vscode && npx @vscode/vsce package && code --install-extension zmk-vim-mode-0.1.2.vsix
+cd editors/vscode && npx @vscode/vsce package && code --install-extension zmk-vim-mode-0.1.3.vsix
 # or
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/rafaelromao.zmk-vim-mode-0.1.2
+ln -s "$PWD/editors/vscode" ~/.vscode/extensions/rafaelromao.zmk-vim-mode-0.1.3
 ```
 
 `zmk-vim-mode status` then shows a second client, `vscode app=vscode`, whose
@@ -91,14 +91,17 @@ mode is `none` while the editor has focus and `raw` otherwise.
 - Quick inputs opened from the terminal or the sidebar (editor not focused)
   are not wrapped; the title then says a view has focus, which is already raw.
 - **Quick inputs opened with the mouse** -- the title-bar Command Center, a
-  breadcrumb, a status-bar item -- raise no hint at all: nothing in the
-  extension API observes them and the title does not change. Open them from
-  the keyboard (`F1`, a Neovim mapping) or hide the target with
+  breadcrumb, a status-bar item -- raise no hint from this extension: nothing
+  in its API observes them and the title does not change. They are covered
+  only by the accessibility bus: `zmk-vim-mode install --atspi` (see the main
+  README, *Following focus through the accessibility bus*). Without it, open
+  them from the keyboard (`F1`, a Neovim mapping) or hide the target with
   `"window.commandCenter": false`. Letter chords such as `Ctrl+Shift+P` are
   not an option while the keyboard sits in its NORMAL layer: the letters are
-  remapped there. The only route that could see mouse-opened inputs is the
-  accessibility bus (AT-SPI2), which costs a D-Bus client in the daemon and
-  turns on Chromium's accessibility tree; not done.
+  remapped there.
+- With `--atspi` the daemon also tells this extension and the embedded Neovim
+  when focus returns to the editor (`editor_focus`), so their hints clear at
+  once and the first key after a quick input is never mis-typed.
 - The find widget (Ctrl+F) is part of the editor: with vscode-neovim, `/`
   search is Neovim's own and reports `cmdline` correctly.
 
