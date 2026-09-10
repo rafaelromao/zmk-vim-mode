@@ -174,7 +174,10 @@ func (r *Reconciler) doWrite(dev DeviceID, code uint8, reason string, attempt in
 	if err == nil {
 		r.last[dev] = code
 		r.writes++
-		r.log.Debug("led write", "dev", dev, "code", code, "reason", reason)
+		// Info, not debug: one line per decision change is cheap, and "the
+		// daemon decided right but the keyboard did not move" is undiagnosable
+		// without it.
+		r.log.Info("led write", "dev", dev, "code", code, "reason", reason)
 		return
 	}
 	if attempt >= len(r.RetryDelays) {
