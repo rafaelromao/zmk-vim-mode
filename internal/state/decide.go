@@ -2,6 +2,7 @@ package state
 
 import (
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -33,15 +34,22 @@ type Client struct {
 	FocusSeq uint64 // store sequence number of the last focus message
 	EventSeq uint64 // store sequence number of the last message of any kind
 	Nested   bool   // nvim inside another nvim's :terminal
-	// Deadline, when non-zero, is when this client's mode lapses to Raw
-	// (VSCode: keys stop reaching nvim while a tool window has focus).
+	// Deadline, when non-zero, is when this client's last report expires.
+	// An expired report is no opinion (see None): the VSCode companion sends
+	// its quick-input "raw" hint with a TTL so a missed close never traps the
+	// keyboard in raw.
 	Deadline  time.Time
 	LastEvent time.Time
 }
 
-// Expired reports whether the client's mode TTL has lapsed.
+// Expired reports whether the client's timed report has lapsed.
 func (c Client) Expired(now time.Time) bool {
 	return !c.Deadline.IsZero() && now.After(c.Deadline)
+}
+
+// Opinion reports whether the client's current report can drive a decision.
+func (c Client) Opinion(now time.Time) bool {
+	return c.Mode.Opinion() && !c.Expired(now)
 }
 
 // Override is a manual `set` that replaces the automatic decision.
@@ -61,7 +69,19 @@ func (o *Override) Active(now time.Time) bool {
 type AppRule struct {
 	Kind    string
 	Classes []string
+	// RawTitle, when set and matching the window title, means a tool window
+	// (terminal, sidebar, panel) has focus inside the app → Raw, whatever the
+	// clients say: they cannot see focus leave the text editor, the title can.
+	RawTitle *regexp.Regexp
 }
+
+// VSCodeWindowTitle is the `window.title` setting that makes VSCode publish
+// the focused view in its title, where VSCodeFocusedView can read it.
+// ${focusedView} is empty while the text editor has focus.
+const VSCodeWindowTitle = "${dirty}${activeEditorShort}${separator}${rootName} [${focusedView}]"
+
+// VSCodeFocusedView matches a non-empty "[View Name]" at the end of the title.
+var VSCodeFocusedView = regexp.MustCompile(`\[([^\[\]]+)\]\s*$`)
 
 // Rules is the app classification configuration.
 type Rules struct {
@@ -88,7 +108,8 @@ func DefaultRules() Rules {
 		},
 		GUINvimApps: []string{"neovide", "com.neovide.neovide", "nvim-qt"},
 		LegacyApps: []AppRule{
-			{Kind: "vscode", Classes: []string{"code", "code-oss", "code-url-handler", "com.microsoft.vscode", "cursor", "codium"}},
+			{Kind: "vscode", Classes: []string{"code", "code-oss", "code-url-handler", "com.microsoft.vscode", "cursor", "codium"},
+				RawTitle: VSCodeFocusedView},
 			{Kind: "obsidian", Classes: []string{"obsidian", "md.obsidian"}},
 			{Kind: "intellij", Classes: []string{"jetbrains-*", "com.jetbrains.*"}},
 		},
@@ -122,6 +143,12 @@ func decision(m Mode, reason string, client uint64) Decision {
 // matching kind → legacy app → terminal/GUI-nvim app with the best-ranked
 // Neovim client → title heuristic → OFF. An unknown frontmost (focus backend
 // down) fails open and trusts the clients.
+//
+// Inside a vim-enabled app (VSCode, Obsidian) three sources combine, in order:
+// the window title (a focused tool window → Raw), the app's own client saying
+// Raw (quick input open, no text editor), then the best client with a real
+// mode (Neovim embedded by vscode-neovim, or the app's own plugin). With none
+// of those the app is Legacy and the keyboard infers modes by itself.
 func Decide(r Rules, s Snapshot) Decision {
 	now := s.Now
 	if s.Override.Active(now) {
@@ -129,25 +156,38 @@ func Decide(r Rules, s Snapshot) Decision {
 	}
 	front := s.Frontmost
 	if !front.Known {
-		if c, ok := best(clientsOfApp(s.Clients, "")); ok {
-			return clientDecision(c, now, "frontmost unknown; trusting nvim client")
+		if c, ok := best(opinionated(clientsOfApp(s.Clients, ""), now)); ok {
+			return clientDecision(c, "frontmost unknown; trusting nvim client")
 		}
-		if c, ok := best(s.Clients); ok {
-			return clientDecision(c, now, "frontmost unknown; trusting client")
+		if c, ok := best(opinionated(s.Clients, now)); ok {
+			return clientDecision(c, "frontmost unknown; trusting client")
 		}
 		return decision(Off, "frontmost unknown; no clients", 0)
 	}
 	if rule, ok := legacyRule(r, front.Class); ok {
 		if rule.Kind != "" {
-			if c, ok := best(clientsOfApp(s.Clients, rule.Kind)); ok {
-				return clientDecision(c, now, "client "+rule.Kind)
+			if rule.RawTitle != nil {
+				if m := rule.RawTitle.FindStringSubmatch(front.Title); m != nil {
+					view := ""
+					if len(m) > 1 {
+						view = m[1]
+					}
+					return decision(Raw, "tool window focused: "+view, 0)
+				}
+			}
+			appClients := clientsOfApp(s.Clients, rule.Kind)
+			if g, ok := ownClient(appClients); ok && g.Mode == Raw && !g.Expired(now) {
+				return decision(Raw, rule.Kind+" client raw", g.ID)
+			}
+			if c, ok := best(opinionated(appClients, now)); ok {
+				return clientDecision(c, "client "+rule.Kind)
 			}
 		}
 		return decision(Legacy, "legacy app "+front.Class, 0)
 	}
 	if matchClass(r.TerminalApps, front.Class) || matchClass(r.GUINvimApps, front.Class) {
-		if c, ok := best(clientsOfApp(s.Clients, "")); ok {
-			return clientDecision(c, now, "nvim client")
+		if c, ok := best(opinionated(clientsOfApp(s.Clients, ""), now)); ok {
+			return clientDecision(c, "nvim client")
 		}
 		if titleMatches(r.TitleLegacy, front.Title) {
 			return decision(Legacy, "title heuristic", 0)
@@ -157,10 +197,7 @@ func Decide(r Rules, s Snapshot) Decision {
 	return decision(Off, "non-editor app "+front.Class, 0)
 }
 
-func clientDecision(c Client, now time.Time, reason string) Decision {
-	if c.Expired(now) {
-		return decision(Raw, reason+" (ttl lapsed)", c.ID)
-	}
+func clientDecision(c Client, reason string) Decision {
 	return decision(c.Mode, reason, c.ID)
 }
 
@@ -172,6 +209,35 @@ func clientsOfApp(cs []Client, app string) []Client {
 		}
 	}
 	return out
+}
+
+// opinionated keeps the clients whose report can drive a decision: a real
+// mode (not None) that has not expired.
+func opinionated(cs []Client, now time.Time) []Client {
+	out := cs[:0:0]
+	for _, c := range cs {
+		if c.Opinion(now) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// ownClient returns the app's own client -- the one whose Kind is the app
+// itself (the VSCode companion, the Obsidian plugin), as opposed to a Neovim
+// embedded in it. The most recently heard one wins.
+func ownClient(cs []Client) (Client, bool) {
+	var own Client
+	found := false
+	for _, c := range cs {
+		if c.Kind != c.App || c.App == "" {
+			continue
+		}
+		if !found || c.EventSeq > own.EventSeq {
+			own, found = c, true
+		}
+	}
+	return own, found
 }
 
 // best ranks clients: explicit "not focused" clients are excluded whenever

@@ -93,14 +93,21 @@ func (d *Daemon) Run(ctx context.Context) error {
 	go func() {
 		// Log every frontmost change: "frontmost unknown" is otherwise
 		// indistinguishable between a watcher that has not reported yet and one
-		// that cannot find the compositor. Window titles stay at debug level.
+		// that cannot find the compositor. Title changes of the same window
+		// arrive too (VSCode publishes its focused view there) and stay at
+		// debug level, as do titles in general.
+		var last focus.App
 		emit := func(a focus.App) {
-			if a.Known {
+			switch {
+			case !a.Known:
+				d.log.Info("frontmost unknown (focus backend unavailable); trusting editor clients")
+			case !last.SameIdentity(a):
 				d.log.Info("frontmost", "class", a.Class, "pid", a.PID)
 				d.log.Debug("frontmost title", "title", a.Title)
-			} else {
-				d.log.Info("frontmost unknown (focus backend unavailable); trusting editor clients")
+			default:
+				d.log.Debug("frontmost title", "title", a.Title)
 			}
+			last = a
 			d.store.SetFrontmost(a)
 		}
 		if err := d.o.Focus.Run(ctx, emit); err != nil && ctx.Err() == nil {
@@ -243,7 +250,7 @@ func (d *Daemon) handleSet(m proto.Msg) *proto.Msg {
 		d.store.SetOverride(nil)
 	default:
 		mm, ok := state.ParseMode(mode)
-		if !ok {
+		if !ok || mm == state.None {
 			return &proto.Msg{T: proto.TError, Err: proto.ErrBadRequest, Message: "unknown mode " + mode}
 		}
 		o := &state.Override{Mode: mm, Sticky: m.Sticky}
@@ -297,10 +304,9 @@ func (d *Daemon) status() *proto.Status {
 	return st
 }
 
+// parseMode maps a client's wire mode. Empty is None (no opinion), which is
+// what the VSCode companion sends while the text editor has focus.
 func parseMode(s string, log *slog.Logger) state.Mode {
-	if s == "" {
-		return state.Normal
-	}
 	m, ok := state.ParseMode(s)
 	if !ok {
 		log.Debug("unknown mode from client, treating as normal", "mode", s)

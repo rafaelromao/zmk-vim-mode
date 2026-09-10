@@ -1,0 +1,96 @@
+{
+  "name": "zmk-vim-mode",
+  "displayName": "ZMK Vim Mode",
+  "description": "Tells the zmk-vim-mode daemon when VSCode's text editor does not have keyboard focus, so a ZMK keyboard drops its vim layers.",
+  "version": "0.1.0",
+  "publisher": "rafaelromao",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rafaelromao/zmk-vim-mode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "zmkVimMode.status",
+        "title": "ZMK Vim Mode: Status"
+      },
+      {
+        "command": "zmkVimMode.quickOpen",
+        "title": "ZMK Vim Mode: Go to File (raw hint)"
+      },
+      {
+        "command": "zmkVimMode.showCommands",
+        "title": "ZMK Vim Mode: Command Palette (raw hint)"
+      },
+      {
+        "command": "zmkVimMode.gotoLine",
+        "title": "ZMK Vim Mode: Go to Line (raw hint)"
+      },
+      {
+        "command": "zmkVimMode.gotoSymbol",
+        "title": "ZMK Vim Mode: Go to Symbol in Editor (raw hint)"
+      }
+    ],
+    "keybindings": [
+      {
+        "key": "ctrl+p",
+        "command": "zmkVimMode.quickOpen",
+        "when": "editorTextFocus && !inQuickOpen"
+      },
+      {
+        "key": "ctrl+shift+p",
+        "command": "zmkVimMode.showCommands",
+        "when": "editorTextFocus"
+      },
+      {
+        "key": "f1",
+        "command": "zmkVimMode.showCommands",
+        "when": "editorTextFocus"
+      },
+      {
+        "key": "ctrl+g",
+        "command": "zmkVimMode.gotoLine",
+        "when": "editorTextFocus"
+      },
+      {
+        "key": "ctrl+shift+o",
+        "command": "zmkVimMode.gotoSymbol",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "ZMK Vim Mode",
+      "properties": {
+        "zmkVimMode.socket": {
+          "type": "string",
+          "default": "",
+          "description": "Daemon socket path. Empty uses $ZMK_VIM_MODE_SOCKET, then ~/.local/state/zmk-vim-mode/daemon.sock."
+        },
+        "zmkVimMode.quickInputTtlMs": {
+          "type": "number",
+          "default": 20000,
+          "description": "How long a quick-input raw hint lasts when its close is not observed (the daemon expires it too)."
+        },
+        "zmkVimMode.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log every state change to the ZMK Vim Mode output channel."
+        }
+      }
+    }
+  }
+}

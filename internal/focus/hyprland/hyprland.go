@@ -122,8 +122,10 @@ func (w *Watcher) stream(ctx context.Context, inst string, emit func(focus.App))
 		<-ctx.Done()
 		c.Close()
 	}()
+	tr := &tracker{}
 	// Initial state so we are not "unknown until the first switch".
-	if app, err := w.activeWindow(inst); err == nil {
+	if app, addr, err := w.activeWindow(inst); err == nil {
+		tr.note(app, addr)
 		emit(app)
 	} else {
 		w.log.Debug("j/activewindow failed", "err", err)
@@ -131,7 +133,23 @@ func (w *Watcher) stream(ctx context.Context, inst string, emit func(focus.App))
 	sc := bufio.NewScanner(c)
 	sc.Buffer(make([]byte, 0, 4096), 1<<20)
 	for sc.Scan() {
-		if app, ok := ParseEvent(sc.Text()); ok {
+		line := sc.Text()
+		if !tr.trigger(line) {
+			continue
+		}
+		// The event is only the trigger; j/activewindow is the source of truth
+		// (it carries the pid, which event lines lack, so the frontmost identity
+		// stays stable). Fall back to the event's own class/title if the
+		// control socket does not answer.
+		app, addr, err := w.activeWindow(inst)
+		if err != nil {
+			w.log.Debug("j/activewindow failed", "err", err)
+			var ok bool
+			if app, ok = ParseEvent(line); !ok {
+				continue
+			}
+		}
+		if tr.note(app, addr) {
 			emit(app)
 		}
 	}
@@ -141,9 +159,68 @@ func (w *Watcher) stream(ctx context.Context, inst string, emit func(focus.App))
 	return io.EOF
 }
 
-// ParseEvent parses one socket2 line. Only `activewindow>>CLASS,TITLE` is
-// used (CLASS cannot contain a comma; TITLE may — SplitN keeps it intact).
-// An empty CLASS means no window is focused (desktop) → known, empty app.
+// tracker decides which socket2 lines are worth a j/activewindow query and
+// dedupes the results. Hyprland reports a focus change as
+// `activewindow>>CLASS,TITLE` plus `activewindowv2>>ADDRESS`, and a title
+// change as `windowtitle>>ADDRESS` (older) or `windowtitlev2>>ADDRESS,TITLE`.
+// Title changes matter: VSCode publishes its focused view in the title. Only
+// the focused window's titles are followed -- background shells and browsers
+// retitle constantly.
+type tracker struct {
+	last  focus.App
+	addr  string // focused window address, normalised (lower case, no 0x)
+	sawV2 bool   // windowtitlev2 seen: the v1 line is a duplicate from then on
+}
+
+func (t *tracker) trigger(line string) bool {
+	switch {
+	case strings.HasPrefix(line, "activewindow>>"):
+		return true
+	case strings.HasPrefix(line, "activewindowv2>>"):
+		t.addr = normAddr(strings.TrimPrefix(line, "activewindowv2>>"))
+		return false
+	case strings.HasPrefix(line, "windowtitlev2>>"):
+		t.sawV2 = true
+		addr, _, _ := strings.Cut(strings.TrimPrefix(line, "windowtitlev2>>"), ",")
+		return t.isFocused(addr)
+	case strings.HasPrefix(line, "windowtitle>>"):
+		if t.sawV2 {
+			return false
+		}
+		return t.isFocused(strings.TrimPrefix(line, "windowtitle>>"))
+	}
+	return false
+}
+
+// isFocused is true for the focused window's address, and also while the
+// focused address is unknown (a query is cheap insurance then).
+func (t *tracker) isFocused(addr string) bool {
+	return t.addr == "" || normAddr(addr) == t.addr
+}
+
+// note records a query result and reports whether it differs from the last
+// emitted one.
+func (t *tracker) note(app focus.App, addr string) bool {
+	if addr != "" {
+		t.addr = normAddr(addr)
+	}
+	if app == t.last {
+		return false
+	}
+	t.last = app
+	return true
+}
+
+// normAddr makes event addresses (5581f0a1b2c0) and JSON ones (0x5581f0a1b2c0)
+// comparable.
+func normAddr(a string) string {
+	return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(a)), "0x")
+}
+
+// ParseEvent parses one `activewindow>>CLASS,TITLE` line (CLASS cannot
+// contain a comma; TITLE may — SplitN keeps it intact). An empty CLASS means
+// no window is focused (desktop) → known, empty app. The stream uses it only
+// as a fallback when the control socket does not answer.
 func ParseEvent(line string) (focus.App, bool) {
 	const prefix = "activewindow>>"
 	if !strings.HasPrefix(line, prefix) {
@@ -159,25 +236,27 @@ func ParseEvent(line string) (focus.App, bool) {
 }
 
 type activeWindowJSON struct {
-	Class string `json:"class"`
-	Title string `json:"title"`
-	PID   int    `json:"pid"`
+	Address string `json:"address"`
+	Class   string `json:"class"`
+	Title   string `json:"title"`
+	PID     int    `json:"pid"`
 }
 
-func (w *Watcher) activeWindow(inst string) (focus.App, error) {
+// activeWindow queries the focused window; the second result is its address.
+func (w *Watcher) activeWindow(inst string) (focus.App, string, error) {
 	out, err := ctl(inst, "j/activewindow", time.Second)
 	if err != nil {
-		return focus.App{}, err
+		return focus.App{}, "", err
 	}
 	out = strings.TrimSpace(out)
 	if out == "" || out == "{}" || strings.HasPrefix(out, "Invalid") {
-		return focus.App{Known: true}, nil
+		return focus.App{Known: true}, "", nil
 	}
 	var aw activeWindowJSON
 	if err := json.Unmarshal([]byte(out), &aw); err != nil {
-		return focus.App{}, fmt.Errorf("parse activewindow: %w (%q)", err, truncate(out, 80))
+		return focus.App{}, "", fmt.Errorf("parse activewindow: %w (%q)", err, truncate(out, 80))
 	}
-	return focus.App{Known: true, Class: aw.Class, Title: aw.Title, PID: aw.PID}, nil
+	return focus.App{Known: true, Class: aw.Class, Title: aw.Title, PID: aw.PID}, aw.Address, nil
 }
 
 // ctl sends one command to .socket.sock and returns the full reply.

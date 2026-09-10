@@ -53,12 +53,12 @@ type Msg struct {
 	Client  string `json:"client,omitempty"` // nvim | vscode | obsidian | intellij
 	App     string `json:"app,omitempty"`    // host application kind: "" (terminal-hosted nvim), vscode, obsidian, intellij
 	PID     int    `json:"pid,omitempty"`
-	Mode    string `json:"mode,omitempty"`    // off|normal|insert|visual|cmdline|raw ; CLI set also: legacy|auto
+	Mode    string `json:"mode,omitempty"`    // off|normal|insert|visual|cmdline|raw|none ("none" or absent = no opinion); CLI set also: legacy|auto
 	Focused *bool  `json:"focused,omitempty"` // nil = unknown
 	Nested  bool   `json:"nested,omitempty"`  // nvim running inside another nvim's :terminal
 	Tmux    bool   `json:"tmux,omitempty"`
 	Plugin  string `json:"plugin,omitempty"`
-	TTLMs   int    `json:"ttl_ms,omitempty"` // mode: downgrade this client to raw when it lapses; set: override expiry
+	TTLMs   int    `json:"ttl_ms,omitempty"` // mode: the report expires after this, leaving the client with no opinion; set: override expiry
 	Sticky  bool   `json:"sticky,omitempty"` // set: keep override across frontmost changes
 
 	// Daemon → client / CLI.

@@ -134,6 +134,19 @@ following [docs/keyboards-repo.md](docs/keyboards-repo.md).
 
 Check everything with `zmk-vim-mode doctor`.
 
+### Editors
+
+| Editor | Mode source | Tool-window focus | Setup |
+|---|---|---|---|
+| Neovim in a terminal, Neovide | the Neovim plugin | the plugin: `raw` for pickers, the terminal, a pending `<leader>` | `contrib/nvim-lazy-spec.lua` |
+| VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, plus a small companion extension for quick inputs and non-text editors | [editors/vscode](editors/vscode/README.md) |
+| Obsidian | own plugin (CodeMirror vim events) | own plugin (`focusin`) | [editors/obsidian](editors/obsidian/README.md) |
+| IntelliJ, anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
+
+Inside an app the sources rank: window title (a focused tool window) → the
+app's own client saying `raw` → the best client with a real mode → `legacy`.
+The title wins because no client can see focus leave the text editor.
+
 macOS is not wired up yet: the daemon runs with a logging-only LED backend, so
 the socket protocol and the plugin work, but nothing reaches the keyboard. See
 PLAN.md phase 6.

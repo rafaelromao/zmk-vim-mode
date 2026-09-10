@@ -285,22 +285,32 @@ heavy Neovim user the embedded-nvim option is the consensus, and the only one th
 - **Focus is unobservable from the extension API.** `vscode.d.ts` and all 40 proposed-API files have nothing for
   "which part has keyboard focus"; `onDidChangeActiveTextEditor` does not fire when focus moves to the terminal
   or quick-input; `activeTerminal` means "focused *or most recently* focused"; `TerminalState.isInteractedWith`
-  latches. Invert it: **VSCode gates keys on `editorTextFocus`, so nvim receives nothing while a tool window
-  has focus.** Model `raw` as a **TTL on mode traffic** — the nvim client sends its mode with a short TTL
-  (~400 ms, refreshed by any key/mode event); when the TTL lapses with no traffic the daemon downgrades that
-  client to `raw`. Sharpen with a ~100-line companion extension in `editors/vscode/` pushing
-  `window.state.focused` (`onDidChangeWindowState`), `onDidChangeActiveTerminal !== undefined` → immediate
-  `raw`, and `onDidChangeActiveTextEditor` → immediate re-assert.
+  latches. The first idea — a short TTL on nvim's mode traffic, lapsing to `raw` — was wrong: idle in NORMAL
+  (reading code) is the common case, and `raw` there sends base-layout letters as vim commands. Implemented
+  instead (phase 4):
+  1. **Window title.** `"window.title": "${dirty}${activeEditorShort}${separator}${rootName} [${focusedView}]"`
+     publishes the focused view (Terminal, Explorer, Search, …; empty while the text editor has focus). The
+     daemon follows Hyprland `windowtitle(v2)` events for the focused window (re-querying `j/activewindow`, the
+     source of truth) and `AppRule.RawTitle` (`\[([^\[\]]+)\]\s*$`) turns a non-empty marker into `raw`, above
+     every client. Zero VSCode code.
+  2. **Companion extension** (`editors/vscode/`, plain JS, no build step): the app's *own* client
+     (`client: vscode, app: vscode`). Says `raw` while `activeTextEditor` is undefined (Settings, webviews,
+     images, empty window) and, with a TTL, after wrapping Ctrl+P / Ctrl+Shift+P / F1 / Ctrl+G / Ctrl+Shift+O
+     (`when: editorTextFocus`); says `none` — new wire mode, "no opinion" — otherwise, so the embedded nvim
+     decides. The hint clears on active-editor, selection or window-state change, else it expires (20 s).
+     Known glitch: Escape out of the palette, then the first motion key still goes through the base layout.
+  3. **Decide** combines them per app: title → own client `raw` → best opinionated client → `legacy`.
 - Zero migration cost: `~/.vscodevimrc` is empty. Uninstall VSCodeVim (the affinity setting already present is
   vscode-neovim's documented setup). Cheap interim if the switch is postponed: VSCodeVim's built-in
   `vim.autoSwitchInputMethod.switchIMCmd` shells out on insert-like transitions — binary only, no focus info.
 
 #### 4b. Obsidian → community plugin in `editors/obsidian/`
 - Mode: `cm.on('vim-mode-change', cb)` → `{mode, subMode}`, emitting exactly `normal | insert | visual | replace`.
-  **There is no `cmdline` event** — `:` and `/` go through `openDialog` — so use `cm.on('dialog')` +
-  `cm.state.dialog != null` → `cmdline` (probe at runtime; Obsidian bundles a pinned `@replit/codemirror-vim`).
-  Seed state synchronously from `editor.state.vim` (`insertMode`, `visualMode`, `visualLine`, `visualBlock`)
-  on load and after every leaf change. Editor handle: `(view as any).editMode?.editor?.cm?.cm` with a fallback
+  **There is no `cmdline` event** — `:` and `/` go through `openDialog`, whose input takes DOM focus — so
+  `cmdline` is a `focusin` landing inside the editor container but outside `.cm-content` (`.cm-vim-panel`).
+  Implemented that way in phase 4 (`editors/obsidian/`, plain JS, no build step); `vim-mode-change` only
+  triggers a re-read, the mode itself comes from `cm.state.vim` (`insertMode`, `visualMode`) with the event's
+  `mode` preferred when it belongs to the active adapter. Editor handle: `(view as any).editMode?.editor?.cm?.cm` with a fallback
   to the older `sourceMode?.cmEditor?.cm?.cm`; adapter at `window.CodeMirrorAdapter`.
 - Re-register listeners on **both** `active-leaf-change` and `file-open` (needed when the same file opens in a
   new pane) — the pattern `obsidian-vimrc-support` uses, already on disk to read.
@@ -330,8 +340,9 @@ right pass-through, do not map them to `raw`. Transport: Java 16+ `UnixDomainSoc
   `OP_PENDING*`, `SELECT_*`): map unknown → `normal`, log once.
 - Daemon → client **`resync`** request; every client seeds state on connect (all three APIs can read current
   state synchronously: `vscode.eval`, `VimApi`, `editor.state.vim`). Needed after daemon restarts.
-- Optional per-client `ttl_ms` on `mode` messages (VSCode client); the daemon downgrades that client to `raw`
-  when the TTL lapses.
+- `ttl_ms` on `mode`/`hello`: the report expires after it, leaving the client with **no opinion** (wire mode
+  `none`, also sendable explicitly). Used by the VSCode companion's quick-input hint; never to downgrade a mode
+  to `raw` (see 4a for why).
 
 ### 5. Install
 - Linux: `make install` → build (`CGO_ENABLED=0`), copy to `~/.local/bin`, `~/.config/systemd/user/
@@ -446,7 +457,16 @@ Deviations from the design above, all in the keyboards repo:
 - The old `scripts/vimmode/` watchers, `listeners.dtsi` and the
   `ssbb/zmk-listeners` module are gone from the keyboards repo.
 
-Next: phase 4 (editor integrations), starting with `vscode-neovim`.
+Phase 4 (editor integrations) is **implemented, not yet verified on hardware** (2026-09-09): the daemon
+follows title changes and combines, per app, title → own client → mode client → legacy; `editors/vscode/`
+(companion) and `editors/obsidian/` (plugin) are plain JS with no build step; the protocol gained mode `none`.
+IntelliJ stays deferred (not installed). To verify on Omarchy: vscode-neovim + the `window.title` setting +
+the companion; the Obsidian plugin copied into the vault; then `zmk-vim-mode status` shows `nvim app=vscode`,
+`vscode app=vscode` and `obsidian app=obsidian` clients and `journalctl --user -u zmk-vim-mode` shows the
+`tool window focused: Terminal` decisions.
+
+Next: phase 5 is mostly done (installer, doctor, README, old watchers deleted) — left is a doctor check for
+the editor setups. Then phase 6 (macOS) when wanted.
 
 ## Phases (Omarchy first)
 

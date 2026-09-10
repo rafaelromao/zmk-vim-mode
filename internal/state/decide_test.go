@@ -15,6 +15,18 @@ func nvim(id uint64, m Mode, f Focus, focusSeq, eventSeq uint64) Client {
 	return Client{ID: id, Kind: "nvim", Mode: m, Focus: f, FocusSeq: focusSeq, EventSeq: eventSeq, LastEvent: t0}
 }
 
+// companion is the VSCode extension: the app's own client, never focused/unfocused.
+func companion(id uint64, m Mode, eventSeq uint64, deadline time.Time) Client {
+	return Client{ID: id, Kind: "vscode", App: "vscode", Mode: m, EventSeq: eventSeq, Deadline: deadline, LastEvent: t0}
+}
+
+// embedded is the Neovim that vscode-neovim runs inside VSCode.
+var embedded = Client{ID: 9, Kind: "nvim", App: "vscode", Mode: Insert, EventSeq: 3, LastEvent: t0}
+
+func vscodeTitled(title string) focus.App {
+	return focus.App{Known: true, Class: "Code", Title: title, PID: 100}
+}
+
 func TestDecide(t *testing.T) {
 	r := DefaultRules()
 	ghostty := app("com.mitchellh.ghostty")
@@ -39,10 +51,30 @@ func TestDecide(t *testing.T) {
 			Snapshot{Frontmost: vscode, Clients: []Client{nvim(1, Insert, FocusYes, 1, 1)}}, Legacy, CodeLegacy, 0},
 		{"vscode with vscode client → client mode",
 			Snapshot{Frontmost: vscode, Clients: []Client{{ID: 9, Kind: "nvim", App: "vscode", Mode: Visual, Focus: FocusUnknown, EventSeq: 3}}}, Visual, CodeVisual, 9},
-		{"vscode client with lapsed ttl → raw",
-			Snapshot{Frontmost: vscode, Now: t0, Clients: []Client{{ID: 9, Kind: "nvim", App: "vscode", Mode: Normal, Deadline: t0.Add(-time.Millisecond), EventSeq: 3}}}, Raw, CodeRaw, 9},
+		{"vscode client with lapsed ttl → no opinion → legacy",
+			Snapshot{Frontmost: vscode, Now: t0, Clients: []Client{{ID: 9, Kind: "nvim", App: "vscode", Mode: Normal, Deadline: t0.Add(-time.Millisecond), EventSeq: 3}}}, Legacy, CodeLegacy, 0},
 		{"vscode client with live ttl → mode",
 			Snapshot{Frontmost: vscode, Now: t0, Clients: []Client{{ID: 9, Kind: "nvim", App: "vscode", Mode: Normal, Deadline: t0.Add(time.Second), EventSeq: 3}}}, Normal, CodeNormal, 9},
+		{"vscode companion alone, no opinion → legacy",
+			Snapshot{Frontmost: vscode, Clients: []Client{companion(5, None, 4, time.Time{})}}, Legacy, CodeLegacy, 0},
+		{"vscode companion raw beats embedded nvim",
+			Snapshot{Frontmost: vscode, Clients: []Client{embedded, companion(5, Raw, 4, time.Time{})}}, Raw, CodeRaw, 5},
+		{"vscode companion raw with live ttl beats embedded nvim",
+			Snapshot{Frontmost: vscode, Now: t0, Clients: []Client{embedded, companion(5, Raw, 4, t0.Add(time.Second))}}, Raw, CodeRaw, 5},
+		{"vscode companion raw expired → embedded nvim decides",
+			Snapshot{Frontmost: vscode, Now: t0, Clients: []Client{embedded, companion(5, Raw, 4, t0.Add(-time.Second))}}, Insert, CodeInsert, 9},
+		{"vscode companion none → embedded nvim decides",
+			Snapshot{Frontmost: vscode, Clients: []Client{embedded, companion(5, None, 4, time.Time{})}}, Insert, CodeInsert, 9},
+		{"vscode title marks a focused view → raw, whatever the clients say",
+			Snapshot{Frontmost: vscodeTitled("main.go — zmk [Terminal]"), Clients: []Client{embedded}}, Raw, CodeRaw, 0},
+		{"vscode title with empty marker → clients decide",
+			Snapshot{Frontmost: vscodeTitled("main.go — zmk []"), Clients: []Client{embedded}}, Insert, CodeInsert, 9},
+		{"vscode title marker not at the end is ignored",
+			Snapshot{Frontmost: vscodeTitled("[Terminal] main.go — zmk"), Clients: []Client{embedded}}, Insert, CodeInsert, 9},
+		{"obsidian own client with a mode → that mode",
+			Snapshot{Frontmost: app("obsidian"), Clients: []Client{{ID: 3, Kind: "obsidian", App: "obsidian", Mode: Insert, EventSeq: 1}}}, Insert, CodeInsert, 3},
+		{"obsidian own client with no opinion → legacy",
+			Snapshot{Frontmost: app("obsidian"), Clients: []Client{{ID: 3, Kind: "obsidian", App: "obsidian", Mode: None, EventSeq: 1}}}, Legacy, CodeLegacy, 0},
 		{"ghostty, no clients → off",
 			Snapshot{Frontmost: ghostty}, Off, CodeOff, 0},
 		{"ghostty, one focused insert client → insert",
@@ -107,11 +139,14 @@ func TestCodesAndAliases(t *testing.T) {
 	if SilentAlias(CodeLegacy) != CodeLegacySilent || SilentAlias(CodeInsert) != CodeInsert {
 		t.Fatal("alias")
 	}
-	for _, s := range []string{"off", "normal", "insert", "visual", "cmdline", "raw", "legacy"} {
+	for _, s := range []string{"off", "normal", "insert", "visual", "cmdline", "raw", "legacy", "none"} {
 		m, ok := ParseMode(s)
 		if !ok || m.String() != s {
 			t.Fatalf("parse %s → %s %v", s, m, ok)
 		}
+	}
+	if m, ok := ParseMode(""); !ok || m != None || m.Code() != CodeOff || m.Opinion() {
+		t.Fatalf("empty mode must be None with no opinion: %s %v", m, ok)
 	}
 	if m, ok := ParseMode("OP_PENDING"); ok || m != Normal {
 		t.Fatalf("unknown modes must map to normal,false: %s %v", m, ok)
@@ -180,10 +215,21 @@ func TestStore(t *testing.T) {
 	if !ok || !dl.Equal(now.Add(300*time.Millisecond)) {
 		t.Fatalf("deadline: %v %v", dl, ok)
 	}
+	// Lapsed: client 1 has no opinion and client 2 said "not focused" → nobody
+	// speaks for this terminal.
 	now = now.Add(time.Second)
 	s.Recompute()
-	if d := s.Decision(); d.Mode != Raw {
-		t.Fatalf("ttl lapsed → raw: %+v", d)
+	if d := s.Decision(); d.Mode != Off {
+		t.Fatalf("ttl lapsed → no opinion → off: %+v", d)
+	}
+	// A "none" report retracts an opinion explicitly.
+	s.SetMode(1, Insert, 0)
+	if d := s.Decision(); d.Mode != Insert {
+		t.Fatalf("fresh report: %+v", d)
+	}
+	s.SetMode(1, None, 0)
+	if d := s.Decision(); d.Mode != Off {
+		t.Fatalf("none → off: %+v", d)
 	}
 	s.Gone(1)
 	s.Gone(2)

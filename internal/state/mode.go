@@ -16,12 +16,19 @@ const (
 	Cmdline             // command line / prompts
 	Raw                 // keys must pass through untouched: plugin UI buffers, terminal job, pending <leader>, tool windows
 	Legacy              // vim-like app with no mode feed; keyboard infers locally (today's behaviour)
+	// None is "no opinion": the client is connected but has nothing to say
+	// about the mode right now -- a VSCode companion while the text editor has
+	// focus, or any client whose timed report has expired. Never a decision.
+	None
 )
 
 var modeNames = map[Mode]string{
 	Off: "off", Normal: "normal", Insert: "insert", Visual: "visual",
-	Cmdline: "cmdline", Raw: "raw", Legacy: "legacy",
+	Cmdline: "cmdline", Raw: "raw", Legacy: "legacy", None: "none",
 }
+
+// Opinion reports whether m can drive a decision.
+func (m Mode) Opinion() bool { return m != None }
 
 // String returns the wire name of m.
 func (m Mode) String() string {
@@ -31,11 +38,14 @@ func (m Mode) String() string {
 	return "unknown"
 }
 
-// ParseMode maps a wire name to a Mode. Unknown names return (Normal, false):
-// richer editor modes we do not model (IdeaVim's OP_PENDING*, SELECT_*) are
-// treated as normal, and the caller may log the mismatch once.
+// ParseMode maps a wire name to a Mode. An empty name is None (no opinion).
+// Unknown names return (Normal, false): richer editor modes we do not model
+// (IdeaVim's OP_PENDING*, SELECT_*) are treated as normal, and the caller may
+// log the mismatch once.
 func ParseMode(s string) (Mode, bool) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", "none":
+		return None, true
 	case "off":
 		return Off, true
 	case "normal", "n":
