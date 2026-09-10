@@ -26,6 +26,7 @@ const (
 	eventIface      = "org.a11y.atspi.Event.Object"
 	nullPath        = "/org/a11y/atspi/null"
 	focusEvent      = "object:state-changed:focused"
+	focusEventDBus  = "Object:StateChanged:Focused"
 	matchRule       = "type='signal',interface='" + eventIface + "',member='StateChanged'"
 )
 
@@ -206,9 +207,15 @@ func (w *Watcher) connect(ctx context.Context) (*dbus.Conn, error) {
 		a11y.Close()
 		return nil, fmt.Errorf("AddMatch: %w", err)
 	}
-	if _, err := a11y.Call(dctx, registryName, registryPath, registryIface, "RegisterEvent", "s", focusEvent); err != nil {
-		a11y.Close()
-		return nil, fmt.Errorf("RegisterEvent: %w", err)
+	// libatspi rewrites "object:state-changed:focused" into the D-Bus form
+	// "Object:StateChanged:Focused" before registering, and the bridges inside
+	// applications compare listeners against that form -- a raw-form listener
+	// is silently ignored. Register both spellings; duplicates are harmless.
+	for _, ev := range []string{focusEventDBus, focusEvent} {
+		if _, err := a11y.Call(dctx, registryName, registryPath, registryIface, "RegisterEvent", "s", ev); err != nil {
+			a11y.Close()
+			return nil, fmt.Errorf("RegisterEvent(%s): %w", ev, err)
+		}
 	}
 	return a11y, nil
 }
