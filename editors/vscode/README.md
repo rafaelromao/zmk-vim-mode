@@ -79,6 +79,15 @@ mode is `none` while the editor has focus and `raw` otherwise.
   vscode-neovim's resync fire them, and they would clear the hint at once.
 - Quick inputs opened from the terminal or the sidebar (editor not focused)
   are not wrapped; the title then says a view has focus, which is already raw.
+- **Quick inputs opened with the mouse** -- the title-bar Command Center, a
+  breadcrumb, a status-bar item -- raise no hint at all: nothing in the
+  extension API observes them and the title does not change. Open them from
+  the keyboard (`F1`, a Neovim mapping) or hide the target with
+  `"window.commandCenter": false`. Letter chords such as `Ctrl+Shift+P` are
+  not an option while the keyboard sits in its NORMAL layer: the letters are
+  remapped there. The only route that could see mouse-opened inputs is the
+  accessibility bus (AT-SPI2), which costs a D-Bus client in the daemon and
+  turns on Chromium's accessibility tree; not done.
 - The find widget (Ctrl+F) is part of the editor: with vscode-neovim, `/`
   search is Neovim's own and reports `cmdline` correctly.
 
