@@ -313,12 +313,83 @@ func listExtensions(bin string) map[string]bool {
 	return set
 }
 
+// RendererFlag is the Chromium switch without which Electron never builds the
+// accessibility tree of its web content: the bus flags alone reach GTK and Qt,
+// not VSCode's DOM. Arch's `code` wrapper appends the lines of
+// ~/.config/code-flags.conf to the command line.
+const RendererFlag = "--force-renderer-accessibility"
+
+// codeFlagFiles maps a VSCode flavour's config dir to its flags file.
+var codeFlagFiles = map[string]string{
+	"Code":       "code-flags.conf",
+	"Code - OSS": "code-flags.conf",
+	"VSCodium":   "codium-flags.conf",
+}
+
+// ensureRendererFlag adds RendererFlag to the flags file of every installed
+// flavour. It reports the files it changed.
+func ensureRendererFlag(home string) ([]string, error) {
+	base := filepath.Join(home, ".config")
+	var changed []string
+	seen := map[string]bool{}
+	for dir, file := range codeFlagFiles {
+		if _, err := os.Stat(filepath.Join(base, dir)); err != nil {
+			continue
+		}
+		p := filepath.Join(base, file)
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		raw, err := os.ReadFile(p)
+		if err != nil && !os.IsNotExist(err) {
+			return changed, err
+		}
+		if strings.Contains(string(raw), RendererFlag) {
+			continue
+		}
+		text := string(raw)
+		if text != "" && !strings.HasSuffix(text, "\n") {
+			text += "\n"
+		}
+		text += RendererFlag + "\n"
+		if err := os.WriteFile(p, []byte(text), 0o644); err != nil {
+			return changed, err
+		}
+		changed = append(changed, p)
+	}
+	return changed, nil
+}
+
+// HasRendererFlag reports whether the flags file of some flavour carries it.
+func HasRendererFlag(home string) bool {
+	for _, file := range codeFlagFiles {
+		raw, err := os.ReadFile(filepath.Join(home, ".config", file))
+		if err == nil && strings.Contains(string(raw), RendererFlag) {
+			return true
+		}
+	}
+	return false
+}
+
 // InstallVSCode applies the settings, installs the companion (packaged on the
-// fly) and vscode-neovim, and reports what still needs a human.
-func InstallVSCode(w io.Writer) error {
+// fly) and vscode-neovim, and reports what still needs a human. With atspi it
+// also adds the renderer accessibility flag VSCode needs to appear on the bus.
+func InstallVSCode(w io.Writer, atspi bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
+	}
+	if atspi {
+		changed, err := ensureRendererFlag(home)
+		if err != nil {
+			return fmt.Errorf("code-flags.conf: %w", err)
+		}
+		if len(changed) == 0 {
+			fmt.Fprintf(w, "flags      : %s already in the code-flags.conf files\n", RendererFlag)
+		} else {
+			fmt.Fprintf(w, "flags      : added %s to %s (Electron exposes its DOM to the accessibility bus only with it)\n", RendererFlag, strings.Join(changed, ", "))
+		}
 	}
 	// 1. settings, in every flavour that has a User dir
 	applied := false

@@ -66,7 +66,10 @@ func ClassifyVSCode(f Focused) Verdict {
 	classes := tokens(f.Attrs["class"])
 	name := strings.ToLower(strings.TrimSpace(f.Name))
 
-	if classes["inputarea"] || strings.EqualFold(f.Attrs["roledescription"], "editor") {
+	// Monaco's input surface: a textarea (class inputarea) in older builds, a
+	// contenteditable div (class native-edit-context) since 2025; both carry
+	// aria-roledescription "editor".
+	if classes["inputarea"] || classes["native-edit-context"] || strings.EqualFold(f.Attrs["roledescription"], "editor") {
 		for _, anc := range f.AncestorClasses {
 			for _, marker := range monacoWidgetAncestors {
 				if tokens(anc)[marker] {

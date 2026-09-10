@@ -156,8 +156,13 @@ Linux accessibility bus, which every toolkit reports focus changes to -- when
 accessibility is on.
 
 ```bash
-zmk-vim-mode install --atspi && systemctl --user restart zmk-vim-mode   # then restart VSCode once
+zmk-vim-mode install --atspi --vscode && systemctl --user restart zmk-vim-mode   # then restart VSCode once
 ```
+
+`--vscode` alongside `--atspi` also adds `--force-renderer-accessibility` to
+`~/.config/code-flags.conf` (read by Arch's `code` wrapper): Electron builds
+the accessibility tree of its web content only with that switch -- the bus
+flags alone reach GTK and Qt, not VSCode's DOM.
 
 The daemon then keeps one connection to the bus, registers as a focus
 listener and classifies each focused widget of the frontmost VSCode: the

@@ -173,7 +173,13 @@ func Run(w io.Writer, o Options) error {
 	}
 	if o.VSCode {
 		fmt.Fprintln(w, "\n--- VSCode ---")
-		if err := InstallVSCode(w); err != nil {
+		atspi := o.ATSPI
+		if p, err := ServicePath(); err == nil {
+			if old, err := os.ReadFile(p); err == nil && strings.Contains(string(old), "--atspi") {
+				atspi = true
+			}
+		}
+		if err := InstallVSCode(w, atspi); err != nil {
 			return err
 		}
 	}

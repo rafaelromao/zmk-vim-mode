@@ -136,6 +136,10 @@ func Run(w io.Writer, socket, cliVersion string) error {
 					default:
 						add("accessibility bus", ok, "enabled (restart applications started before it was)", "")
 					}
+					if home, err := os.UserHomeDir(); err == nil && !install.HasRendererFlag(home) {
+						add("vscode renderer a11y", warn, install.RendererFlag+" missing from ~/.config/code-flags.conf: VSCode's DOM never reaches the bus",
+							"zmk-vim-mode install --vscode (with --atspi in the unit it adds the flag), then restart VSCode")
+					}
 				}
 			}
 		}

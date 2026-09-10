@@ -93,8 +93,10 @@ mode is `none` while the editor has focus and `raw` otherwise.
 - **Quick inputs opened with the mouse** -- the title-bar Command Center, a
   breadcrumb, a status-bar item -- raise no hint from this extension: nothing
   in its API observes them and the title does not change. They are covered
-  only by the accessibility bus: `zmk-vim-mode install --atspi` (see the main
-  README, *Following focus through the accessibility bus*). Without it, open
+  only by the accessibility bus: `zmk-vim-mode install --atspi --vscode` (see
+  the main README, *Following focus through the accessibility bus*; the
+  `--vscode` half adds `--force-renderer-accessibility` to
+  `~/.config/code-flags.conf`, without which VSCode never appears there). Without it, open
   them from the keyboard (`F1`, a Neovim mapping) or hide the target with
   `"window.commandCenter": false`. Letter chords such as `Ctrl+Shift+P` are
   not an option while the keyboard sits in its NORMAL layer: the letters are
