@@ -56,13 +56,13 @@ No build step. Either package it:
 ```bash
 cd editors/vscode
 npx @vscode/vsce package
-code --install-extension zmk-vim-mode-0.1.0.vsix
+code --install-extension zmk-vim-mode-0.1.1.vsix
 ```
 
 or symlink it into the extensions folder:
 
 ```bash
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/rafaelromao.zmk-vim-mode-0.1.0
+ln -s "$PWD/editors/vscode" ~/.vscode/extensions/rafaelromao.zmk-vim-mode-0.1.1
 ```
 
 `zmk-vim-mode status` then shows a second client, `vscode app=vscode`, whose
