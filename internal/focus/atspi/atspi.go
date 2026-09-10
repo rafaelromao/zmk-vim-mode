@@ -102,9 +102,12 @@ type Event struct {
 	Class     string   `json:"class,omitempty"`
 	RoleDesc  string   `json:"roledescription,omitempty"`
 	Ancestors []string `json:"ancestors,omitempty"`
-	Editor    bool     `json:"editor"`
-	Ignored   bool     `json:"ignored,omitempty"`
-	Detail    string   `json:"detail"`
+	// Attrs is everything the application exposed, whatever the keys: the
+	// classifier's assumptions about them are checked against this.
+	Attrs   map[string]string `json:"attrs,omitempty"`
+	Editor  bool              `json:"editor"`
+	Ignored bool              `json:"ignored,omitempty"`
+	Detail  string            `json:"detail"`
 }
 
 // Watch prints every focus event as JSON, classification included -- the tool
@@ -114,7 +117,7 @@ func (w *Watcher) Watch(ctx context.Context, out io.Writer) error {
 	return w.run(ctx, func(pid int, f Focused, v Verdict) {
 		_ = enc.Encode(Event{
 			PID: pid, Role: f.Role, Name: f.Name, Tag: f.Attrs["tag"], Class: f.Attrs["class"],
-			RoleDesc: f.Attrs["roledescription"], Ancestors: f.AncestorClasses,
+			RoleDesc: f.Attrs["roledescription"], Ancestors: f.AncestorClasses, Attrs: f.Attrs,
 			Editor: v.Editor, Ignored: v.Ignore, Detail: v.Detail,
 		})
 	})

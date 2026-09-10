@@ -84,10 +84,27 @@ func ClassifyVSCode(f Focused) Verdict {
 	if classes["xterm-helper-textarea"] || role == "terminal" {
 		return Verdict{Detail: "terminal"}
 	}
+	// No usable tag/class (the toolkit did not expose them): fall back to the
+	// label. VSCode labels the code editor's text area with "editor" in every
+	// mode ("The editor is not accessible at this time…", "Editor content"),
+	// and none of the widget inputs (palette, find, terminal, rename, search)
+	// carry that word.
+	if len(classes) == 0 && tag == "" && isTextRole(role) && strings.Contains(name, "editor") {
+		return Verdict{Editor: true, Detail: "editor by label"}
+	}
 	if tag == "input" || tag == "textarea" {
 		return Verdict{Detail: describe(tag, classes, f.Name)}
 	}
 	return Verdict{Detail: describe(role, classes, f.Name)}
+}
+
+// isTextRole covers the roles a text area is exposed with across toolkits.
+func isTextRole(role string) bool {
+	switch role {
+	case "entry", "text", "text box", "editable text", "document text", "paragraph":
+		return true
+	}
+	return false
 }
 
 func describe(what string, classes map[string]bool, name string) string {
