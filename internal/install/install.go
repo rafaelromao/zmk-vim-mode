@@ -22,6 +22,8 @@ type Options struct {
 	// VSCode applies the settings the daemon relies on and installs the
 	// companion extension and vscode-neovim through the `code` CLI.
 	VSCode bool
+	// Obsidian copies the plugin into every registered vault and enables it.
+	Obsidian bool
 	// ATSPI starts the service with --atspi.
 	ATSPI   bool
 	Version string
@@ -183,9 +185,16 @@ func Run(w io.Writer, o Options) error {
 			return err
 		}
 	}
-	if !o.Nvim && !o.Tmux && !o.Udev && !o.VSCode {
+	if o.Obsidian {
+		fmt.Fprintln(w, "\n--- Obsidian ---")
+		if err := InstallObsidian(w); err != nil {
+			return err
+		}
+	}
+	if !o.Nvim && !o.Tmux && !o.Udev && !o.VSCode && !o.Obsidian {
 		fmt.Fprintln(w, "\nrun with --nvim --tmux --udev to print the editor, tmux and udev snippets,")
-		fmt.Fprintln(w, "or --vscode to apply the VSCode settings and install the companion extension.")
+		fmt.Fprintln(w, "--vscode to apply the VSCode settings and install the companion extension,")
+		fmt.Fprintln(w, "--obsidian to install the plugin into your vaults.")
 	}
 	return nil
 }

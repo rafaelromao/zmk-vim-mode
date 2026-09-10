@@ -36,9 +36,10 @@ Usage:
                                         (re-issuing the same mode toggles back to auto)
   zmk-vim-mode status [--json]          show decision, frontmost app, clients, devices
   zmk-vim-mode devices                  list keyboards the daemon can write to
-  zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode] [--atspi]
+  zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode] [--obsidian] [--atspi]
                                         install the user service; print editor/tmux snippets;
                                         --vscode writes settings.json and installs the extensions;
+                                        --obsidian installs the plugin into your vaults;
                                         --atspi makes the service follow focus inside VSCode
   zmk-vim-mode uninstall
   zmk-vim-mode atspi-watch              print accessibility-bus focus events with the classifier's verdict
@@ -346,10 +347,11 @@ func runInstall(args []string) error {
 	noService := fs.Bool("no-service", false, "do not install/enable the user service")
 	vscode := fs.Bool("vscode", false, "apply the VSCode settings the daemon relies on and install the companion extension + vscode-neovim via the `code` CLI")
 	atspiOn := fs.Bool("atspi", false, "start the daemon with --atspi (follow focus inside VSCode through the accessibility bus)")
+	obsidian := fs.Bool("obsidian", false, "copy the Obsidian plugin into every registered vault and enable it")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, ATSPI: *atspiOn, Service: !*noService, Version: Version})
+	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Obsidian: *obsidian, ATSPI: *atspiOn, Service: !*noService, Version: Version})
 }
 
 func deref(p *uint8) uint8 {

@@ -13,15 +13,24 @@ follows Neovim.
 
 ## Install
 
-No build step. Copy the two files into the vault and enable the plugin:
+```bash
+zmk-vim-mode install --obsidian
+```
+
+copies the two files (embedded in the binary; no build step) into every vault
+listed in Obsidian's `obsidian.json` and adds the plugin to each vault's
+`community-plugins.json` (backup kept). Restart Obsidian. Restricted mode must
+be off (Settings → Community plugins) and Vim key bindings on (Settings →
+Editor).
+
+By hand, equivalently:
 
 ```bash
 mkdir -p "<vault>/.obsidian/plugins/zmk-vim-mode"
 cp editors/obsidian/manifest.json editors/obsidian/main.js "<vault>/.obsidian/plugins/zmk-vim-mode/"
 ```
 
-Settings → Community plugins → turn off Restricted mode → enable *ZMK Vim
-Mode*. Vim key bindings must be on (Settings → Editor).
+then enable *ZMK Vim Mode* under Community plugins.
 
 `zmk-vim-mode status` then shows a client `obsidian app=obsidian`. The command
 *ZMK Vim Mode: Status* shows the connection and the state being reported.
