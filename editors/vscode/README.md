@@ -51,18 +51,29 @@ hint clears on the next key that reaches Neovim, or after
 `vscode_raw_ttl_ms`. Views and the terminal are not in that list on purpose:
 the title reports them, and reports the way back instantly.
 
-No build step. Either package it:
+## Install: one command
 
 ```bash
-cd editors/vscode
-npx @vscode/vsce package
-code --install-extension zmk-vim-mode-0.1.1.vsix
+zmk-vim-mode install --vscode
 ```
 
-or symlink it into the extensions folder:
+does steps 2 and 3 and the extension half of step 1: it sets `window.title`
+(appending the marker to a template you already have) and
+`editor.accessibilitySupport: off` in every VSCode flavour's `settings.json`
+it finds -- textually, so comments survive, with a `settings.json.bak-zmk-vim-mode`
+backup -- packages the companion from files embedded in the binary (no node,
+no vsce) and installs it with `code --install-extension --force`, and installs
+vscode-neovim if missing. It never uninstalls anything: if VSCodeVim is
+present it prints the command for you. Restart VSCode afterwards; run
+`zmk-vim-mode doctor` to confirm. The lazy spec (`vscode = true`) stays yours
+to add.
+
+Manual alternatives, should you prefer them:
 
 ```bash
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/rafaelromao.zmk-vim-mode-0.1.1
+cd editors/vscode && npx @vscode/vsce package && code --install-extension zmk-vim-mode-0.1.2.vsix
+# or
+ln -s "$PWD/editors/vscode" ~/.vscode/extensions/rafaelromao.zmk-vim-mode-0.1.2
 ```
 
 `zmk-vim-mode status` then shows a second client, `vscode app=vscode`, whose

@@ -36,8 +36,9 @@ Usage:
                                         (re-issuing the same mode toggles back to auto)
   zmk-vim-mode status [--json]          show decision, frontmost app, clients, devices
   zmk-vim-mode devices                  list keyboards the daemon can write to
-  zmk-vim-mode install [--nvim] [--tmux] [--udev]
-                                        install the user service; print editor/tmux snippets
+  zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode]
+                                        install the user service; print editor/tmux snippets;
+                                        --vscode writes settings.json and installs the extensions
   zmk-vim-mode uninstall
   zmk-vim-mode doctor                   check permissions, devices, old watchers, tmux, udev
   zmk-vim-mode version
@@ -329,10 +330,11 @@ func runInstall(args []string) error {
 	tmux := fs.Bool("tmux", false, "print the tmux focus-events line")
 	udev := fs.Bool("udev", false, "print the udev rule (Linux)")
 	noService := fs.Bool("no-service", false, "do not install/enable the user service")
+	vscode := fs.Bool("vscode", false, "apply the VSCode settings the daemon relies on and install the companion extension + vscode-neovim via the `code` CLI")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, Service: !*noService, Version: Version})
+	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Service: !*noService, Version: Version})
 }
 
 func deref(p *uint8) uint8 {

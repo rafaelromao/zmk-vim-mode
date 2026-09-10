@@ -1,6 +1,6 @@
 // Package install writes the per-user service unit and prints the snippets the
-// user must add themselves (editor spec, tmux option, udev rule). It never
-// edits the user's dotfiles.
+// user must add themselves (editor spec, tmux option, udev rule). It edits a
+// user file only when asked to explicitly (--vscode), and keeps a backup.
 package install
 
 import (
@@ -19,6 +19,9 @@ type Options struct {
 	Nvim    bool
 	Tmux    bool
 	Udev    bool
+	// VSCode applies the settings the daemon relies on and installs the
+	// companion extension and vscode-neovim through the `code` CLI.
+	VSCode  bool
 	Version string
 }
 
@@ -43,6 +46,7 @@ return {
     "rafaelromao/zmk-vim-mode",
     -- while developing: dir = vim.fn.expand("~/projects/zmk-vim-mode"),
     lazy = false,
+    vscode = true, -- LazyVim disables every other plugin inside vscode-neovim
     opts = {},
   },
 }
@@ -152,8 +156,15 @@ func Run(w io.Writer, o Options) error {
 		fmt.Fprintln(w, "\n--- tmux ---")
 		fmt.Fprint(w, TmuxSnippet)
 	}
-	if !o.Nvim && !o.Tmux && !o.Udev {
-		fmt.Fprintln(w, "\nrun with --nvim --tmux --udev to print the editor, tmux and udev snippets.")
+	if o.VSCode {
+		fmt.Fprintln(w, "\n--- VSCode ---")
+		if err := InstallVSCode(w); err != nil {
+			return err
+		}
+	}
+	if !o.Nvim && !o.Tmux && !o.Udev && !o.VSCode {
+		fmt.Fprintln(w, "\nrun with --nvim --tmux --udev to print the editor, tmux and udev snippets,")
+		fmt.Fprintln(w, "or --vscode to apply the VSCode settings and install the companion extension.")
 	}
 	return nil
 }

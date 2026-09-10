@@ -2,7 +2,7 @@
   "name": "zmk-vim-mode",
   "displayName": "ZMK Vim Mode",
   "description": "Tells the zmk-vim-mode daemon when VSCode's text editor does not have keyboard focus, so a ZMK keyboard drops its vim layers.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "rafaelromao",
   "license": "MIT",
   "repository": {
@@ -51,6 +51,14 @@
       {
         "command": "zmkVimMode.rawHint",
         "title": "ZMK Vim Mode: Raise Raw Hint (called by the Neovim plugin)"
+      },
+      {
+        "command": "zmkVimMode.rename",
+        "title": "ZMK Vim Mode: Rename Symbol (raw hint)"
+      },
+      {
+        "command": "zmkVimMode.renameEscape",
+        "title": "ZMK Vim Mode: Cancel Rename (clears raw hint)"
       }
     ],
     "keybindings": [
@@ -83,6 +91,16 @@
         "key": "escape",
         "command": "zmkVimMode.quickInputEscape",
         "when": "inQuickOpen"
+      },
+      {
+        "key": "f2",
+        "command": "zmkVimMode.rename",
+        "when": "editorTextFocus"
+      },
+      {
+        "key": "escape",
+        "command": "zmkVimMode.renameEscape",
+        "when": "editorFocus && renameInputVisible"
       }
     ],
     "configuration": {

@@ -25,7 +25,7 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 
-const PLUGIN = '0.1.1';
+const PLUGIN = '0.1.2';
 const RECONNECT_MIN = 250;
 const RECONNECT_MAX = 5000;
 
@@ -291,6 +291,18 @@ function activate(context) {
   wrap(context, 'zmkVimMode.showCommands', 'workbench.action.showCommands');
   wrap(context, 'zmkVimMode.gotoLine', 'workbench.action.gotoLine');
   wrap(context, 'zmkVimMode.gotoSymbol', 'workbench.action.gotoSymbol');
+  // F2: the rename widget is an input inside the editor; the title cannot see it.
+  wrap(context, 'zmkVimMode.rename', 'editor.action.rename');
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zmkVimMode.renameEscape', async () => {
+      clearQuickInput('rename escape');
+      try {
+        await vscode.commands.executeCommand('cancelRenameInput');
+      } catch (e) {
+        log('cancelRenameInput failed:', e && e.message);
+      }
+    }),
+  );
 
   connect();
 }

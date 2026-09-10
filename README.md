@@ -139,7 +139,7 @@ Check everything with `zmk-vim-mode doctor`.
 | Editor | Mode source | Tool-window focus | Setup |
 |---|---|---|---|
 | Neovim in a terminal, Neovide | the Neovim plugin | the plugin: `raw` for pickers, the terminal, a pending `<leader>` | `contrib/nvim-lazy-spec.lua` |
-| VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, plus a small companion extension for quick inputs and non-text editors | [editors/vscode](editors/vscode/README.md) |
+| VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, plus a small companion extension for quick inputs and non-text editors | `zmk-vim-mode install --vscode`, then [editors/vscode](editors/vscode/README.md) |
 | Obsidian | own plugin (CodeMirror vim events) | own plugin (`focusin`) | [editors/obsidian](editors/obsidian/README.md) |
 | IntelliJ, anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
 
