@@ -145,6 +145,7 @@ func (w *Watcher) run(ctx context.Context, on func(pid int, f Focused, v Verdict
 			continue
 		}
 		w.log.Info("listening on the accessibility bus", "name", conn.Name)
+		w.logApplications(ctx, conn)
 		err = w.stream(ctx, conn, on)
 		conn.Close()
 		if ctx.Err() != nil {
@@ -210,6 +211,36 @@ func (w *Watcher) connect(ctx context.Context) (*dbus.Conn, error) {
 		return nil, fmt.Errorf("RegisterEvent: %w", err)
 	}
 	return a11y, nil
+}
+
+// logApplications lists what is registered with the registry: an application
+// missing here (VSCode, typically) never initialised its accessibility bridge,
+// and no amount of listening will hear from it.
+func (w *Watcher) logApplications(ctx context.Context, conn *dbus.Conn) {
+	cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	r, err := conn.Call(cctx, registryName, "/org/a11y/atspi/accessible/root", accessibleIface, "GetChildren", "")
+	if err != nil || len(r) != 1 {
+		w.log.Warn("cannot list accessibility applications", "err", err)
+		return
+	}
+	kids, _ := r[0].([]any)
+	var names []string
+	for _, k := range kids {
+		st, ok := dbus.Struct(k)
+		if !ok || len(st) != 2 {
+			continue
+		}
+		bus, _ := dbus.String(st[0])
+		path, _ := dbus.String(st[1])
+		name := "?"
+		if v, err := conn.GetProperty(cctx, bus, path, accessibleIface, "Name"); err == nil {
+			name, _ = dbus.String(v)
+		}
+		pid, _ := conn.ConnectionPID(cctx, bus)
+		names = append(names, fmt.Sprintf("%s(pid %d)", name, pid))
+	}
+	w.log.Info("applications on the accessibility bus", "count", len(kids), "apps", strings.Join(names, ", "))
 }
 
 func (w *Watcher) stream(ctx context.Context, conn *dbus.Conn, on func(int, Focused, Verdict)) error {
