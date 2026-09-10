@@ -289,10 +289,11 @@ heavy Neovim user the embedded-nvim option is the consensus, and the only one th
   (reading code) is the common case, and `raw` there sends base-layout letters as vim commands. Implemented
   instead (phase 4):
   1. **Window title.** `"window.title": "${dirty}${activeEditorShort}${separator}${rootName} [${focusedView}]"`
-     publishes the focused view (Terminal, Explorer, Search, …; empty while the text editor has focus). The
-     daemon follows Hyprland `windowtitle(v2)` events for the focused window (re-querying `j/activewindow`, the
-     source of truth) and `AppRule.RawTitle` (`\[([^\[\]]+)\]\s*$`) turns a non-empty marker into `raw`, above
-     every client. Zero VSCode code.
+     publishes the focused view (`terminal`, `Explorer`, `Search`, …; **`Text Editor`** while the text editor
+     has focus — verified on the box; the plan's "empty" assumption held only for older builds). The daemon
+     follows Hyprland `windowtitle(v2)` events for the focused window (re-querying `j/activewindow`, the
+     source of truth); `AppRule.TitleView` (`\[([^\[\]]*)\]\s*$`) extracts the marker and any value outside
+     `AppRule.EditorViews` (`""`, `Text Editor`, `Editor`) is `raw`, above every client. Zero VSCode code.
   2. **Companion extension** (`editors/vscode/`, plain JS, no build step): the app's *own* client
      (`client: vscode, app: vscode`). Says `raw` while `activeTextEditor` is undefined (Settings, webviews,
      images, empty window) and, with a TTL, after wrapping Ctrl+P / Ctrl+Shift+P / F1 / Ctrl+G / Ctrl+Shift+O

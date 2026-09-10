@@ -28,10 +28,12 @@ panel. VSCode's window title can. Add to `settings.json`:
 "window.title": "${dirty}${activeEditorShort}${separator}${rootName} [${focusedView}]"
 ```
 
-`${focusedView}` is empty while the text editor has focus and the view's name
-otherwise (`[Terminal]`, `[Explorer]`, `[Search]`, ...). The daemon reads the
-title from Hyprland and switches the keyboard to raw whenever the brackets are
-not empty. Restart VSCode after changing the setting.
+`${focusedView}` reads `Text Editor` while the text editor has focus (empty
+on older builds) and the view's name or id otherwise (`[terminal]`,
+`[Explorer]`, `[Search]`, ...). The daemon reads the title from Hyprland and
+switches the keyboard to raw whenever the brackets hold anything but an
+editor name (`state.VSCodeEditorViews`). Restart VSCode after changing the
+setting; `hyprctl activewindow -j | grep title` shows what it publishes.
 
 ## 3. Everything else: this companion extension
 

@@ -69,19 +69,29 @@ func (o *Override) Active(now time.Time) bool {
 type AppRule struct {
 	Kind    string
 	Classes []string
-	// RawTitle, when set and matching the window title, means a tool window
+	// TitleView, when set, extracts the focused view's name from the window
+	// title (capture group 1). A name outside EditorViews means a tool window
 	// (terminal, sidebar, panel) has focus inside the app → Raw, whatever the
 	// clients say: they cannot see focus leave the text editor, the title can.
-	RawTitle *regexp.Regexp
+	// A title without the marker is ignored (setting not applied).
+	TitleView *regexp.Regexp
+	// EditorViews are the marker values that mean "the text editor has focus".
+	// Compared case-insensitively. VSCode reports "Text Editor" (older builds:
+	// an empty string).
+	EditorViews []string
 }
 
 // VSCodeWindowTitle is the `window.title` setting that makes VSCode publish
 // the focused view in its title, where VSCodeFocusedView can read it.
-// ${focusedView} is empty while the text editor has focus.
 const VSCodeWindowTitle = "${dirty}${activeEditorShort}${separator}${rootName} [${focusedView}]"
 
-// VSCodeFocusedView matches a non-empty "[View Name]" at the end of the title.
-var VSCodeFocusedView = regexp.MustCompile(`\[([^\[\]]+)\]\s*$`)
+// VSCodeFocusedView matches the "[View Name]" marker at the end of the title
+// (possibly empty).
+var VSCodeFocusedView = regexp.MustCompile(`\[([^\[\]]*)\]\s*$`)
+
+// VSCodeEditorViews are the marker values VSCode uses while the text editor
+// has focus.
+var VSCodeEditorViews = []string{"", "Text Editor", "Editor"}
 
 // Rules is the app classification configuration.
 type Rules struct {
@@ -109,7 +119,7 @@ func DefaultRules() Rules {
 		GUINvimApps: []string{"neovide", "com.neovide.neovide", "nvim-qt"},
 		LegacyApps: []AppRule{
 			{Kind: "vscode", Classes: []string{"code", "code-oss", "code-url-handler", "com.microsoft.vscode", "cursor", "codium"},
-				RawTitle: VSCodeFocusedView},
+				TitleView: VSCodeFocusedView, EditorViews: VSCodeEditorViews},
 			{Kind: "obsidian", Classes: []string{"obsidian", "md.obsidian"}},
 			{Kind: "intellij", Classes: []string{"jetbrains-*", "com.jetbrains.*"}},
 		},
@@ -166,14 +176,8 @@ func Decide(r Rules, s Snapshot) Decision {
 	}
 	if rule, ok := legacyRule(r, front.Class); ok {
 		if rule.Kind != "" {
-			if rule.RawTitle != nil {
-				if m := rule.RawTitle.FindStringSubmatch(front.Title); m != nil {
-					view := ""
-					if len(m) > 1 {
-						view = m[1]
-					}
-					return decision(Raw, "tool window focused: "+view, 0)
-				}
+			if view, ok := toolWindow(rule, front.Title); ok {
+				return decision(Raw, "tool window focused: "+view, 0)
 			}
 			appClients := clientsOfApp(s.Clients, rule.Kind)
 			if g, ok := ownClient(appClients); ok && g.Mode == Raw && !g.Expired(now) {
@@ -195,6 +199,25 @@ func Decide(r Rules, s Snapshot) Decision {
 		return decision(Off, "terminal without nvim client", 0)
 	}
 	return decision(Off, "non-editor app "+front.Class, 0)
+}
+
+// toolWindow reads the focused view off the title and reports whether it is
+// something other than the text editor.
+func toolWindow(rule AppRule, title string) (string, bool) {
+	if rule.TitleView == nil {
+		return "", false
+	}
+	m := rule.TitleView.FindStringSubmatch(title)
+	if m == nil || len(m) < 2 {
+		return "", false
+	}
+	view := strings.TrimSpace(m[1])
+	for _, e := range rule.EditorViews {
+		if strings.EqualFold(view, strings.TrimSpace(e)) {
+			return view, false
+		}
+	}
+	return view, true
 }
 
 func clientDecision(c Client, reason string) Decision {
