@@ -37,6 +37,7 @@ let backoff = RECONNECT_MIN;
 let reconnectTimer = null;
 
 let noEditor = false; // no active text editor → raw
+let windowFocused = true; // last seen WindowState.focused
 let quickInput = ''; // name of the quick input we opened, '' when none → raw with TTL
 let quickInputTimer = null;
 let lastSent = null; // JSON of the last mode message, for dedupe
@@ -232,13 +233,22 @@ function activate(context) {
   stopped = false;
 
   noEditor = vscode.window.activeTextEditor === undefined;
+  windowFocused = vscode.window.state.focused;
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(updateEditor),
     // Cursor moved in the editor: keys are reaching it again.
     vscode.window.onDidChangeTextEditorSelection(() => clearQuickInput('selection changed')),
-    // Quick inputs close when the window loses focus.
-    vscode.window.onDidChangeWindowState(() => clearQuickInput('window state changed')),
+    // Quick inputs close when the window loses focus. Only `focused` counts:
+    // the event also fires when `active` flips, i.e. on the very keypress
+    // that opens the palette after a pause, which would clear the hint we
+    // have just raised.
+    vscode.window.onDidChangeWindowState((e) => {
+      if (e.focused !== windowFocused) {
+        windowFocused = e.focused;
+        clearQuickInput('window focus changed');
+      }
+    }),
     vscode.commands.registerCommand('zmkVimMode.status', () => {
       vscode.window.showInformationMessage(statusText());
     }),
