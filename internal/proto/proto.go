@@ -73,6 +73,7 @@ type Msg struct {
 
 // Status is the daemon's full state as returned to `zmk-vim-mode status`.
 type Status struct {
+	Version   string         `json:"version,omitempty"` // of the running daemon, not of the CLI asking
 	Code      uint8          `json:"code"`
 	Mode      string         `json:"mode"`
 	Reason    string         `json:"reason"`

@@ -238,6 +238,9 @@ func runStatus(args []string) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(st)
 	}
+	if st.Version != "" && st.Version != Version {
+		fmt.Printf("daemon   : %s (this CLI is %s — restart the service after make install)\n", st.Version, Version)
+	}
 	fmt.Printf("decision : %s (code %d) — %s\n", st.Mode, st.Code, st.Reason)
 	if st.Frontmost != nil {
 		if st.Frontmost.Known {

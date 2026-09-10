@@ -271,7 +271,8 @@ func (d *Daemon) status() *proto.Status {
 	snap := d.store.Snapshot()
 	dec := d.store.Decision()
 	st := &proto.Status{
-		Code: dec.Code, Mode: dec.Mode.String(), Reason: dec.Reason,
+		Version: d.o.Version,
+		Code:    dec.Code, Mode: dec.Mode.String(), Reason: dec.Reason,
 		Frontmost: &proto.FrontmostInfo{Known: snap.Frontmost.Known, Class: snap.Frontmost.Class, PID: snap.Frontmost.PID},
 		Clients:   []proto.ClientInfo{},
 		Devices:   d.rec.Devices(),
