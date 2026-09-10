@@ -466,8 +466,12 @@ the companion; the Obsidian plugin copied into the vault; then `zmk-vim-mode sta
 `vscode app=vscode` and `obsidian app=obsidian` clients and `journalctl --user -u zmk-vim-mode` shows the
 `tool window focused: Terminal` decisions.
 
-Next: phase 5 is mostly done (installer, doctor, README, old watchers deleted) — left is a doctor check for
-the editor setups. Then phase 6 (macOS) when wanted.
+Phase 5 is done: installer, README, old watchers deleted, and `doctor` now checks the editor setups (VSCode
+title marker, vscode-neovim, companion, lazy spec `vscode = true`; Obsidian plugin per vault) plus a daemon
+version older than the CLI. First hardware run of phase 4 (2026-09-10) found two things the plan got wrong —
+LazyVim disables plugins inside VSCode unless `vscode = true`, and `${focusedView}` reads `Text Editor`, not
+empty, while the editor has focus — both fixed. Next: finish verifying VSCode on the box, then Obsidian, then
+phase 6 (macOS) when wanted.
 
 ## Phases (Omarchy first)
 
