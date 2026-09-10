@@ -1,0 +1,12 @@
+zmk-vim-mode main ✗ code --force-renderer-accessibility & sleep 8 ; zmk-vim-mode atspi-watch
+[1] 39944
+[1]+  Done                       code --force-renderer-accessibility
+watching the accessibility bus; click around in VSCode, Ctrl-C to stop
+time=2026-09-10T20:20:35.433-03:00 level=INFO msg="accessibility flag already set" property=IsEnabled
+time=2026-09-10T20:20:35.433-03:00 level=INFO msg="accessibility flag already set" property=ScreenReaderEnabled
+time=2026-09-10T20:20:35.434-03:00 level=INFO msg="listening on the accessibility bus" name=:1.26
+time=2026-09-10T20:20:35.437-03:00 level=INFO msg="applications on the accessibility bus" count=8 apps="polkit-gnome-authentication-agent-1(pid 1422), xdg-desktop-portal-gtk(pid 1644), voxtype-osd-gtk4(pid 1587), waybar(pid 1414), Unnamed(pid 2807), swayosd-server(pid 1518), walker(pid 1513), code(pid 39961)"
+{"pid":39961,"role":"list item","name":"Go to File, Go to File","tag":"div","class":"monaco-list-row focused","attrs":{"class":"monaco-list-row focused","display":"block","explicit-name":"true","id":"list_id_5_0","name-from":"attribute","posinset":"1","setsize":"12","tag":"div","text-align":"left","xml-roles":"option"},"editor":false,"detail":"list item.focused.monaco-list-row (Go to File, Go to File)"}
+{"pid":39961,"role":"entry","name":"The editor is not accessible at this time. To enable screen reader optimized mode, use Shift+Alt+F4","tag":"div","class":"native-edit-context","roledescription":"editor","ancestors":["overflow-guard","monaco-editor no-user-select  showUnused showDeprecated vs-dark focused","editor-instance","split-view-view visible","split-view-container","monaco-split-view2 vertical separator-border"],"attrs":{"autocomplete":"both","class":"native-edit-context","display":"block","explicit-name":"true","name-from":"attribute","roledescription":"editor","tag":"div","text-align":"left","text-model":"a1","xml-roles":"textbox"},"editor":true,"detail":"monaco editor"}
+{"pid":2807,"role":"generic","attrs":{"toolkit":"GTK"},"editor":false,"detail":"generic"}
+^C
