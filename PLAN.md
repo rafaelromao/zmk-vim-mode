@@ -317,6 +317,12 @@ heavy Neovim user the embedded-nvim option is the consensus, and the only one th
      The daemon sends `editor_focus` to the app's clients on transitions so hints clear with no first-key
      glitch. `atspi-watch` prints events for tuning. Cost: accessibility on for the whole session (what a
      screen reader does); `install --vscode` sets `editor.accessibilitySupport: off` to keep Monaco normal.
+     Verified on the box (2026-09-10), three corrections along the way: the registry wants the event in its
+     D-Bus spelling (`Object:StateChanged:Focused`, what libatspi sends) or bridges ignore the listener;
+     both `IsEnabled` and `ScreenReaderEnabled` must be set; and Electron still exposes nothing of its DOM
+     without `--force-renderer-accessibility`, which `install --vscode` now writes to
+     `~/.config/code-flags.conf`. Modern Monaco's input is a `native-edit-context` div (roledescription
+     "editor"), the palette a `monaco-list-row` list item.
   5. **Decide** combines them per app: title → a11y widget → own client `raw` → best opinionated client →
      `legacy`.
 - Zero migration cost: `~/.vscodevimrc` is empty. Uninstall VSCodeVim (the affinity setting already present is
