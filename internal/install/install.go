@@ -123,8 +123,17 @@ func Run(w io.Writer, o Options) error {
 			home, _ := os.UserHomeDir()
 			content = fmt.Sprintf(launchdPlist, exe, filepath.Join(home, "Library", "Logs", "zmk-vim-mode.log"))
 		} else {
+			// --atspi is sticky: a plain `make install` must not silently turn it
+			// off. Uninstall, then install without it, to drop it.
+			atspi := o.ATSPI
+			if old, err := os.ReadFile(path); err == nil && strings.Contains(string(old), "--atspi") {
+				if !atspi {
+					fmt.Fprintln(w, "keeping --atspi from the existing unit")
+				}
+				atspi = true
+			}
 			extra := ""
-			if o.ATSPI {
+			if atspi {
 				extra = " --atspi"
 			}
 			content = fmt.Sprintf(systemdUnit, exe, extra)
