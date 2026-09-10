@@ -43,6 +43,10 @@
       {
         "command": "zmkVimMode.gotoSymbol",
         "title": "ZMK Vim Mode: Go to Symbol in Editor (raw hint)"
+      },
+      {
+        "command": "zmkVimMode.quickInputEscape",
+        "title": "ZMK Vim Mode: Close Quick Input (clears raw hint)"
       }
     ],
     "keybindings": [
@@ -70,6 +74,11 @@
         "key": "ctrl+shift+o",
         "command": "zmkVimMode.gotoSymbol",
         "when": "editorTextFocus"
+      },
+      {
+        "key": "escape",
+        "command": "zmkVimMode.quickInputEscape",
+        "when": "inQuickOpen"
       }
     ],
     "configuration": {

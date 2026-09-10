@@ -60,10 +60,13 @@ mode is `none` while the editor has focus and `raw` otherwise.
 
 ### Limits
 
-- A quick input is known to close only when the active editor or the cursor
-  changes, or the window loses focus; otherwise the hint expires after
-  `zmkVimMode.quickInputTtlMs` (20 s). Escaping the palette and pressing a
-  motion key immediately sends that first key through the base layout.
+- A quick input is known to close on Escape (bound inside quick inputs), when
+  the active editor or the cursor changes, or when the window loses focus;
+  otherwise the hint expires after `zmkVimMode.quickInputTtlMs` (20 s).
+  Accepting an entry that changes nothing visible (a toggle) keeps raw until
+  the next cursor move: that first motion key goes through the base layout.
+- Selection events in the first 500 ms after opening are ignored: the blur and
+  vscode-neovim's resync fire them, and they would clear the hint at once.
 - Quick inputs opened from the terminal or the sidebar (editor not focused)
   are not wrapped; the title then says a view has focus, which is already raw.
 - The find widget (Ctrl+F) is part of the editor: with vscode-neovim, `/`

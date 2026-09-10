@@ -40,6 +40,10 @@ let noEditor = false; // no active text editor → raw
 let windowFocused = true; // last seen WindowState.focused
 let quickInput = ''; // name of the quick input we opened, '' when none → raw with TTL
 let quickInputTimer = null;
+let quickInputAt = 0; // when the hint was raised (ms)
+// Opening a quick input makes the editor blur and vscode-neovim resync the
+// selection; those synthetic events must not count as "the editor is active".
+const SELECTION_GRACE_MS = 500;
 let lastSent = null; // JSON of the last mode message, for dedupe
 
 function cfg() {
@@ -173,6 +177,7 @@ function connect() {
 
 function setQuickInput(name) {
   quickInput = name;
+  quickInputAt = Date.now();
   if (quickInputTimer) {
     clearTimeout(quickInputTimer);
   }
@@ -237,8 +242,24 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(updateEditor),
-    // Cursor moved in the editor: keys are reaching it again.
-    vscode.window.onDidChangeTextEditorSelection(() => clearQuickInput('selection changed')),
+    // Cursor moved in the editor: keys are reaching it again -- unless it is
+    // the blur/resync burst that opening the quick input itself causes.
+    vscode.window.onDidChangeTextEditorSelection((e) => {
+      if (Date.now() - quickInputAt < SELECTION_GRACE_MS) {
+        log('ignoring selection change during grace, kind', e.kind);
+        return;
+      }
+      clearQuickInput('selection changed');
+    }),
+    // Escape inside a quick input: the one close we can observe directly.
+    vscode.commands.registerCommand('zmkVimMode.quickInputEscape', async () => {
+      clearQuickInput('escape');
+      try {
+        await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+      } catch (e) {
+        log('closeQuickOpen failed:', e && e.message);
+      }
+    }),
     // Quick inputs close when the window loses focus. Only `focused` counts:
     // the event also fires when `active` flips, i.e. on the very keypress
     // that opens the palette after a pause, which would clear the hint we
