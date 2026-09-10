@@ -28,7 +28,7 @@ func newWidgetWatcher(log *slog.Logger, enabled bool) focus.WidgetWatcher {
 // tuned against a real VSCode.
 func runATSPIWatch(args []string) error {
 	fs := flag.NewFlagSet("atspi-watch", flag.ContinueOnError)
-	level := fs.String("log-level", "warn", "debug|info|warn|error")
+	level := fs.String("log-level", "info", "debug|info|warn|error")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

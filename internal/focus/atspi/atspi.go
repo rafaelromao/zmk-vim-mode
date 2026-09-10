@@ -53,34 +53,45 @@ func New(log *slog.Logger) *Watcher {
 	return &Watcher{log: log, Retry: 3 * time.Second, Depth: 6, CallTimeout: time.Second}
 }
 
-// Enabled reports org.a11y.Status.IsEnabled on the session bus.
+// Enabled reports whether both org.a11y.Status flags -- IsEnabled and
+// ScreenReaderEnabled -- are set on the session bus.
 func Enabled(ctx context.Context) (bool, error) {
 	c, err := dbus.Dial(ctx, dbus.SessionBusAddress())
 	if err != nil {
 		return false, err
 	}
 	defer c.Close()
-	v, err := c.GetProperty(ctx, a11yBusName, a11yBusPath, statusIface, "IsEnabled")
-	if err != nil {
-		return false, err
+	for _, prop := range []string{"IsEnabled", "ScreenReaderEnabled"} {
+		v, err := c.GetProperty(ctx, a11yBusName, a11yBusPath, statusIface, prop)
+		if err != nil {
+			return false, err
+		}
+		b, ok := v.Value.(bool)
+		if !ok {
+			return false, fmt.Errorf("%s is %T", prop, v.Value)
+		}
+		if !b {
+			return false, nil
+		}
 	}
-	b, ok := v.Value.(bool)
-	if !ok {
-		return false, fmt.Errorf("IsEnabled is %T", v.Value)
-	}
-	return b, nil
+	return true, nil
 }
 
-// Enable sets org.a11y.Status.IsEnabled. It is what makes GTK, Qt and
-// Chromium expose their widgets; running applications read it at startup, so
-// they must be (re)started afterwards.
+// Enable sets both org.a11y.Status flags, as a screen reader does. GTK and Qt
+// read IsEnabled at startup; Chromium exposes its web content only with
+// ScreenReaderEnabled, which it also picks up at runtime.
 func Enable(ctx context.Context) error {
 	c, err := dbus.Dial(ctx, dbus.SessionBusAddress())
 	if err != nil {
 		return err
 	}
 	defer c.Close()
-	return c.SetProperty(ctx, a11yBusName, a11yBusPath, statusIface, "IsEnabled", dbus.Variant{Sig: "b", Value: true})
+	for _, prop := range []string{"IsEnabled", "ScreenReaderEnabled"} {
+		if err := c.SetProperty(ctx, a11yBusName, a11yBusPath, statusIface, prop, dbus.Variant{Sig: "b", Value: true}); err != nil {
+			return fmt.Errorf("%s: %w", prop, err)
+		}
+	}
+	return nil
 }
 
 // Run streams widget focus until ctx is done, reconnecting when the bus goes away.
@@ -166,13 +177,23 @@ func (w *Watcher) connect(ctx context.Context) (*dbus.Conn, error) {
 	if addr == "" {
 		return nil, errors.New("org.a11y.Bus.GetAddress returned no address")
 	}
-	if v, err := session.GetProperty(dctx, a11yBusName, a11yBusPath, statusIface, "IsEnabled"); err != nil {
-		w.log.Debug("cannot read org.a11y.Status.IsEnabled", "err", err)
-	} else if on, _ := v.Value.(bool); !on {
-		if err := session.SetProperty(dctx, a11yBusName, a11yBusPath, statusIface, "IsEnabled", dbus.Variant{Sig: "b", Value: true}); err != nil {
-			w.log.Warn("cannot enable accessibility (org.a11y.Status.IsEnabled); applications will stay silent", "err", err)
+	// Both flags, as a screen reader sets them: GTK/Qt look at IsEnabled, but
+	// Chromium exposes its *web content* (VSCode's whole UI) only when
+	// ScreenReaderEnabled is on, and it watches that one at runtime.
+	for _, prop := range []string{"IsEnabled", "ScreenReaderEnabled"} {
+		v, err := session.GetProperty(dctx, a11yBusName, a11yBusPath, statusIface, prop)
+		if err != nil {
+			w.log.Warn("cannot read org.a11y.Status", "property", prop, "err", err)
+			continue
+		}
+		if on, _ := v.Value.(bool); on {
+			w.log.Info("accessibility flag already set", "property", prop)
+			continue
+		}
+		if err := session.SetProperty(dctx, a11yBusName, a11yBusPath, statusIface, prop, dbus.Variant{Sig: "b", Value: true}); err != nil {
+			w.log.Warn("cannot set org.a11y.Status flag; applications may stay silent", "property", prop, "err", err)
 		} else {
-			w.log.Info("enabled accessibility on the session; applications started before this need a restart")
+			w.log.Info("set accessibility flag on the session", "property", prop)
 		}
 	}
 
