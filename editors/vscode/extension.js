@@ -202,6 +202,14 @@ function clearQuickInput(why) {
     quickInputTimer = null;
   }
   report();
+  // The embedded Neovim raises its own hint for quick inputs opened from
+  // mappings; tell it the close we observed. Best effort: vscode-neovim may
+  // not be installed, or the plugin not loaded.
+  vscode.commands
+    .executeCommand('vscode-neovim.lua', [
+      "pcall(function() require('zmk-vim-mode').clear_vscode_raw('companion') end)",
+    ])
+    .then(undefined, (e) => log('vscode-neovim.lua unavailable:', e && e.message));
 }
 
 function updateEditor(editor) {
@@ -272,6 +280,11 @@ function activate(context) {
     }),
     vscode.commands.registerCommand('zmkVimMode.status', () => {
       vscode.window.showInformationMessage(statusText());
+    }),
+    // Raised by the Neovim plugin when a mapping opens a quick input, so the
+    // close detection here (Escape, cursor, active editor, TTL) applies too.
+    vscode.commands.registerCommand('zmkVimMode.rawHint', (name) => {
+      setQuickInput(typeof name === 'string' && name ? name : 'nvim');
     }),
   );
   wrap(context, 'zmkVimMode.quickOpen', 'workbench.action.quickOpen');

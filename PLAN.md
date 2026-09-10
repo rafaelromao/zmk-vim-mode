@@ -300,7 +300,13 @@ heavy Neovim user the embedded-nvim option is the consensus, and the only one th
      (`when: editorTextFocus`); says `none` — new wire mode, "no opinion" — otherwise, so the embedded nvim
      decides. The hint clears on active-editor, selection or window-state change, else it expires (20 s).
      Known glitch: Escape out of the palette, then the first motion key still goes through the base layout.
-  3. **Decide** combines them per app: title → own client `raw` → best opinionated client → `legacy`.
+  3. **Neovim-side hint** (found on the box: a vim user opens the palette from mappings, never from
+     Ctrl+Shift+P, so the companion's keybinding wrappers never fired). The plugin wraps `vim.rpcnotify`/
+     `rpcrequest` and `require("vscode").action/call`; a command matching `vscode_raw_actions` (quick inputs,
+     rename — not views/terminal, which the title handles both ways) makes the nvim client report `raw` until
+     a typed key reaches Neovim again, the companion reports the close (`zmkVimMode.rawHint` forward,
+     `vscode-neovim.lua` callback), or a 20 s TTL.
+  4. **Decide** combines them per app: title → own client `raw` → best opinionated client → `legacy`.
 - Zero migration cost: `~/.vscodevimrc` is empty. Uninstall VSCodeVim (the affinity setting already present is
   vscode-neovim's documented setup). Cheap interim if the switch is postponed: VSCodeVim's built-in
   `vim.autoSwitchInputMethod.switchIMCmd` shells out on insert-like transitions — binary only, no focus info.

@@ -41,6 +41,16 @@ Covers what neither nvim nor the title can: no active text editor (Settings,
 Extensions, webviews, images, an empty window) and the quick inputs opened
 with Ctrl+P, Ctrl+Shift+P, F1, Ctrl+G and Ctrl+Shift+O.
 
+Quick inputs opened **from Neovim mappings** (LazyVim's `<leader><space>`,
+`<leader>ss`, `<leader>cr`... anything going through
+`require("vscode").action`) are caught on the Neovim side: the plugin watches
+vscode-neovim's outgoing calls and raises the same raw hint for the commands in
+`vscode_raw_actions` (palette, Go to File/Line/Symbol, rename...). With the
+companion installed the two sides share one close detection; without it the
+hint clears on the next key that reaches Neovim, or after
+`vscode_raw_ttl_ms`. Views and the terminal are not in that list on purpose:
+the title reports them, and reports the way back instantly.
+
 No build step. Either package it:
 
 ```bash

@@ -4,6 +4,7 @@
 -- Transport is a persistent unix socket via vim.uv; never a process per event.
 local modes = require("zmk-vim-mode.modes")
 local context = require("zmk-vim-mode.context")
+local vscode = require("zmk-vim-mode.vscode")
 
 local M = {}
 
@@ -20,6 +21,12 @@ M.defaults = {
   raw_exceptions = nil, -- nil = context.default_raw_exceptions
   -- classify(buf, win, mode) -> state|nil overrides everything.
   classify = nil,
+  -- Inside vscode-neovim: VSCode commands (Lua patterns) that move keyboard
+  -- focus into a quick input or widget the title cannot see. nil = the
+  -- defaults in zmk-vim-mode.vscode; {} disables the hook.
+  vscode_raw_actions = nil,
+  vscode_raw_ttl_ms = 20000, -- fallback when the close is never observed
+  vscode_raw_grace_ms = 300, -- keys within this window are the mapping's own tail
   debug = false,
   -- Reconnect backoff bounds (ms).
   reconnect_min = 250,
@@ -36,6 +43,10 @@ local S = {
   focused = nil, -- nil = unknown; terminals send no initial focus report
   leader_pending = false,
   leader_timer = nil,
+  vscode_raw = nil, -- VSCode command that took the keys, nil when none
+  vscode_raw_at = 0,
+  vscode_raw_timer = nil,
+  companion = nil, -- nil = not asked yet
   warned_tmux = false,
   stopped = false,
 }
@@ -77,6 +88,10 @@ function M.effective_state()
 
   -- A pending <leader> means a menu/prompt is about to take the keys.
   if S.opts.leader_raw and S.leader_pending and (mode:sub(1, 1) == "n" or mode:sub(1, 1) == "v") then
+    return "raw"
+  end
+  -- A VSCode quick input opened from a mapping has the keys until further notice.
+  if S.vscode_raw then
     return "raw"
   end
 
@@ -269,6 +284,71 @@ local function clear_leader()
   end
 end
 
+---A VSCode command is about to take keyboard focus away from the editor.
+---@param name string
+function M.raise_vscode_raw(name)
+  S.vscode_raw = name
+  S.vscode_raw_at = vim.uv.now()
+  if S.vscode_raw_timer then
+    S.vscode_raw_timer:stop()
+  end
+  S.vscode_raw_timer = vim.defer_fn(function()
+    if S.vscode_raw == name then
+      M.clear_vscode_raw("ttl")
+    end
+  end, S.opts.vscode_raw_ttl_ms)
+  log("vscode raw:", name)
+  M.report()
+  -- The companion, when present, adds Escape/cursor/active-editor detection
+  -- and calls clear_vscode_raw back through vscode-neovim.lua.
+  if S.companion == nil then
+    S.companion = vscode.companion_available(500)
+    log("vscode companion:", S.companion)
+  end
+  if S.companion then
+    vscode.forward(name)
+  end
+end
+
+---Keys reach Neovim again (or the companion saw the quick input close).
+---@param why string
+function M.clear_vscode_raw(why)
+  if not S.vscode_raw then
+    return
+  end
+  log("vscode raw cleared:", why)
+  S.vscode_raw = nil
+  if S.vscode_raw_timer then
+    S.vscode_raw_timer:stop()
+    S.vscode_raw_timer = nil
+  end
+  M.report()
+end
+
+local function setup_vscode_hook()
+  local patterns = S.opts.vscode_raw_actions or vscode.default_raw_actions
+  if vim.g.vscode == nil or #patterns == 0 then
+    return
+  end
+  if not vscode.install(patterns, M.raise_vscode_raw) then
+    return
+  end
+  -- A typed key reaching Neovim proves the editor has focus again -- except in
+  -- the first instants, when the mapping's own remaining keys still arrive.
+  local ns = vim.api.nvim_create_namespace("zmk_vim_mode_vscode")
+  vim.on_key(function(_, typed)
+    if typed == nil or typed == "" or not S.vscode_raw then
+      return
+    end
+    if vim.uv.now() - S.vscode_raw_at < S.opts.vscode_raw_grace_ms then
+      return
+    end
+    vim.schedule(function()
+      M.clear_vscode_raw("key reached neovim")
+    end)
+  end, ns)
+end
+
 local function warn_tmux()
   if S.warned_tmux or vim.env.TMUX == nil then
     return
@@ -334,6 +414,7 @@ function M.setup(opts)
   end)
 
   setup_leader_tracking()
+  setup_vscode_hook()
   warn_tmux()
   M.connect()
 end
@@ -347,6 +428,8 @@ function M.status()
     effective = M.effective_state(),
     focused = S.focused,
     leader_pending = S.leader_pending,
+    vscode_raw = S.vscode_raw,
+    vscode_companion = S.companion,
     nested = vim.env.NVIM ~= nil,
     tmux = vim.env.TMUX ~= nil,
   }

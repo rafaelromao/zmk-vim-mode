@@ -47,6 +47,10 @@
       {
         "command": "zmkVimMode.quickInputEscape",
         "title": "ZMK Vim Mode: Close Quick Input (clears raw hint)"
+      },
+      {
+        "command": "zmkVimMode.rawHint",
+        "title": "ZMK Vim Mode: Raise Raw Hint (called by the Neovim plugin)"
       }
     ],
     "keybindings": [
