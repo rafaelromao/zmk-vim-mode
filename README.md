@@ -267,10 +267,14 @@ has.
 - **No clobber to repair.** macOS never writes Compose, Kana or Scroll Lock, so
   a code is re-asserted only when a device appears and after wake
   (`IORegisterForSystemPower`). There is no `EV_LED`-style echo to watch.
-- **Frontmost app** comes from `NSWorkspace` (bundle identifiers:
-  `com.mitchellh.ghostty`, `com.microsoft.VSCode`, `md.obsidian`), polled ten
-  times a second — its change notifications are delivered only through a Cocoa
-  main run loop, which a Go daemon does not run.
+- **Frontmost app** is asked of the accessibility system
+  (`kAXFocusedApplication`), or of the window list (`CGWindowList`) when that
+  permission is missing, and polled ten times a second. Apps are matched by
+  bundle identifier: `com.mitchellh.ghostty`, `com.microsoft.VSCode`,
+  `md.obsidian`. `NSWorkspace.frontmostApplication` is only a last resort: it
+  updates through Cocoa notifications delivered to a main run loop, which a
+  daemon does not run, so it answers with whatever was frontmost at startup
+  for as long as the process lives.
 - **Window titles need the Accessibility permission.** They are read through
   the Accessibility API (`AXUIElement`), not Screen Recording. Grant it and
   VSCode's `[${focusedView}]` marker works exactly as on Linux, tool windows
@@ -292,7 +296,8 @@ has.
 | `NOT writable`, *not permitted* | Input Monitoring missing for **this** build | remove and re-add `~/.local/bin/zmk-vim-mode`, then `launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode` |
 | writes succeed, layers do not move | the keyboard is acting on another endpoint | ZMK keeps indicators per endpoint and only the selected one raises the event: check the keyboard's output (USB vs BLE) |
 | `bootstrap`: `5: Input/output error` | the agent is already loaded | `launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode` |
-| VSCode's terminal or sidebar keeps the vim layers | no Accessibility permission, so no window titles | `zmk-vim-mode doctor` (it asks), then restart the agent |
+| VSCode's terminal or sidebar keeps the vim layers | no Accessibility permission, so no window titles | add `~/.local/bin/zmk-vim-mode` under Accessibility, then `launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode`; `doctor` reports what the **daemon** was granted, which is the only answer that counts |
+| Obsidian reports nothing | the plugin is in the vault but not enabled | Obsidian rewrites its plugin list on exit, so `install --obsidian` cannot enable it while Obsidian runs: quit Obsidian and run it again, or enable *ZMK Vim Mode* in Settings → Community plugins |
 | nothing works, unclear why | — | run it in the foreground from a terminal that already has Input Monitoring: `launchctl bootout gui/$UID/dev.rafaelromao.zmk-vim-mode; zmk-vim-mode daemon --log-level debug` |
 
 ## Commands

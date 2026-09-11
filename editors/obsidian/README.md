@@ -18,10 +18,17 @@ zmk-vim-mode install --obsidian
 ```
 
 copies the two files (embedded in the binary; no build step) into every vault
-listed in Obsidian's `obsidian.json` and adds the plugin to each vault's
-`community-plugins.json` (backup kept). Restart Obsidian. Restricted mode must
-be off (Settings → Community plugins) and Vim key bindings on (Settings →
-Editor).
+listed in Obsidian's `obsidian.json` and, **when Obsidian is not running**,
+adds the plugin to each vault's `community-plugins.json` (backup kept).
+
+Obsidian owns that file and rewrites it from memory when it quits, so an entry
+added under a running Obsidian is silently discarded — the plugin then sits in
+the vault, unlisted and never loaded. Either quit Obsidian before running the
+command, or enable *ZMK Vim Mode* yourself: Settings → Community plugins →
+reload → toggle it on.
+
+Restricted mode must be off (Settings → Community plugins) and Vim key
+bindings on (Settings → Editor).
 
 By hand, equivalently:
 
@@ -48,7 +55,8 @@ reading view → base layout.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `status` says `legacy app md.obsidian.Obsidian` | plugin not loaded or not connected | Restricted mode off, plugin enabled, Obsidian restarted; *Status* command present? |
+| no `obsidian` client in `status` at all | the plugin is not loaded | is it listed and on under Settings → Community plugins? if it is missing, reload the list there (see *Install*) |
+| `status` says `legacy app md.obsidian.Obsidian` | plugin loaded but not connected | *ZMK Vim Mode: Status* in the palette; daemon running? |
 | *Status* says not connected | socket unreachable | daemon running? Flatpak Obsidian cannot see `~/.local/state`; use the native package |
 | every note reports `raw` | editor adapter shape unknown to the plugin | Obsidian version? Ctrl+Shift+I console, filter `zmk`; see *How it finds the editor* |
 | vim modes not reported at all | Vim key bindings off | Settings → Editor → Vim key bindings |

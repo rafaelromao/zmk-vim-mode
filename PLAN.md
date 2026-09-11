@@ -516,6 +516,17 @@ original design:
    `make install`; on macOS that also defeats a re-granted permission, since TCC judges the running process.
 4. **Close the devices after the final OFF.** The HID manager used to stop on context cancel, so the shutdown
    write failed and the keyboard stayed in its last vim layer.
+5. **Do not ask `NSWorkspace` who is frontmost.** `frontmostApplication` refreshes through Cocoa notifications
+   delivered to a main run loop, which a daemon does not run: it returned the app that happened to be frontmost
+   at startup, forever. Every app-scoped rule silently never fired — VSCode and Obsidian were never seen, while
+   Neovim kept working because its terminal was the frozen answer. Focus now comes from `kAXFocusedApplication`
+   (or `CGWindowList` without that permission), asked fresh each poll.
+6. **Window titles need Accessibility, not Screen Recording.** With it granted the `[${focusedView}]` marker
+   works exactly as on Linux, tool windows included. macOS attributes such a request to the *responsible*
+   process, so a CLI run from a terminal is judged on the terminal's grant — `doctor` therefore asks the daemon
+   rather than testing itself.
+7. **Obsidian rewrites `community-plugins.json` on exit.** Enabling the plugin by editing it under a running
+   Obsidian is undone silently; the installer now only copies the files in that case and says so.
 
 Deviations from the design: LEDs go through
 `IOHIDDeviceSetReport` (one atomic byte, Num/Caps merged from `IOHIDDeviceGetValue`) rather than
