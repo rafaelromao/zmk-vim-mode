@@ -490,6 +490,11 @@ the companion; the Obsidian plugin copied into the vault; then `zmk-vim-mode sta
 `vscode app=vscode` and `obsidian app=obsidian` clients and `journalctl --user -u zmk-vim-mode` shows the
 `tool window focused: Terminal` decisions.
 
+Phase 4 is **verified on Omarchy (2026-09-10)**: VSCode follows editor, terminal, views, quick inputs opened
+from mappings, `F1` and the mouse (accessibility bus), the Extensions search box; Obsidian follows modes and
+tool windows through its plugin (Wayland app_id is `md.obsidian.Obsidian`). Everything installs with
+`zmk-vim-mode install --vscode --obsidian --atspi`. IntelliJ remains deferred (not installed).
+
 Phase 5 is done: installer, README, old watchers deleted, and `doctor` now checks the editor setups (VSCode
 title marker, vscode-neovim, companion, lazy spec `vscode = true`; Obsidian plugin per vault) plus a daemon
 version older than the CLI. First hardware run of phase 4 (2026-09-10) found two things the plan got wrong —
