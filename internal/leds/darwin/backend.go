@@ -337,13 +337,23 @@ func (b *Backend) Devices() []leds.Device {
 // Write sends the code, merged with the host's Num/Caps Lock state.
 func (b *Backend) Write(id leds.DeviceID, code uint8) error {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	d, ok := b.devs[id]
-	b.mu.Unlock()
 	if !ok {
 		return fmt.Errorf("device %s not present", id)
 	}
+	// A refused open is not fatal: the write is attempted anyway, since output
+	// may go through where input monitoring does not. Retry the open on every
+	// write, so granting the permission takes effect without a restart --
+	// which matters because each rebuild of this binary voids the grant.
 	if !d.opened {
-		return fmt.Errorf("device %s not opened: %s", id, d.info.Note)
+		if r := int(C.zvm_open(d.ref)); r == 0 {
+			d.opened = true
+			d.info.Writable = true
+			d.info.Note = ""
+			b.collectElements(d)
+			b.log.Info("device opened on retry (permission granted since start)", "dev", id, "product", d.info.Product)
+		}
 	}
 	// Num and Caps Lock keep whatever the host has lit; the code owns the
 	// other three.
@@ -354,13 +364,12 @@ func (b *Backend) Write(id leds.DeviceID, code uint8) error {
 		boolBit(code&1 != 0),
 		boolBit(code&2 != 0),
 	}
-	if r := int(C.zvm_set_leds(d.ref, &d.els[0], &vals[0], 5)); r == 0 {
+	multi := int(C.zvm_set_leds(d.ref, &d.els[0], &vals[0], 5))
+	if multi == 0 {
 		return nil
-	} else {
-		// Fall back to a raw output report: some devices expose no writable
-		// elements but accept the report.
-		b.log.Debug("SetValueMultiple failed, trying SetReport", "dev", id, "err", ioReturn(r))
 	}
+	// Fall back to a raw output report: some devices expose no writable
+	// elements but accept the report.
 	bits := codeToBits(code)
 	if vals[0] != 0 {
 		bits |= bitNumLock
@@ -368,10 +377,26 @@ func (b *Backend) Write(id leds.DeviceID, code uint8) error {
 	if vals[1] != 0 {
 		bits |= bitCapsLock
 	}
-	if r := int(C.zvm_set_report(d.ref, C.int(d.reportID), C.uint8_t(bits))); r != 0 {
-		return fmt.Errorf("IOHIDDeviceSetReport: %s", ioReturn(r))
+	report := int(C.zvm_set_report(d.ref, C.int(d.reportID), C.uint8_t(bits)))
+	if report == 0 {
+		b.log.Debug("SetValueMultiple failed; SetReport worked", "dev", id, "err", ioReturn(multi))
+		return nil
 	}
-	return nil
+	note := ""
+	if !d.opened {
+		note = " (device could not be opened: " + d.info.Note + ")"
+	}
+	return fmt.Errorf("SetValueMultiple: %s; SetReport: %s%s", ioReturn(multi), ioReturn(report), note)
+}
+
+// collectElements caches the LED output elements of a device.
+func (b *Backend) collectElements(d *device) {
+	for i, usage := range ledOrder {
+		if C.zvm_element_present(d.els[i]) != 0 {
+			continue
+		}
+		d.els[i] = C.zvm_find_led(d.ref, C.int(usage))
+	}
 }
 
 func boolBit(b bool) C.int {
@@ -397,11 +422,30 @@ func codeToBits(code uint8) uint8 {
 	return bits
 }
 
+// Common IOReturn codes, named so the log does not read as hex soup.
+var ioReturnNames = map[uint32]string{
+	0xE00002BC: "kIOReturnError (general)",
+	0xE00002BD: "kIOReturnNoMemory",
+	0xE00002BE: "kIOReturnNoResources",
+	0xE00002C1: "kIOReturnNotPrivileged",
+	0xE00002C2: "kIOReturnBadArgument",
+	0xE00002C5: "kIOReturnExclusiveAccess (another process owns the device)",
+	0xE00002C7: "kIOReturnUnsupported (the device does not accept this)",
+	0xE00002CD: "kIOReturnNotOpen",
+	0xE00002E2: "kIOReturnNotPermitted",
+	0xE0005000: "HID system error (the system's keyboard driver refused it)",
+}
+
 func ioReturn(r int) string {
-	if r == kIOReturnNotPermitted {
-		return "not permitted (grant Input Monitoring to zmk-vim-mode in System Settings → Privacy & Security)"
+	u := uint32(int32(r))
+	if u == 0xE00002E2 { // kIOReturnNotPermitted
+		return "not permitted — grant Input Monitoring to ~/.local/bin/zmk-vim-mode " +
+			"(System Settings → Privacy & Security; a rebuilt binary must be removed and re-added)"
 	}
-	return fmt.Sprintf("IOReturn 0x%x", uint32(int32(r)))
+	if name, ok := ioReturnNames[u]; ok {
+		return fmt.Sprintf("%s (0x%08x)", name, u)
+	}
+	return fmt.Sprintf("IOReturn 0x%08x", u)
 }
 
 func (b *Backend) emit(ev leds.Event) {
@@ -528,15 +572,15 @@ func zvmDeviceMatched(handle C.uintptr_t, dev C.IOHIDDeviceRef) {
 	} else {
 		d.opened = true
 		d.info.Writable = true
-		// Elements are collected after opening: the list fills in once the
-		// process may monitor the device.
-		for i, usage := range ledOrder {
-			d.els[i] = C.zvm_find_led(dev, C.int(usage))
-		}
-		if noCodeLEDs && C.zvm_element_present(d.els[3]) != 0 {
-			d.reportID = int(C.zvm_led_element(dev, usageCompose))
+	}
+	// Elements are collected whether or not the open succeeded: the list may
+	// be readable either way, and a write is attempted regardless.
+	b.collectElements(d)
+	if noCodeLEDs && C.zvm_element_present(d.els[3]) != 0 {
+		if r := int(C.zvm_led_element(dev, usageCompose)); r >= 0 {
+			d.reportID = r
 			d.info.Note = ""
-			b.log.Info("Compose LED element visible after opening the device", "product", info.Product, "report", d.reportID)
+			b.log.Info("Compose LED element visible now", "product", info.Product, "report", r)
 		}
 	}
 	b.mu.Lock()
