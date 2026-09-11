@@ -128,7 +128,8 @@ func DefaultRules() Rules {
 		LegacyApps: []AppRule{
 			{Kind: "vscode", Classes: []string{"code", "code-oss", "code-url-handler", "com.microsoft.vscode", "cursor", "codium"},
 				TitleView: VSCodeFocusedView, EditorViews: VSCodeEditorViews, Widget: "vscode"},
-			{Kind: "obsidian", Classes: []string{"obsidian", "md.obsidian"}},
+			// Hyprland reports the Wayland app_id md.obsidian.Obsidian; X11 builds say obsidian.
+			{Kind: "obsidian", Classes: []string{"obsidian", "md.obsidian", "md.obsidian.*"}},
 			{Kind: "intellij", Classes: []string{"jetbrains-*", "com.jetbrains.*"}},
 		},
 		TitleLegacy: []string{"nvim", "neovim", "git rebase -i"},
