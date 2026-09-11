@@ -1,112 +1,138 @@
 # zmk-vim-mode for VSCode
 
-Three pieces make VSCode a first-class citizen. Each one is independent; do
-them in this order.
+The keyboard follows VSCode as closely as it follows Neovim: the exact vim mode
+in the editor, `raw` (plain base layout) everywhere else -- terminal, sidebar,
+panels, quick inputs, rename box, non-text editors -- and back to the mode the
+instant focus returns to the text.
 
-## 1. Real modes: switch to vscode-neovim
+## Install
 
-Install `asvetliakov.vscode-neovim` and uninstall `vscodevim.vim` (they are
-mutually exclusive). vscode-neovim embeds a real Neovim, which loads your
-config, which loads the zmk-vim-mode Neovim plugin, which reports the exact
-mode to the daemon -- nothing VSCode-specific to add.
+```bash
+zmk-vim-mode install --vscode --atspi && systemctl --user restart zmk-vim-mode
+```
+
+Then quit VSCode fully and start it again. Add `vscode = true` to your lazy.nvim
+spec for this plugin if it predates that line (see *Layer 1* below). Check with
+`zmk-vim-mode doctor`.
+
+What the command does, all idempotent and each with a backup:
+
+- `settings.json` (every VSCode flavour found): `window.title` gets the
+  ` [${focusedView}]` marker appended to whatever template you have;
+  `editor.accessibilitySupport` is set to `off`.
+- `~/.config/code-flags.conf`: `--force-renderer-accessibility` (only with
+  `--atspi`; Arch's `code` wrapper appends the file's lines to the command line).
+- Installs vscode-neovim if missing and the companion extension, packaged from
+  files embedded in the daemon binary -- no node, no vsce, no network for it.
+  It never uninstalls anything: if VSCodeVim is present it prints the command.
+- Writes the service unit with `--atspi`, which stays on across later
+  reinstalls.
+
+## How it works: four layers
+
+Each layer covers what the previous ones cannot see. Inside VSCode the daemon
+ranks them: window title → accessibility bus → companion → embedded Neovim →
+`legacy`.
+
+### Layer 1 -- the mode: Neovim inside VSCode
+
+[vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) embeds a real
+Neovim, which loads your config, which loads the zmk-vim-mode Neovim plugin,
+which reports the exact mode to the daemon. Nothing VSCode-specific is
+involved. VSCodeVim cannot do this (it reports no modes) and conflicts with
+vscode-neovim: remove it.
 
 The spec must stay enabled inside VSCode. LazyVim loads its `vscode` extra
 automatically there and disables every plugin except a whitelist and those
-marked `vscode = true` -- `contrib/nvim-lazy-spec.lua` sets it; add it to your
-copy if it predates this note. Other configs: no `cond = not vim.g.vscode`.
+marked `vscode = true`; `contrib/nvim-lazy-spec.lua` sets it. Other configs:
+no `cond = not vim.g.vscode` around it.
 
-`zmk-vim-mode status` then shows a client `nvim app=vscode`. If it does not,
-open the Neovim output channel in VSCode (*Output* → *vscode-neovim*) and run
-`:ZmkVimMode status` through the command palette's *Neovim: Run command*.
+The plugin also watches vscode-neovim's outgoing calls: a mapping that opens a
+quick input or the rename box (LazyVim's `<leader><space>`, `<leader>ss`,
+`<leader>cr`, anything through `require("vscode").action` matching
+`vscode_raw_actions`) raises `raw` until keys reach Neovim again, the companion
+or the bus reports the close, or `vscode_raw_ttl_ms` (20 s).
 
-## 2. Tool windows: publish the focused view in the title
+### Layer 2 -- tool windows: the window title
 
-The extension API cannot see focus move to the terminal, the sidebar or a
-panel. VSCode's window title can. Add to `settings.json`:
+No extension API fires when focus moves to the terminal, the sidebar or a
+panel. The title can carry it: with the marker installed above,
+`${focusedView}` reads `Text Editor` while the editor has focus, the view's
+name or id inside a view (`[terminal]`, `[Explorer]`, `[Search]`), and nothing
+at all in widgets outside any view (the Extensions search box). The daemon
+follows Hyprland's title events and switches to `raw` whenever the brackets
+hold anything but an editor name -- an empty marker included.
+`hyprctl activewindow -j | grep title` shows what VSCode publishes.
 
-```json
-"window.title": "${dirty}${activeEditorShort}${separator}${rootName} [${focusedView}]"
-```
+### Layer 3 -- the companion extension
 
-`${focusedView}` reads `Text Editor` while the text editor has focus, the
-view's name or id inside a view (`[terminal]`, `[Explorer]`, `[Search]`, ...)
-and nothing at all in widgets outside any view (the Extensions search box).
-The daemon reads the title from Hyprland and switches the keyboard to raw
-whenever the brackets hold anything but an editor name
-(`state.VSCodeEditorViews`) -- an empty marker included. Restart VSCode after changing the
-setting; `hyprctl activewindow -j | grep title` shows what it publishes.
+Plain JavaScript, no build step (`editors/vscode/`). It reports `none` ("no
+opinion") while a text editor has focus and `raw`:
 
-## 3. Everything else: this companion extension
+- while no text editor is active: Settings, Extensions view, webviews,
+  images, an empty window;
+- after it opened a quick input or the rename box itself, through the
+  keybindings it contributes for `Ctrl+P`, `Ctrl+Shift+P`, `F1`, `Ctrl+G`,
+  `Ctrl+Shift+O` and `F2` (active only while the editor has focus);
+- after the Neovim plugin forwarded a mapping-opened quick input to it.
 
-Covers what neither nvim nor the title can: no active text editor (Settings,
-Extensions, webviews, images, an empty window) and the quick inputs opened
-with Ctrl+P, Ctrl+Shift+P, F1, Ctrl+G and Ctrl+Shift+O.
+It clears the hint on `Escape` inside a quick input or the rename box, when
+the active editor or the cursor changes, when the window loses focus, when
+the daemon reports editor focus (layer 4), or after `zmkVimMode.quickInputTtlMs`.
 
-Quick inputs opened **from Neovim mappings** (LazyVim's `<leader><space>`,
-`<leader>ss`, `<leader>cr`... anything going through
-`require("vscode").action`) are caught on the Neovim side: the plugin watches
-vscode-neovim's outgoing calls and raises the same raw hint for the commands in
-`vscode_raw_actions` (palette, Go to File/Line/Symbol, rename...). With the
-companion installed the two sides share one close detection; without it the
-hint clears on the next key that reaches Neovim, or after
-`vscode_raw_ttl_ms`. Views and the terminal are not in that list on purpose:
-the title reports them, and reports the way back instantly.
+### Layer 4 -- everything opened with the mouse: the accessibility bus
 
-## Install: one command
+Clicking the title-bar Command Center, a breadcrumb or a status-bar picker is
+invisible to layers 1-3. The AT-SPI2 bus sees every focus change once
+accessibility is on. The daemon (`--atspi`) registers as a listener, joins
+events to the frontmost window by pid, and classifies the focused widget:
+Monaco's edit surface (class `native-edit-context` / `inputarea`,
+`aria-roledescription` "editor") → the clients decide; anything else → `raw`.
+It also sends `editor_focus` to the companion and the embedded Neovim when the
+editor regains focus, so their hints clear at once -- no mis-typed first key.
 
-```bash
-zmk-vim-mode install --vscode
-```
+Requirements, all handled by the installer: both `org.a11y.Status` flags on
+the session (`IsEnabled`, `ScreenReaderEnabled`), and VSCode started with
+`--force-renderer-accessibility` -- without it Electron joins the bus but
+exposes none of its DOM. Cost and privacy notes are in the main README.
 
-does steps 2 and 3 and the extension half of step 1: it sets `window.title`
-(appending the marker to a template you already have) and
-`editor.accessibilitySupport: off` in every VSCode flavour's `settings.json`
-it finds -- textually, so comments survive, with a `settings.json.bak-zmk-vim-mode`
-backup -- packages the companion from files embedded in the binary (no node,
-no vsce) and installs it with `code --install-extension --force`, and installs
-vscode-neovim if missing. It never uninstalls anything: if VSCodeVim is
-present it prints the command for you. Restart VSCode afterwards; run
-`zmk-vim-mode doctor` to confirm. The lazy spec (`vscode = true`) stays yours
-to add.
-
-Manual alternatives, should you prefer them:
+## Verify
 
 ```bash
-cd editors/vscode && npx @vscode/vsce package && code --install-extension zmk-vim-mode-0.1.3.vsix
-# or
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/rafaelromao.zmk-vim-mode-0.1.3
+zmk-vim-mode doctor            # title marker, extensions, lazy spec, bus flags, renderer flag
+zmk-vim-mode status            # clients: nvim app=vscode + vscode app=vscode; focus line with --atspi
+zmk-vim-mode atspi-watch       # one JSON line per focus event, with the classifier's verdict
 ```
 
-`zmk-vim-mode status` then shows a second client, `vscode app=vscode`, whose
-mode is `none` while the editor has focus and `raw` otherwise.
+Expected `status` reasons: `client vscode` in the editor, `tool window
+focused: terminal` in the terminal, `focus in list item…` or `focus in
+input.input…` with a quick input open (via the bus), `vscode client raw` for a
+hint without the bus.
 
-### Limits
+## Troubleshooting
 
-- A quick input is known to close on Escape (bound inside quick inputs), when
-  the active editor or the cursor changes, or when the window loses focus;
-  otherwise the hint expires after `zmkVimMode.quickInputTtlMs` (20 s).
-  Accepting an entry that changes nothing visible (a toggle) keeps raw until
-  the next cursor move: that first motion key goes through the base layout.
-- Selection events in the first 500 ms after opening are ignored: the blur and
-  vscode-neovim's resync fire them, and they would clear the hint at once.
-- Quick inputs opened from the terminal or the sidebar (editor not focused)
-  are not wrapped; the title then says a view has focus, which is already raw.
-- **Quick inputs opened with the mouse** -- the title-bar Command Center, a
-  breadcrumb, a status-bar item -- raise no hint from this extension: nothing
-  in its API observes them and the title does not change. They are covered
-  only by the accessibility bus: `zmk-vim-mode install --atspi --vscode` (see
-  the main README, *Following focus through the accessibility bus*; the
-  `--vscode` half adds `--force-renderer-accessibility` to
-  `~/.config/code-flags.conf`, without which VSCode never appears there). Without it, open
-  them from the keyboard (`F1`, a Neovim mapping) or hide the target with
-  `"window.commandCenter": false`. Letter chords such as `Ctrl+Shift+P` are
-  not an option while the keyboard sits in its NORMAL layer: the letters are
-  remapped there.
-- With `--atspi` the daemon also tells this extension and the embedded Neovim
-  when focus returns to the editor (`editor_focus`), so their hints clear at
-  once and the first key after a quick input is never mis-typed.
-- The find widget (Ctrl+F) is part of the editor: with vscode-neovim, `/`
-  search is Neovim's own and reports `cmdline` correctly.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `status` says `legacy app code` | no `nvim app=vscode` client: plugin disabled inside VSCode | `vscode = true` in the spec; restart VSCode; `:ZmkVimMode status` via *Neovim: Run command* |
+| terminal / sidebar keep the vim layers | title marker missing or VSCode not restarted | `install --vscode`, restart VSCode, check `hyprctl activewindow -j` |
+| mouse-opened palette keeps the vim layers | bus off, or renderer flag missing | `install --vscode --atspi`, restart daemon and VSCode; `atspi-watch` must list `code` and print events |
+| a widget gets the wrong verdict | classifier does not know it | paste the `atspi-watch` line; rules live in `internal/focus/atspi/classify.go` |
+| `doctor`: daemon version differs from CLI | `make install` replaced the binary, not the process | `systemctl --user restart zmk-vim-mode` |
+| companion command missing from the palette | extension not installed/loaded | `install --vscode` again, *Developer: Show Running Extensions* |
+
+## Limits
+
+- Without `--atspi`: mouse-opened quick inputs raise no hint; the first key
+  after `Escape` from a hinted quick input may go through the base layout when
+  no other close signal fired. Letter chords such as `Ctrl+Shift+P` cannot be
+  typed while the keyboard is in its NORMAL layer (letters are remapped): use
+  `F1` or mappings.
+- The find widget's own input is a Monaco editor; the bus tells it apart by its
+  label ("Find"/"Replace"). With vscode-neovim, `/` search is Neovim's and
+  reports `cmdline`.
+- Labels are matched in English; a localized UI may need the widget names in
+  `classify.go` extended (the `atspi-watch` output shows them).
 
 Settings: `zmkVimMode.socket`, `zmkVimMode.quickInputTtlMs`, `zmkVimMode.debug`
-(logs to the *ZMK Vim Mode* output channel). Command: *ZMK Vim Mode: Status*.
+(logs to the *ZMK Vim Mode* output channel). Commands: *ZMK Vim Mode: Status*
+and the wrapped quick-input commands.

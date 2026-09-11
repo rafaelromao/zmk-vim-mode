@@ -132,6 +132,12 @@ Add the Neovim plugin (`contrib/nvim-lazy-spec.lua` → `~/.config/nvim/lua/plug
 put `set -g focus-events on` in `~/.tmux.conf`, then flash the firmware module
 following [docs/keyboards-repo.md](docs/keyboards-repo.md).
 
+Editors other than Neovim are one more command, then a restart of each:
+
+```bash
+zmk-vim-mode install --vscode --obsidian --atspi && systemctl --user restart zmk-vim-mode
+```
+
 Check everything with `zmk-vim-mode doctor`.
 
 ### Editors
@@ -139,7 +145,7 @@ Check everything with `zmk-vim-mode doctor`.
 | Editor | Mode source | Tool-window focus | Setup |
 |---|---|---|---|
 | Neovim in a terminal, Neovide | the Neovim plugin | the plugin: `raw` for pickers, the terminal, a pending `<leader>` | `contrib/nvim-lazy-spec.lua` |
-| VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, plus a small companion extension for quick inputs and non-text editors | `zmk-vim-mode install --vscode`, then [editors/vscode](editors/vscode/README.md) |
+| VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, a companion extension for quick inputs and non-text editors, the accessibility bus for anything opened with the mouse | `zmk-vim-mode install --vscode --atspi`, then [editors/vscode](editors/vscode/README.md) |
 | Obsidian | own plugin (CodeMirror vim events) | own plugin (`focusin`) | `zmk-vim-mode install --obsidian`, then [editors/obsidian](editors/obsidian/README.md) |
 | IntelliJ, anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
 
@@ -171,10 +177,10 @@ the terminal, a tree, a rename box, the find widget) → raw. It also tells the
 VSCode companion and the embedded Neovim when the editor regained focus, so
 their own guesses clear instantly.
 
-What it costs, and why it is opt-in: the daemon sets `org.a11y.Status.IsEnabled`
-on the session, which is what a screen reader does -- GTK, Qt and Chromium
-applications start maintaining accessibility trees (a little CPU and memory,
-nothing visible). `install --vscode` already sets
+What it costs, and why it is opt-in: the daemon sets both `org.a11y.Status`
+flags (`IsEnabled`, `ScreenReaderEnabled`) on the session, which is what a
+screen reader does -- GTK, Qt and Chromium applications start maintaining
+accessibility trees (a little CPU and memory, nothing visible). `install --vscode` already sets
 `editor.accessibilitySupport: off` so VSCode does not switch Monaco into
 screen-reader mode because of it. Applications read the flag at startup:
 restart VSCode after enabling. The daemon reads only roles, labels and HTML
