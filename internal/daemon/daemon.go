@@ -338,6 +338,7 @@ func (d *Daemon) status() *proto.Status {
 	if snap.Widget != nil {
 		st.Widget = &proto.WidgetInfo{Editor: snap.Widget.Editor, Detail: snap.Widget.Detail}
 	}
+	st.AXTrusted = axTrusted()
 	for _, c := range snap.Clients {
 		ci := proto.ClientInfo{ID: c.ID, Kind: c.Kind, App: c.App, PID: c.PID, Mode: c.Mode.String(),
 			Nested: c.Nested, IdleMs: time.Since(c.LastEvent).Milliseconds()}

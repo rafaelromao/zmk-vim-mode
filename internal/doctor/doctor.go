@@ -163,7 +163,11 @@ func Run(w io.Writer, socket, cliVersion string) error {
 	}
 
 	// 5. platform specifics, then the editor setups (VSCode, Obsidian)
-	checks = append(checks, platformChecks()...)
+	var daemonAX *bool
+	if status.Status != nil {
+		daemonAX = status.Status.AXTrusted
+	}
+	checks = append(checks, platformChecks(daemonAX)...)
 	if home, err := os.UserHomeDir(); err == nil {
 		checks = append(checks, editorChecks(home)...)
 	}

@@ -83,6 +83,10 @@ type Status struct {
 	Reason    string         `json:"reason"`
 	Frontmost *FrontmostInfo `json:"frontmost,omitempty"`
 	Widget    *WidgetInfo    `json:"widget,omitempty"` // accessibility-bus focus inside the frontmost app
+	// AXTrusted is macOS-only: whether the *daemon* may read window titles
+	// through the Accessibility API. Only the daemon can answer it, because
+	// macOS judges such a request by the responsible process.
+	AXTrusted *bool `json:"ax_trusted,omitempty"`
 	Clients   []ClientInfo   `json:"clients"`
 	Override  *OverrideInfo  `json:"override,omitempty"`
 	Devices   []Device       `json:"devices"`
