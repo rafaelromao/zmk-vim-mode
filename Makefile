@@ -79,14 +79,17 @@ codesign-cert: ## macOS: create the self-signed certificate that keeps TCC grant
 		echo "$(CODESIGN_CERT) already exists; build with:  make install CODESIGN_IDENTITY=$(CODESIGN_CERT)"; exit 0; \
 	fi; \
 	d=$$(mktemp -d); \
+	: "PKCS#12 has to be written the way macOS's Security framework reads it:"; \
+	: "SHA-1 MAC, 3DES, and a real password -- an empty one fails MAC verification."; \
 	openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
 		-keyout $$d/key.pem -out $$d/cert.pem -subj "/CN=$(CODESIGN_CERT)" \
 		-addext "basicConstraints=critical,CA:false" \
 		-addext "keyUsage=critical,digitalSignature" \
 		-addext "extendedKeyUsage=critical,codeSigning" 2>/dev/null; \
-	openssl pkcs12 -export -inkey $$d/key.pem -in $$d/cert.pem -out $$d/id.p12 -passout pass: -name $(CODESIGN_CERT); \
+	openssl pkcs12 -export -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
+		-inkey $$d/key.pem -in $$d/cert.pem -out $$d/id.p12 -passout pass:zmkvim -name $(CODESIGN_CERT); \
 	echo "importing into the login keychain (it may ask to allow codesign to use the key)"; \
-	security import $$d/id.p12 -k "$$HOME/Library/Keychains/login.keychain-db" -P "" -T /usr/bin/codesign -A; \
+	security import $$d/id.p12 -k "$$HOME/Library/Keychains/login.keychain-db" -P zmkvim -T /usr/bin/codesign -A; \
 	echo "trusting it for code signing (it will ask for your login password)"; \
 	security add-trusted-cert -r trustRoot -p codeSign -k "$$HOME/Library/Keychains/login.keychain-db" $$d/cert.pem; \
 	rm -rf $$d; \
