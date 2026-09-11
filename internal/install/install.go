@@ -193,7 +193,9 @@ func Run(w io.Writer, o Options) error {
 	}
 	if o.Nvim {
 		fmt.Fprintln(w, "\n--- Neovim (lazy.nvim) ---")
-		fmt.Fprint(w, NvimSpec)
+		if err := InstallNvim(w); err != nil {
+			return err
+		}
 	}
 	if o.Tmux {
 		fmt.Fprintln(w, "\n--- tmux ---")
