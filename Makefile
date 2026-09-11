@@ -11,8 +11,11 @@ CC ?= cc
 
 all: build
 
+# Linux is pure Go (static binary); macOS needs cgo for IOKit and Cocoa.
+CGO ?= $(if $(filter Darwin,$(shell uname -s)),1,0)
+
 build: ## build the daemon for this platform
-	CGO_ENABLED=0 $(GO) build $(LDFLAGS) -o $(BIN) ./cmd/zmk-vim-mode
+	CGO_ENABLED=$(CGO) $(GO) build $(LDFLAGS) -o $(BIN) ./cmd/zmk-vim-mode
 
 cross: ## cross-compile for the Omarchy box (linux/amd64 and linux/arm64)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BIN)-linux-amd64 ./cmd/zmk-vim-mode

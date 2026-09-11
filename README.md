@@ -193,9 +193,28 @@ up. `zmk-vim-mode status` shows `focus : elsewhere (input.input …)` while a
 quick input is open. No D-Bus library is involved: `internal/dbus` is a
 300-line client for the handful of calls this needs.
 
-macOS is not wired up yet: the daemon runs with a logging-only LED backend, so
-the socket protocol and the plugin work, but nothing reaches the keyboard. See
-PLAN.md phase 6.
+## Install (macOS)
+
+```bash
+make install                                                        # cgo build; writes the launchd agent
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/dev.rafaelromao.zmk-vim-mode.plist
+```
+
+Then grant **Input Monitoring** to `zmk-vim-mode` (System Settings → Privacy &
+Security) when macOS asks, or when `zmk-vim-mode devices` says *not
+permitted*: opening a keyboard's HID device requires it. LEDs are written
+through IOKit (`IOHIDDeviceSetReport`, one atomic byte, Num/Caps Lock merged
+from the host's state); macOS never touches Compose, Kana or Scroll Lock, so a
+code is re-asserted only on device arrival and wake.
+
+The frontmost application comes from `NSWorkspace` (bundle identifiers:
+`com.mitchellh.ghostty`, `com.microsoft.VSCode`, `md.obsidian`), polled ten
+times a second -- its change notifications need a Cocoa main run loop the
+daemon does not have. Window titles are not read (that needs Screen Recording
+or Accessibility), so on macOS VSCode's tool windows are seen only by the
+companion extension and the embedded Neovim; the accessibility bus is Linux
+only. Same commands otherwise: `install --vscode --obsidian`, `status`,
+`doctor`.
 
 ## Commands
 

@@ -1,4 +1,4 @@
-//go:build !linux
+//go:build !linux && !darwin
 
 package main
 
@@ -14,7 +14,7 @@ import (
 
 const platformName = runtime.GOOS
 
-// newBackend returns a logging-only backend until the macOS IOKit backend lands (plan phase 6).
+// newBackend returns a logging-only backend on platforms without a real one.
 func newBackend(log *slog.Logger, _ deviceFilter) leds.Backend {
 	log.Warn("no LED backend for this platform yet; using the virtual (log-only) backend", "os", runtime.GOOS)
 	return null.New(log)
