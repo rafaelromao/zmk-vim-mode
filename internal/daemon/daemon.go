@@ -136,8 +136,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.onDecision(d.store.Decision())
 
 	err = srv.Serve(ctx)
-	// Shutdown: never leave the keyboard stuck in a vim layer.
+	// Shutdown: never leave the keyboard stuck in a vim layer. This runs after
+	// the context is cancelled, so a backend that holds OS resources must keep
+	// them open until it is closed here, not on the context.
 	d.rec.WriteAll(state.CodeOff)
+	if c, ok := d.o.Backend.(interface{ Close() error }); ok {
+		if err := c.Close(); err != nil {
+			d.log.Debug("closing the LED backend", "err", err)
+		}
+	}
 	return err
 }
 

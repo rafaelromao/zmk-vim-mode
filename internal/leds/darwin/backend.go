@@ -316,10 +316,14 @@ func (b *Backend) Start(ctx context.Context, events chan<- leds.Event) error {
 		runtime.LockOSThread()
 		C.zvm_run(C.uintptr_t(b.handle), C.int(b.f.VID), C.int(b.f.PID))
 	}()
-	go func() {
-		<-ctx.Done()
-		C.zvm_stop()
-	}()
+	return nil
+}
+
+// Close stops the HID manager, which closes the devices. It is deliberately
+// not tied to the context: the daemon writes a final OFF after its context is
+// cancelled, and that write must still find the devices open.
+func (b *Backend) Close() error {
+	C.zvm_stop()
 	return nil
 }
 
