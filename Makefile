@@ -7,7 +7,7 @@ GO ?= go
 NVIM ?= nvim
 CC ?= cc
 
-.PHONY: all build test test-go test-lua test-firmware fmt vet lint install uninstall doctor clean cross
+.PHONY: all build test test-go test-lua test-firmware fmt vet lint install uninstall doctor clean cross codesign-cert
 
 all: build
 
@@ -21,6 +21,7 @@ CGO ?= $(if $(filter Darwin,$(UNAME_S)),1,0)
 # keychain to keep the grant across rebuilds; ad-hoc ("-") needs re-granting
 # each time the binary changes.
 CODESIGN_IDENTITY ?= -
+CODESIGN_CERT ?= zmk-vim-mode-dev
 BUNDLE_ID := dev.rafaelromao.zmk-vim-mode
 
 build: ## build the daemon for this platform
@@ -70,6 +71,28 @@ install: build ## install the binary and the user service
 	install -m 0755 $(BIN) $(PREFIX)/bin/$(BIN)
 	@echo "installed $(PREFIX)/bin/$(BIN)"
 	@$(PREFIX)/bin/$(BIN) install --nvim --tmux --udev
+
+codesign-cert: ## macOS: create the self-signed certificate that keeps TCC grants across rebuilds
+	@set -e; \
+	if [ "$(UNAME_S)" != "Darwin" ]; then echo "macOS only"; exit 1; fi; \
+	if security find-certificate -c $(CODESIGN_CERT) >/dev/null 2>&1; then \
+		echo "$(CODESIGN_CERT) already exists; build with:  make install CODESIGN_IDENTITY=$(CODESIGN_CERT)"; exit 0; \
+	fi; \
+	d=$$(mktemp -d); \
+	openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+		-keyout $$d/key.pem -out $$d/cert.pem -subj "/CN=$(CODESIGN_CERT)" \
+		-addext "basicConstraints=critical,CA:false" \
+		-addext "keyUsage=critical,digitalSignature" \
+		-addext "extendedKeyUsage=critical,codeSigning" 2>/dev/null; \
+	openssl pkcs12 -export -inkey $$d/key.pem -in $$d/cert.pem -out $$d/id.p12 -passout pass: -name $(CODESIGN_CERT); \
+	echo "importing into the login keychain (it may ask to allow codesign to use the key)"; \
+	security import $$d/id.p12 -k "$$HOME/Library/Keychains/login.keychain-db" -P "" -T /usr/bin/codesign -A; \
+	echo "trusting it for code signing (it will ask for your login password)"; \
+	security add-trusted-cert -r trustRoot -p codeSign -k "$$HOME/Library/Keychains/login.keychain-db" $$d/cert.pem; \
+	rm -rf $$d; \
+	echo; security find-identity -v -p codesigning; \
+	echo "now:  make install CODESIGN_IDENTITY=$(CODESIGN_CERT)"; \
+	echo "then grant Input Monitoring once; later rebuilds keep it."
 
 uninstall: ## remove the user service and the binary
 	-$(PREFIX)/bin/$(BIN) uninstall

@@ -239,22 +239,23 @@ The grant is tied to the binary's code signature. Go's linker leaves an ad-hoc
 against that, so the daemon could be added to Input Monitoring and every device
 open still failed. `make build` therefore re-signs with a stable identifier.
 
-Ad-hoc signing changes the binary's hash on every rebuild, so the entry must be
-removed and added again each time. To keep the grant, sign with a self-signed
-certificate. In **Keychain Access** → menu *Keychain Access* → *Certificate
-Assistant* → *Create a Certificate*:
-
-- Name: `zmk-vim-mode-dev`
-- Identity Type: *Self Signed Root*
-- Certificate Type: *Code Signing* — the dialog defaults to *SSL Client*
-
-Then build with it and grant Input Monitoring once:
+Ad-hoc signing changes the binary's hash on every rebuild — and the version
+string is stamped in, so every commit changes it — which voids the grant each
+time. Sign with a self-signed certificate instead and it survives:
 
 ```bash
-make install CODESIGN_IDENTITY=zmk-vim-mode-dev
+make codesign-cert                                   # once: creates zmk-vim-mode-dev
+make install CODESIGN_IDENTITY=zmk-vim-mode-dev      # and every time after
 ```
 
-`security find-identity -v -p codesigning` lists what the keychain has.
+`codesign-cert` creates the key, imports it into the login keychain and trusts
+it for code signing; it asks to allow `codesign` to use the key and for your
+login password. Grant Input Monitoring once afterwards. The equivalent by hand
+is **Keychain Access** → menu *Keychain Access* → *Certificate Assistant* →
+*Create a Certificate*, with Name `zmk-vim-mode-dev`, Identity Type *Self
+Signed Root*, Certificate Type *Code Signing* (the dialog defaults to *SSL
+Client*). `security find-identity -v -p codesigning` lists what the keychain
+has.
 
 ### What differs from Linux
 
