@@ -149,16 +149,23 @@ func Run(w io.Writer, o Options) error {
 			// image otherwise, and on macOS that also means the old process
 			// identity, so a re-granted Input Monitoring permission would not
 			// apply to it either.
-			label := fmt.Sprintf("gui/%d/dev.rafaelromao.zmk-vim-mode", os.Getuid())
+			// launchd needs bootstrap to load an agent and kickstart to
+			// restart a loaded one; using the wrong one fails confusingly
+			// ("Input/output error" for a bootstrap of something loaded), so
+			// pick it here rather than leaving it to the reader.
+			domain := fmt.Sprintf("gui/%d", os.Getuid())
+			label := domain + "/dev.rafaelromao.zmk-vim-mode"
 			if exec.Command("launchctl", "print", label).Run() == nil {
 				if err := exec.Command("launchctl", "kickstart", "-k", label).Run(); err != nil {
 					fmt.Fprintf(w, "\ncould not restart the agent (%v); run it yourself:\n  launchctl kickstart -k %s\n", err, label)
 				} else {
 					fmt.Fprintln(w, "restarted the agent (it now runs the new binary)")
 				}
+			} else if out, err := exec.Command("launchctl", "bootstrap", domain, path).CombinedOutput(); err != nil {
+				fmt.Fprintf(w, "\ncould not load the agent (%v: %s); run it yourself:\n  launchctl bootstrap %s %s\n",
+					err, strings.TrimSpace(string(out)), domain, path)
 			} else {
-				fmt.Fprintln(w, "\nenable it with:")
-				fmt.Fprintf(w, "  launchctl bootstrap gui/$UID %s\n", path)
+				fmt.Fprintln(w, "loaded the agent")
 			}
 			fmt.Fprintln(w, "\nmacOS ties Input Monitoring to the binary's identity, so a rebuilt daemon loses it:")
 			fmt.Fprintln(w, "  System Settings → Privacy & Security → Input Monitoring → remove zmk-vim-mode, add it again")
