@@ -13,7 +13,7 @@ package darwin
 
 /*
 #cgo CFLAGS: -x objective-c -fobjc-arc
-#cgo LDFLAGS: -framework Cocoa
+#cgo LDFLAGS: -framework Cocoa -framework ApplicationServices
 #import <Cocoa/Cocoa.h>
 #include <string.h>
 
@@ -28,6 +28,39 @@ static int zvm_frontmost(char *buf, int n) {
 		buf[n - 1] = 0;
 		return (int)app.processIdentifier;
 	}
+}
+
+static int zvm_ax_trusted(void) { return AXIsProcessTrusted() ? 1 : 0; }
+
+// zvm_ax_prompt asks the system to show the "grant Accessibility" dialog.
+static int zvm_ax_prompt(void) {
+	CFStringRef keys[] = { kAXTrustedCheckOptionPrompt };
+	CFBooleanRef vals[] = { kCFBooleanTrue };
+	CFDictionaryRef opts = CFDictionaryCreate(kCFAllocatorDefault, (const void **)keys, (const void **)vals, 1,
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	int ok = AXIsProcessTrustedWithOptions(opts) ? 1 : 0;
+	CFRelease(opts);
+	return ok;
+}
+
+// zvm_window_title writes the title of pid's focused window into buf. Needs
+// the Accessibility permission; without it the attribute query simply fails
+// and the title stays empty.
+static void zvm_window_title(int pid, char *buf, int n) {
+	buf[0] = 0;
+	AXUIElementRef app = AXUIElementCreateApplication((pid_t)pid);
+	if (!app) return;
+	CFTypeRef win = NULL;
+	if (AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute, &win) == kAXErrorSuccess && win) {
+		CFTypeRef title = NULL;
+		if (AXUIElementCopyAttributeValue((AXUIElementRef)win, kAXTitleAttribute, &title) == kAXErrorSuccess && title) {
+			if (CFGetTypeID(title) == CFStringGetTypeID())
+				CFStringGetCString((CFStringRef)title, buf, n, kCFStringEncodingUTF8);
+			CFRelease(title);
+		}
+		CFRelease(win);
+	}
+	CFRelease(app);
 }
 */
 import "C"
@@ -54,22 +87,52 @@ func New(log *slog.Logger) *Watcher {
 	return &Watcher{log: log, Interval: 100 * time.Millisecond}
 }
 
-// Frontmost returns the current frontmost application.
-func Frontmost() focus.App {
+// AXTrusted reports whether this process may use the Accessibility API, which
+// is what makes window titles readable.
+func AXTrusted() bool { return C.zvm_ax_trusted() != 0 }
+
+// PromptAXTrust asks macOS to show the Accessibility permission dialog. It
+// returns the current state; the grant itself only takes effect for a later
+// run of the process.
+func PromptAXTrust() bool { return C.zvm_ax_prompt() != 0 }
+
+// Frontmost returns the current frontmost application. The title is filled in
+// only when the Accessibility permission is granted.
+func Frontmost(withTitle bool) focus.App {
 	var buf [512]C.char
 	pid := int(C.zvm_frontmost(&buf[0], 512))
-	return focus.App{Known: true, Class: C.GoString(&buf[0]), PID: pid}
+	app := focus.App{Known: true, Class: C.GoString(&buf[0]), PID: pid}
+	if withTitle && pid != 0 {
+		var t [1024]C.char
+		C.zvm_window_title(C.int(pid), &t[0], 1024)
+		app.Title = C.GoString(&t[0])
+	}
+	return app
 }
 
-// Run emits the frontmost app whenever it changes, until ctx is done.
+// Run emits the frontmost app whenever it changes, until ctx is done. Title
+// changes count as changes: VSCode publishes its focused view there, which is
+// how tool windows are detected.
 func (w *Watcher) Run(ctx context.Context, emit func(focus.App)) error {
+	titles := AXTrusted()
+	if titles {
+		w.log.Info("reading window titles through the Accessibility API")
+	} else {
+		w.log.Warn("no Accessibility permission: window titles are invisible, so VSCode's tool windows " +
+			"cannot be detected (System Settings → Privacy & Security → Accessibility; `zmk-vim-mode doctor` asks for it)")
+	}
 	var last focus.App
 	first := true
 	t := time.NewTicker(w.Interval)
 	defer t.Stop()
 	for {
-		cur := Frontmost()
-		if first || !cur.SameIdentity(last) {
+		// Re-check the grant now and then: it can be given while we run, and
+		// it needs no restart to take effect.
+		if !titles && first {
+			titles = AXTrusted()
+		}
+		cur := Frontmost(titles)
+		if first || !cur.SameIdentity(last) || cur.Title != last.Title {
 			emit(cur)
 			last, first = cur, false
 		}

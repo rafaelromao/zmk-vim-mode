@@ -162,7 +162,8 @@ func Run(w io.Writer, socket, cliVersion string) error {
 		add("old watchers", ok, "none found", "")
 	}
 
-	// 5. editor setups (VSCode, Obsidian)
+	// 5. platform specifics, then the editor setups (VSCode, Obsidian)
+	checks = append(checks, platformChecks()...)
 	if home, err := os.UserHomeDir(); err == nil {
 		checks = append(checks, editorChecks(home)...)
 	}

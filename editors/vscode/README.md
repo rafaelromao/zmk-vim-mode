@@ -96,6 +96,18 @@ the session (`IsEnabled`, `ScreenReaderEnabled`), and VSCode started with
 `--force-renderer-accessibility` -- without it Electron joins the bus but
 exposes none of its DOM. Cost and privacy notes are in the main README.
 
+## On macOS
+
+Layers 1-3 work the same, but layer 2 needs one permission: window titles are
+read through the Accessibility API, so grant **Accessibility** to
+`~/.local/bin/zmk-vim-mode` (`zmk-vim-mode doctor` opens the dialog). Without
+it the daemon sees no titles and the terminal, sidebar and panels keep the vim
+layers.
+
+Layer 4 is Linux-only — AT-SPI2 does not exist on macOS, so `--atspi` is
+ignored and a quick input opened with the mouse is not detected. `zmk-vim-mode
+set raw` is the escape hatch when one traps you.
+
 ## Verify
 
 ```bash

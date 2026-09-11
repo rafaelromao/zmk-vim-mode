@@ -13,7 +13,7 @@ import (
 // The query must work from a plain process without a run loop; whether an
 // app is frontmost depends on the session, so only the shape is checked.
 func TestFrontmostShape(t *testing.T) {
-	app := Frontmost()
+	app := Frontmost(AXTrusted())
 	if !app.Known {
 		t.Fatal("frontmost must always be known on macOS")
 	}
