@@ -185,7 +185,9 @@ func Run(w io.Writer, o Options) error {
 			}
 		}
 	}
-	if o.Udev {
+	// udev is Linux's device-permission mechanism; on macOS the equivalent is
+	// the Input Monitoring grant printed above.
+	if o.Udev && runtime.GOOS == "linux" {
 		fmt.Fprintln(w, "\n--- /etc/udev/rules.d/60-zmk-vim-mode.rules (needs sudo) ---")
 		fmt.Fprint(w, UdevRule)
 	}
