@@ -26,8 +26,17 @@ BUNDLE_ID := dev.rafaelromao.zmk-vim-mode
 build: ## build the daemon for this platform
 	CGO_ENABLED=$(CGO) $(GO) build $(LDFLAGS) -o $(BIN) ./cmd/zmk-vim-mode
 	@if [ "$(UNAME_S)" = "Darwin" ]; then \
-		codesign --force --sign $(CODESIGN_IDENTITY) --identifier $(BUNDLE_ID) $(BIN) \
-			&& echo "signed $(BIN) as $(BUNDLE_ID) ($(CODESIGN_IDENTITY))"; \
+		if codesign --force --sign $(CODESIGN_IDENTITY) --identifier $(BUNDLE_ID) $(BIN) 2>/dev/null; then \
+			echo "signed $(BIN) as $(BUNDLE_ID) ($(CODESIGN_IDENTITY))"; \
+		else \
+			echo "codesign failed with identity '$(CODESIGN_IDENTITY)'."; \
+			echo "code-signing identities in your keychain:"; \
+			security find-identity -v -p codesigning | sed 's/^/  /'; \
+			echo "create one in Keychain Access: Certificate Assistant → Create a Certificate,"; \
+			echo "  Identity Type 'Self Signed Root', Certificate Type 'Code Signing' (not the default SSL),"; \
+			echo "or build ad-hoc and re-grant Input Monitoring after each rebuild:  make install"; \
+			exit 1; \
+		fi; \
 	fi
 
 cross: ## cross-compile for the Omarchy box (linux/amd64 and linux/arm64)

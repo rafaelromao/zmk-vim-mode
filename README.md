@@ -209,16 +209,21 @@ The grant is tied to the binary's code signature. Go's linker leaves an ad-hoc
 *linker-signed* signature identified as `a.out`, which TCC cannot hold a grant
 against -- added to the list, it stays ineffective -- so `make build` re-signs
 the binary with a stable identifier. Each rebuild still changes its hash, and
-the entry must then be removed and added again. To keep the grant across
-rebuilds, sign with a self-signed certificate instead: create one in Keychain
-Access (Certificate Assistant → Create a Certificate → *Code Signing*, e.g.
-named `zmk-vim-mode-dev`), then
+the entry must then be removed and added again. To keep the grant across rebuilds,
+sign with a self-signed certificate instead. In **Keychain Access** → menu
+*Keychain Access* → *Certificate Assistant* → *Create a Certificate*:
+
+- Name: `zmk-vim-mode-dev`
+- Identity Type: *Self Signed Root*
+- Certificate Type: *Code Signing* — the dialog defaults to *SSL Client*
+
+Then build with it and grant Input Monitoring once:
 
 ```bash
 make install CODESIGN_IDENTITY=zmk-vim-mode-dev
 ```
 
-and grant Input Monitoring once. LEDs are written
+`security find-identity -v -p codesigning` lists what the keychain has. LEDs are written
 through IOKit (`IOHIDDeviceSetReport`, one atomic byte, Num/Caps Lock merged
 from the host's state); macOS never touches Compose, Kana or Scroll Lock, so a
 code is re-asserted only on device arrival and wake.
