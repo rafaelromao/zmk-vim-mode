@@ -17,9 +17,58 @@ package darwin
 #import <Cocoa/Cocoa.h>
 #include <string.h>
 
-// zvm_frontmost writes the frontmost app's bundle identifier (or localized
-// name) into buf and returns its pid, or 0 when there is none.
-static int zvm_frontmost(char *buf, int n) {
+// zvm_ax_focused_pid returns the pid of the application holding keyboard
+// focus, asked of the accessibility system each time. Needs the Accessibility
+// permission; 0 without it.
+static int zvm_ax_focused_pid(void) {
+	AXUIElementRef sys = AXUIElementCreateSystemWide();
+	if (!sys) return 0;
+	CFTypeRef app = NULL;
+	pid_t pid = 0;
+	if (AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute, &app) == kAXErrorSuccess && app) {
+		AXUIElementGetPid((AXUIElementRef)app, &pid);
+		CFRelease(app);
+	}
+	CFRelease(sys);
+	return (int)pid;
+}
+
+// zvm_window_owner_pid returns the owner of the frontmost on-screen window.
+// Window *names* need Screen Recording; owners and layers do not.
+static int zvm_window_owner_pid(void) {
+	@autoreleasepool {
+		CFArrayRef list = CGWindowListCopyWindowInfo(
+			kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
+		if (!list) return 0;
+		int pid = 0;
+		for (CFIndex i = 0; i < CFArrayGetCount(list); i++) {
+			NSDictionary *w = (__bridge NSDictionary *)CFArrayGetValueAtIndex(list, i);
+			// Layer 0 is the normal window level; menus and overlays sit above.
+			if ([w[(id)kCGWindowLayer] intValue] != 0) continue;
+			pid = [w[(id)kCGWindowOwnerPID] intValue];
+			break;
+		}
+		CFRelease(list);
+		return pid;
+	}
+}
+
+// zvm_bundle_id writes the bundle identifier (or localized name) of pid.
+static void zvm_bundle_id(int pid, char *buf, int n) {
+	@autoreleasepool {
+		buf[0] = 0;
+		NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)pid];
+		if (!app) return;
+		NSString *id = app.bundleIdentifier ?: app.localizedName ?: @"";
+		strncpy(buf, id.UTF8String, n - 1);
+		buf[n - 1] = 0;
+	}
+}
+
+// zvm_workspace_frontmost is the last resort. NSWorkspace keeps its idea of
+// the frontmost application up to date through notifications delivered to a
+// Cocoa run loop, which a daemon does not run, so this value can be stale.
+static int zvm_workspace_frontmost(char *buf, int n) {
 	@autoreleasepool {
 		NSRunningApplication *app = [[NSWorkspace sharedWorkspace] frontmostApplication];
 		if (!app) { buf[0] = 0; return 0; }
@@ -96,13 +145,29 @@ func AXTrusted() bool { return C.zvm_ax_trusted() != 0 }
 // run of the process.
 func PromptAXTrust() bool { return C.zvm_ax_prompt() != 0 }
 
-// Frontmost returns the current frontmost application. The title is filled in
-// only when the Accessibility permission is granted.
-func Frontmost(withTitle bool) focus.App {
+// Frontmost returns the application holding keyboard focus.
+//
+// The source matters: NSWorkspace.frontmostApplication only changes when
+// Cocoa's notifications are pumped by a run loop, which a daemon does not run,
+// so it answers with whatever was frontmost at startup forever. The
+// accessibility system and the window list are both asked fresh every call.
+// ax enables both the AX query and the window title.
+func Frontmost(ax bool) focus.App {
+	pid := 0
+	if ax {
+		pid = int(C.zvm_ax_focused_pid())
+	}
+	if pid == 0 {
+		pid = int(C.zvm_window_owner_pid())
+	}
 	var buf [512]C.char
-	pid := int(C.zvm_frontmost(&buf[0], 512))
+	if pid != 0 {
+		C.zvm_bundle_id(C.int(pid), &buf[0], 512)
+	} else {
+		pid = int(C.zvm_workspace_frontmost(&buf[0], 512))
+	}
 	app := focus.App{Known: true, Class: C.GoString(&buf[0]), PID: pid}
-	if withTitle && pid != 0 {
+	if ax && pid != 0 {
 		var t [1024]C.char
 		C.zvm_window_title(C.int(pid), &t[0], 1024)
 		app.Title = C.GoString(&t[0])
@@ -126,10 +191,12 @@ func (w *Watcher) Run(ctx context.Context, emit func(focus.App)) error {
 	t := time.NewTicker(w.Interval)
 	defer t.Stop()
 	for {
-		// Re-check the grant now and then: it can be given while we run, and
-		// it needs no restart to take effect.
-		if !titles && first {
-			titles = AXTrusted()
+		// The grant can be given while we run, and takes effect without a
+		// restart; AXIsProcessTrusted is a cheap local check.
+		if !titles {
+			if titles = AXTrusted(); titles {
+				w.log.Info("Accessibility granted; reading window titles from now on")
+			}
 		}
 		cur := Frontmost(titles)
 		if first || !cur.SameIdentity(last) || cur.Title != last.Title {
