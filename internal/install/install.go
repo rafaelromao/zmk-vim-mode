@@ -145,8 +145,24 @@ func Run(w io.Writer, o Options) error {
 		}
 		fmt.Fprintf(w, "wrote %s\n", path)
 		if runtime.GOOS == "darwin" {
-			fmt.Fprintln(w, "\nenable it with:")
-			fmt.Fprintf(w, "  launchctl bootstrap gui/$UID %s\n", path)
+			// Restart a running agent ourselves: launchd keeps the old binary
+			// image otherwise, and on macOS that also means the old process
+			// identity, so a re-granted Input Monitoring permission would not
+			// apply to it either.
+			label := fmt.Sprintf("gui/%d/dev.rafaelromao.zmk-vim-mode", os.Getuid())
+			if exec.Command("launchctl", "print", label).Run() == nil {
+				if err := exec.Command("launchctl", "kickstart", "-k", label).Run(); err != nil {
+					fmt.Fprintf(w, "\ncould not restart the agent (%v); run it yourself:\n  launchctl kickstart -k %s\n", err, label)
+				} else {
+					fmt.Fprintln(w, "restarted the agent (it now runs the new binary)")
+				}
+			} else {
+				fmt.Fprintln(w, "\nenable it with:")
+				fmt.Fprintf(w, "  launchctl bootstrap gui/$UID %s\n", path)
+			}
+			fmt.Fprintln(w, "\nmacOS ties Input Monitoring to the binary's identity, so a rebuilt daemon loses it:")
+			fmt.Fprintln(w, "  System Settings → Privacy & Security → Input Monitoring → remove zmk-vim-mode, add it again")
+			fmt.Fprintf(w, "  (the binary is %s)\n", TrimHome(exe))
 		} else {
 			// Rewriting the unit without telling systemd leaves it acting on a
 			// stale copy, and its warning is easy to miss in build output.
@@ -155,10 +171,18 @@ func Run(w io.Writer, o Options) error {
 			} else {
 				fmt.Fprintln(w, "ran systemctl --user daemon-reload")
 			}
-			fmt.Fprintln(w, "\nstart it with:")
-			fmt.Fprintln(w, "  systemctl --user enable --now zmk-vim-mode.service")
-			fmt.Fprintln(w, "  # already enabled? restart to pick up the new binary:")
-			fmt.Fprintln(w, "  systemctl --user restart zmk-vim-mode.service")
+			// Same reason as on macOS: a running unit keeps the old binary
+			// until it is restarted, and a stale daemon is hard to spot.
+			if exec.Command("systemctl", "--user", "is-active", "--quiet", "zmk-vim-mode.service").Run() == nil {
+				if err := exec.Command("systemctl", "--user", "restart", "zmk-vim-mode.service").Run(); err != nil {
+					fmt.Fprintf(w, "\ncould not restart the service (%v); run: systemctl --user restart zmk-vim-mode.service\n", err)
+				} else {
+					fmt.Fprintln(w, "restarted the service (it now runs the new binary)")
+				}
+			} else {
+				fmt.Fprintln(w, "\nstart it with:")
+				fmt.Fprintln(w, "  systemctl --user enable --now zmk-vim-mode.service")
+			}
 		}
 	}
 	if o.Udev {
