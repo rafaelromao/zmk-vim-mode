@@ -499,8 +499,19 @@ Phase 5 is done: installer, README, old watchers deleted, and `doctor` now check
 title marker, vscode-neovim, companion, lazy spec `vscode = true`; Obsidian plugin per vault) plus a daemon
 version older than the CLI. First hardware run of phase 4 (2026-09-10) found two things the plan got wrong —
 LazyVim disables plugins inside VSCode unless `vscode = true`, and `${focusedView}` reads `Text Editor`, not
-empty, while the editor has focus — both fixed. Next: finish verifying VSCode on the box, then Obsidian, then
-phase 6 (macOS) when wanted.
+empty, while the editor has focus — both fixed.
+
+Phase 6 (macOS) **first cut written 2026-09-10, unverified on hardware** (the keyboard is paired to the
+Omarchy box; switch its BLE profile to the Mac to test). Deviations from the design: LEDs go through
+`IOHIDDeviceSetReport` (one atomic byte, Num/Caps merged from `IOHIDDeviceGetValue`) rather than
+per-element `SetValue`, so the firmware never decodes an intermediate code; frontmost tracking polls
+`NSWorkspace.frontmostApplication` at 10 Hz instead of observing `NSWorkspaceDidActivateApplicationNotification`,
+which is only delivered through a Cocoa main run loop a Go daemon does not own; wake comes from
+`IORegisterForSystemPower`. No window titles (Screen Recording / Accessibility permission), so the VSCode
+title marker and the title heuristic are inert on macOS and the accessibility bus is Linux-only; VSCode there
+relies on the companion and the embedded Neovim. Still to verify: the Input Monitoring TCC prompt from
+launchd, and whether `IOHIDDeviceOpen` on the keyboard succeeds without it (`zmk-vim-mode devices` says).
+The AX-based context classifier for legacy apps on macOS is not started.
 
 ## Phases (Omarchy first)
 
