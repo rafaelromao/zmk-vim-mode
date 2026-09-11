@@ -501,17 +501,32 @@ version older than the CLI. First hardware run of phase 4 (2026-09-10) found two
 LazyVim disables plugins inside VSCode unless `vscode = true`, and `${focusedView}` reads `Text Editor`, not
 empty, while the editor has focus — both fixed.
 
-Phase 6 (macOS) **first cut written 2026-09-10, unverified on hardware** (the keyboard is paired to the
-Omarchy box; switch its BLE profile to the Mac to test). Deviations from the design: LEDs go through
+Phase 6 (macOS) is **verified on the Mac (2026-09-11)**: `set normal` moves the Diamond to its NORMAL layer
+(`j`/`k` navigate), `set insert` back to the base layout. Four things had to be right, none of them in the
+original design:
+
+1. **Code signing.** Go's linker leaves an ad-hoc *linker-signed* signature identified as `a.out`. TCC cannot
+   hold a grant against it: the daemon could be added to Input Monitoring and every `IOHIDDeviceOpen` still
+   returned `kIOReturnNotPermitted`. `make build` now re-signs with a stable identifier; a self-signed
+   certificate (`CODESIGN_IDENTITY=`) keeps the grant across rebuilds, ad-hoc needs re-granting each time.
+2. **`IOHIDDeviceSetValueMultiple`, not `SetReport`.** The report route failed with HID-system errors even on
+   an opened device. Setting all five LED elements at once is what macOS honours, and it emits one report, so
+   the firmware never sees a half-written code.
+3. **Restart the service on install.** launchd (and systemd) keep running the old binary image after
+   `make install`; on macOS that also defeats a re-granted permission, since TCC judges the running process.
+4. **Close the devices after the final OFF.** The HID manager used to stop on context cancel, so the shutdown
+   write failed and the keyboard stayed in its last vim layer.
+
+Deviations from the design: LEDs go through
 `IOHIDDeviceSetReport` (one atomic byte, Num/Caps merged from `IOHIDDeviceGetValue`) rather than
 per-element `SetValue`, so the firmware never decodes an intermediate code; frontmost tracking polls
 `NSWorkspace.frontmostApplication` at 10 Hz instead of observing `NSWorkspaceDidActivateApplicationNotification`,
 which is only delivered through a Cocoa main run loop a Go daemon does not own; wake comes from
 `IORegisterForSystemPower`. No window titles (Screen Recording / Accessibility permission), so the VSCode
 title marker and the title heuristic are inert on macOS and the accessibility bus is Linux-only; VSCode there
-relies on the companion and the embedded Neovim. Still to verify: the Input Monitoring TCC prompt from
-launchd, and whether `IOHIDDeviceOpen` on the keyboard succeeds without it (`zmk-vim-mode devices` says).
-The AX-based context classifier for legacy apps on macOS is not started.
+relies on the companion and the embedded Neovim. A background agent is never prompted for Input Monitoring:
+the entry has to be added by hand, and `zmk-vim-mode devices` reports whether it took. The AX-based context
+classifier for legacy apps on macOS is not started.
 
 ## Phases (Omarchy first)
 
