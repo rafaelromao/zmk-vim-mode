@@ -380,7 +380,10 @@ func InstallVSCode(w io.Writer, atspi bool) error {
 	if err != nil {
 		return err
 	}
-	if atspi {
+	// The flags file is how Linux packages (Arch's `code` wrapper) pass extra
+	// Chromium switches; macOS has no such hook, and the accessibility bus is
+	// Linux-only anyway.
+	if atspi && runtime.GOOS == "linux" {
 		changed, err := ensureRendererFlag(home)
 		if err != nil {
 			return fmt.Errorf("code-flags.conf: %w", err)
