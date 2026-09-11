@@ -424,23 +424,36 @@ func zvmDeviceMatched(handle C.uintptr_t, dev C.IOHIDDeviceRef) {
 		return
 	}
 	report := int(C.zvm_led_element(dev, usageCompose))
-	if report < 0 || int(C.zvm_led_element(dev, usageKana)) < 0 {
-		if b.f.RequireCodeLEDs {
-			// Info, not debug: this device already passed the vendor filter, so
-			// it is almost certainly the user's keyboard running firmware
-			// without CONFIG_ZMK_HID_INDICATORS. Silence here looks like "no
-			// keyboard connected", which sends the diagnosis the wrong way.
-			b.log.Info("skipping keyboard: no Compose/Kana LED elements (CONFIG_ZMK_HID_INDICATORS=y?)",
-				"product", info.Product, "transport", info.Transport,
-				"vid", fmt.Sprintf("%04x", info.VID), "pid", fmt.Sprintf("%04x", info.PID))
+	noCodeLEDs := report < 0 || int(C.zvm_led_element(dev, usageKana)) < 0
+	if noCodeLEDs {
+		// The element list is not always readable -- it fills in once the
+		// process may monitor input -- so a vendor-filtered device is never
+		// rejected for it: the VID/PID already identifies the keyboard, and a
+		// write to the wrong report id fails loudly. Without a vendor filter
+		// the LEDs are the only discriminator left, so there it still decides.
+		if b.f.RequireCodeLEDs && b.f.VID == 0 && b.f.PID == 0 {
+			b.log.Debug("skipping keyboard", "product", info.Product, "reason", "no Compose/Kana LED elements")
 			return
 		}
 		report = 1
+		info.Note = "Compose/Kana LED elements not visible (firmware without CONFIG_ZMK_HID_INDICATORS, or Input Monitoring not granted yet)"
+		b.log.Info("keyboard has no visible Compose/Kana LED elements; driving it anyway",
+			"product", info.Product, "transport", info.Transport,
+			"vid", fmt.Sprintf("%04x", info.VID), "pid", fmt.Sprintf("%04x", info.PID))
 	}
 	d := &device{ref: dev, info: info, reportID: report}
 	C.zvm_retain(dev)
 	if r := int(C.zvm_open(dev)); r != 0 {
 		d.info.Note = ioReturn(r)
+	} else if noCodeLEDs {
+		// The open may itself be what makes the elements readable.
+		if again := int(C.zvm_led_element(dev, usageCompose)); again >= 0 {
+			d.reportID = again
+			d.info.Note = ""
+			b.log.Info("Compose LED element visible after opening the device", "product", info.Product, "report", again)
+		}
+		d.opened = true
+		d.info.Writable = true
 	} else {
 		d.opened = true
 		d.info.Writable = true
