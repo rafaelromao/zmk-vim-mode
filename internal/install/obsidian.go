@@ -1,10 +1,12 @@
 package install
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -42,9 +44,10 @@ func ObsidianVaults(cfg []byte) []string {
 	return out
 }
 
-// installObsidianPlugin copies the plugin into one vault and lists it among
-// the enabled community plugins. It reports what changed.
-func installObsidianPlugin(vault string) (copied, enabled bool, err error) {
+// installObsidianPlugin copies the plugin into one vault and, unless Obsidian
+// is running and would overwrite it, lists it among the enabled community
+// plugins. It reports what changed.
+func installObsidianPlugin(vault string, running bool) (copied, enabled bool, err error) {
 	dir := filepath.Join(vault, ".obsidian", "plugins", obsidianPluginID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false, false, err
@@ -62,6 +65,9 @@ func installObsidianPlugin(vault string) (copied, enabled bool, err error) {
 			return false, false, err
 		}
 		copied = true
+	}
+	if running {
+		return copied, false, nil
 	}
 	enabled, err = enableCommunityPlugin(filepath.Join(vault, ".obsidian", "community-plugins.json"), obsidianPluginID)
 	return copied, enabled, err
@@ -97,6 +103,15 @@ func enableCommunityPlugin(path, id string) (bool, error) {
 	return true, os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
+// obsidianRunning reports whether Obsidian is running. It matters because
+// Obsidian owns community-plugins.json and rewrites it from memory when it
+// quits: enabling a plugin by editing that file under a running Obsidian is
+// silently undone, and the plugin folder is only scanned at startup anyway.
+func obsidianRunning() bool {
+	out, err := exec.Command("pgrep", "-i", "obsidian").Output()
+	return err == nil && len(bytes.TrimSpace(out)) > 0
+}
+
 // InstallObsidian installs and enables the plugin in every vault Obsidian
 // knows about.
 func InstallObsidian(w io.Writer) error {
@@ -104,6 +119,7 @@ func InstallObsidian(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	running := obsidianRunning()
 	cfg, err := os.ReadFile(ObsidianConfigPath(home))
 	if err != nil {
 		fmt.Fprintln(w, "obsidian   : not found (no obsidian.json); copy editors/obsidian/{manifest.json,main.js} into <vault>/.obsidian/plugins/zmk-vim-mode/ by hand")
@@ -115,12 +131,16 @@ func InstallObsidian(w io.Writer) error {
 		return nil
 	}
 	for _, v := range vaults {
-		copied, enabled, err := installObsidianPlugin(v)
+		copied, enabled, err := installObsidianPlugin(v, running)
 		if err != nil {
 			return fmt.Errorf("%s: %w", TrimHome(v), err)
 		}
 		state := "already installed and enabled"
 		switch {
+		case running && copied:
+			state = "files installed; enable it in Obsidian (see below)"
+		case running:
+			state = "files up to date; check it is enabled in Obsidian"
 		case copied && enabled:
 			state = "installed and enabled"
 		case copied:
@@ -130,6 +150,13 @@ func InstallObsidian(w io.Writer) error {
 		}
 		fmt.Fprintf(w, "obsidian   : %s — %s\n", TrimHome(v), state)
 	}
-	fmt.Fprintln(w, "restart Obsidian (and keep Settings → Editor → Vim key bindings on); the plugin's *Status* command shows what it reports.")
+	if running {
+		fmt.Fprintln(w, "Obsidian is running, and it rewrites its plugin list on exit, so it was left alone:")
+		fmt.Fprintln(w, "  quit Obsidian and run this again to have it enabled for you, or")
+		fmt.Fprintln(w, "  in Obsidian: Settings → Community plugins → reload, then switch ZMK Vim Mode on")
+	} else {
+		fmt.Fprintln(w, "start Obsidian; the plugin's *ZMK Vim Mode: Status* command shows what it reports.")
+	}
+	fmt.Fprintln(w, "Vim key bindings must be on (Settings → Editor).")
 	return nil
 }

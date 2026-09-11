@@ -86,11 +86,11 @@ type Status struct {
 	// AXTrusted is macOS-only: whether the *daemon* may read window titles
 	// through the Accessibility API. Only the daemon can answer it, because
 	// macOS judges such a request by the responsible process.
-	AXTrusted *bool `json:"ax_trusted,omitempty"`
-	Clients   []ClientInfo   `json:"clients"`
-	Override  *OverrideInfo  `json:"override,omitempty"`
-	Devices   []Device       `json:"devices"`
-	UptimeS   int64          `json:"uptime_s"`
+	AXTrusted *bool         `json:"ax_trusted,omitempty"`
+	Clients   []ClientInfo  `json:"clients"`
+	Override  *OverrideInfo `json:"override,omitempty"`
+	Devices   []Device      `json:"devices"`
+	UptimeS   int64         `json:"uptime_s"`
 }
 
 // FrontmostInfo mirrors focus.App for status output.

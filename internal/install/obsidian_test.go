@@ -16,7 +16,7 @@ func TestInstallObsidianPlugin(t *testing.T) {
 	if err := os.WriteFile(list, []byte(`["obsidian-vimrc-support"]`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	copied, enabled, err := installObsidianPlugin(vault)
+	copied, enabled, err := installObsidianPlugin(vault, false)
 	if err != nil || !copied || !enabled {
 		t.Fatalf("first install: copied=%v enabled=%v err=%v", copied, enabled, err)
 	}
@@ -32,9 +32,34 @@ func TestInstallObsidianPlugin(t *testing.T) {
 	if _, err := os.Stat(list + ".bak-zmk-vim-mode"); err != nil {
 		t.Fatal("backup missing")
 	}
-	copied, enabled, err = installObsidianPlugin(vault)
+	copied, enabled, err = installObsidianPlugin(vault, false)
 	if err != nil || copied || enabled {
 		t.Fatalf("second install must be a no-op: copied=%v enabled=%v err=%v", copied, enabled, err)
+	}
+}
+
+// With Obsidian running the plugin list must be left alone: Obsidian rewrites
+// it from memory when it quits, so an edit here is silently lost -- which is
+// exactly how the plugin ended up installed but never enabled.
+func TestInstallObsidianPluginLeavesListAloneWhileRunning(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, ".obsidian"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	list := filepath.Join(vault, ".obsidian", "community-plugins.json")
+	if err := os.WriteFile(list, []byte(`["dataview"]`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	copied, enabled, err := installObsidianPlugin(vault, true)
+	if err != nil || !copied {
+		t.Fatalf("files must still be copied: copied=%v err=%v", copied, err)
+	}
+	if enabled {
+		t.Fatal("the list must not be touched while Obsidian runs")
+	}
+	b, _ := os.ReadFile(list)
+	if string(b) != `["dataview"]` {
+		t.Fatalf("list changed: %s", b)
 	}
 }
 
