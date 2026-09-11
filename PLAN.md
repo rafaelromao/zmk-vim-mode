@@ -158,7 +158,7 @@ Keymap node (in `src/features/vim.dtsi`):
         normal        { code = <1>; layers = <VIM_NORMAL>; };
         insert        { code = <2>; layers = <VIM_INSERT>; };
         visual        { code = <3>; layers = <VIM_NORMAL VIM_VISUAL>; };
-        legacy        { code = <4>; layers = <VIM_NORMAL>; bindings = <&vim_mode_on_host>; };  // plain Esc; lives in vim_legacy.dtsi (phase 3 notes)
+        legacy        { code = <4>; layers = <VIM_NORMAL>; bindings = <&vim_mode_on_host>; };  // plain Esc, see phase 3 notes
         cmdline       { code = <5>; layers = <VIM_CMDLINE>; };
         raw           { code = <6>; };                                // no vim layers
         legacy_silent { code = <7>; layers = <VIM_NORMAL>; };
@@ -472,11 +472,11 @@ Deviations from the design above, all in the keyboards repo:
   plain Esc (`&vim_mode_on_host`).
 - `VIM_LEADER` was removed. Leader handling is host-driven (`raw` while
   pending); legacy apps never had it. Layers above it were renumbered.
-- Everything that exists only for legacy mode lives in
-  `src/features/vim_legacy.dtsi` (codes 4/7, enter/leave combos, the
-  Hyper+Esc / Meh+Esc macros), included last so it can extend the labelled
-  `vim_sync` and `combos` nodes. Retiring legacy = delete file + include +
-  the two Hyprland binds.
+- Legacy mode (codes 4/7, enter/leave combos, the Hyper+Esc / Meh+Esc macros) briefly lived in its own
+  `vim_legacy.dtsi` so it could be deleted in one move once every editor reported its mode. It went back into
+  `vim.dtsi` (2026-09-11): it cannot be deleted. Manual activation *is* legacy mode — the combos enter that
+  state and the chords exist so the host agrees — and vim over SSH, recognised by window title alone, has no
+  plugin on the remote side. The split only bought indirection.
 - `tc_cancel` uses `&vim_off` instead of `&vim_mode_off`: a panic key must not
   toggle a sticky `off` override on the host.
 - The old `scripts/vimmode/` watchers, `listeners.dtsi` and the

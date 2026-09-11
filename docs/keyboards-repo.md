@@ -25,12 +25,12 @@ listed while you are still testing.
 
 ## 2. Add the sync node to `src/features/vim.dtsi`
 
-No new macros: every host-driven state is a plain layer set. The node is
-labelled so that `vim_legacy.dtsi` can extend it (§2a).
+Only one new macro (`vim_mode_on_host`, see below); every other host-driven
+state is a plain layer set.
 
 ```c
 / {
-    vim_sync: vim_sync {
+    vim_sync {
         compatible = "zmk,hid-indicator-code-listener";
         indicators = <HID_USAGE_LED_COMPOSE HID_USAGE_LED_KANA HID_USAGE_LED_SCROLL_LOCK>;
         managed-layers = <VIM_NORMAL VIM_VISUAL VIM_CHANGE VIM_INSERT VIM_REPLACE VIM_CMDLINE>;
@@ -40,32 +40,30 @@ labelled so that `vim_legacy.dtsi` can extend it (§2a).
         normal        { code = <1>; layers = <VIM_NORMAL>; };
         insert        { code = <2>; layers = <VIM_INSERT>; };
         visual        { code = <3>; layers = <VIM_NORMAL VIM_VISUAL>; };
+        legacy        { code = <4>; layers = <VIM_NORMAL>; bindings = <&vim_mode_on_host>; };
         cmdline       { code = <5>; layers = <VIM_CMDLINE>; };
         raw           { code = <6>; };
+        legacy_silent { code = <7>; layers = <VIM_NORMAL>; };
         // code 0 is implicit: every managed layer off.
-        // codes 4 and 7 (legacy) are added to this node by vim_legacy.dtsi.
     };
 };
 ```
 
-### 2a. Keep legacy-only code apart: `src/features/vim_legacy.dtsi`
+### 2a. Legacy mode is not a temporary fallback
 
-Everything that exists only for legacy mode -- codes 4 and 7, the enter/leave
-combos (`cb_vim_mode`, `cb_enter_vim`, `cb_leave_vim`) and the Hyper+Esc /
-Meh+Esc notification macros -- lives in one file, included **last** from
-`definitions/includes.h` because it extends the labelled `vim_sync` and
-`combos` nodes:
+Codes 4 and 7, the enter/leave combos (`cb_vim_mode`, `cb_enter_vim`,
+`cb_leave_vim`) and the Hyper+Esc / Meh+Esc notification macros were briefly
+kept in a separate `vim_legacy.dtsi`, on the theory that they could be deleted
+once every editor reported its mode. They cannot, so they live in `vim.dtsi`
+with everything else:
 
-```c
-&vim_sync {
-    legacy        { code = <4>; layers = <VIM_NORMAL>; bindings = <&vim_mode_on_host>; };
-    legacy_silent { code = <7>; layers = <VIM_NORMAL>; };
-};
-```
-
-Retiring legacy mode is then: delete the file, its `#include`, and the two
-binds in `contrib/hyprland-bind.conf`. The build reports anything else that
-still references it.
+- **manual activation is legacy mode.** The combos enter exactly this state,
+  and the notification chords exist so the host agrees with a decision made on
+  the keyboard. Remove legacy and the combos go with it.
+- **vim over SSH** has no plugin on the remote side: the host recognises it by
+  the window title alone and sends code 4.
+- a known editor whose client has not connected yet, or is disabled, falls
+  back to it too.
 
 Notes on the choices:
 
@@ -88,8 +86,7 @@ Notes on the choices:
   binds a plain `&kp ESC` (`&vim_mode_on_host`); `&vim_mode_on` stays for the
   combos, where nothing has pre-cleared the layers and the guard does work.
   Code 7 is the same state with no binding at all, so a re-assert after a
-  reconnect or a clobber never re-types Esc. All of it lives in
-  `vim_legacy.dtsi`.
+  reconnect or a clobber never re-types Esc.
 - **There is no `VIM_LEADER` layer any more.** It was an all-`&trans` layer
   entered on `<space>` so the keys after a leader reached the editor untouched.
   The plugin now reports a pending leader as `raw`, which does the same from the
