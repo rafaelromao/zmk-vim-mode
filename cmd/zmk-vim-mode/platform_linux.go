@@ -14,6 +14,10 @@ import (
 
 const platformName = "linux"
 
+// noDevicesHint is printed when no keyboard was found.
+const noDevicesHint = `  - is CONFIG_ZMK_HID_INDICATORS=y in the central/dongle .conf and the firmware flashed?
+  - is the keyboard connected to this host, and the udev rule installed? (zmk-vim-mode install --udev)`
+
 func newBackend(log *slog.Logger, f deviceFilter) leds.Backend {
 	return ledslinux.New(log, ledslinux.Filter{VID: f.vid, PID: f.pid, RequireCodeLEDs: !f.anyKeyboard, NameSubstring: f.name})
 }

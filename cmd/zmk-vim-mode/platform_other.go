@@ -14,6 +14,9 @@ import (
 
 const platformName = runtime.GOOS
 
+// noDevicesHint is printed when no keyboard was found.
+const noDevicesHint = "  - this platform has no LED backend yet; see PLAN.md"
+
 // newBackend returns a logging-only backend on platforms without a real one.
 func newBackend(log *slog.Logger, _ deviceFilter) leds.Backend {
 	log.Warn("no LED backend for this platform yet; using the virtual (log-only) backend", "os", runtime.GOOS)

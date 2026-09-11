@@ -42,7 +42,8 @@ Usage:
                                         --obsidian installs the plugin into your vaults;
                                         --atspi makes the service follow focus inside VSCode
   zmk-vim-mode uninstall
-  zmk-vim-mode atspi-watch              print accessibility-bus focus events with the classifier's verdict
+  zmk-vim-mode atspi-watch              print accessibility-bus focus events with the classifier's verdict (Linux)
+  zmk-vim-mode hid-scan [--all]         list the HID keyboards this host sees and the LEDs they expose (macOS)
   zmk-vim-mode doctor                   check permissions, devices, old watchers, tmux, udev
   zmk-vim-mode version
 
@@ -91,6 +92,8 @@ func main() {
 		err = doctor.Run(os.Stdout, server.DefaultSocketPath(), Version)
 	case "atspi-watch":
 		err = runATSPIWatch(args)
+	case "hid-scan":
+		err = runHIDScan(args)
 	case "version", "--version", "-v":
 		fmt.Printf("zmk-vim-mode %s (%s)\n", Version, platformName)
 	case "help", "-h", "--help":
@@ -314,7 +317,8 @@ func runDevices(args []string) error {
 		return err
 	}
 	if len(reply.Devices) == 0 {
-		fmt.Println("no keyboards with Compose+Kana+Scroll LEDs found (is CONFIG_ZMK_HID_INDICATORS=y? udev rule installed?)")
+		fmt.Println("no keyboards with Compose+Kana+Scroll LEDs found.")
+		fmt.Println(noDevicesHint)
 		return nil
 	}
 	printDevices(reply.Devices)

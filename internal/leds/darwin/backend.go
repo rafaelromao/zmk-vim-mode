@@ -158,6 +158,29 @@ static int zvm_led_value(IOHIDDeviceRef dev, int usage) {
 
 static void zvm_retain(IOHIDDeviceRef dev) { CFRetain(dev); }
 static void zvm_release(IOHIDDeviceRef dev) { CFRelease(dev); }
+// zvm_scan_create returns every HID device the system knows, for diagnostics.
+static CFArrayRef zvm_scan_create(void) {
+	IOHIDManagerRef mgr = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
+	IOHIDManagerSetDeviceMatching(mgr, NULL);
+	IOHIDManagerOpen(mgr, kIOHIDOptionsTypeNone);
+	CFSetRef set = IOHIDManagerCopyDevices(mgr);
+	CFArrayRef arr = NULL;
+	if (set) {
+		CFIndex n = CFSetGetCount(set);
+		const void **vals = malloc(sizeof(void *) * (n > 0 ? n : 1));
+		CFSetGetValues(set, vals);
+		arr = CFArrayCreate(kCFAllocatorDefault, vals, n, &kCFTypeArrayCallBacks);
+		free(vals);
+		CFRelease(set);
+	}
+	IOHIDManagerClose(mgr, kIOHIDOptionsTypeNone);
+	CFRelease(mgr);
+	return arr;
+}
+static CFIndex zvm_array_count(CFArrayRef a) { return a ? CFArrayGetCount(a) : 0; }
+static IOHIDDeviceRef zvm_array_at(CFArrayRef a, CFIndex i) { return (IOHIDDeviceRef)CFArrayGetValueAtIndex(a, i); }
+static void zvm_array_free(CFArrayRef a) { if (a) CFRelease(a); }
+
 static int zvm_open(IOHIDDeviceRef dev) { return (int)IOHIDDeviceOpen(dev, kIOHIDOptionsTypeNone); }
 static void zvm_close(IOHIDDeviceRef dev) { IOHIDDeviceClose(dev, kIOHIDOptionsTypeNone); }
 static int zvm_set_report(IOHIDDeviceRef dev, int report, uint8_t bits) {
@@ -323,11 +346,60 @@ func propInt(dev C.IOHIDDeviceRef, key *C.char) int {
 }
 
 var (
-	keyProduct   = C.CString("Product")
-	keyTransport = C.CString("Transport")
-	keyVendorID  = C.CString("VendorID")
-	keyProductID = C.CString("ProductID")
+	keyProduct    = C.CString("Product")
+	keyTransport  = C.CString("Transport")
+	keyVendorID   = C.CString("VendorID")
+	keyProductID  = C.CString("ProductID")
+	keyUsagePage  = C.CString("PrimaryUsagePage")
+	keyUsage      = C.CString("PrimaryUsage")
+	keyManufactur = C.CString("Manufacturer")
 )
+
+// ScanEntry is one HID device as `hid-scan` reports it.
+type ScanEntry struct {
+	Product      string `json:"product"`
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Transport    string `json:"transport"`
+	VID          uint16 `json:"vid"`
+	PID          uint16 `json:"pid"`
+	UsagePage    int    `json:"usage_page"`
+	Usage        int    `json:"usage"`
+	// Report id of each LED output element, -1 when the device has none.
+	Compose    int `json:"compose_report"`
+	Kana       int `json:"kana_report"`
+	ScrollLock int `json:"scroll_report"`
+	NumLock    int `json:"num_report"`
+}
+
+// CodeLEDs reports whether the device carries the three indicators the
+// protocol needs.
+func (e ScanEntry) CodeLEDs() bool { return e.Compose >= 0 && e.Kana >= 0 && e.ScrollLock >= 0 }
+
+// Scan lists every HID device on the system. It needs no permission: the
+// properties and element list are readable without opening the device.
+func Scan() []ScanEntry {
+	arr := C.zvm_scan_create()
+	defer C.zvm_array_free(arr)
+	n := int(C.zvm_array_count(arr))
+	out := make([]ScanEntry, 0, n)
+	for i := 0; i < n; i++ {
+		dev := C.zvm_array_at(arr, C.CFIndex(i))
+		out = append(out, ScanEntry{
+			Product:      prop(dev, keyProduct),
+			Manufacturer: prop(dev, keyManufactur),
+			Transport:    prop(dev, keyTransport),
+			VID:          uint16(propInt(dev, keyVendorID)),
+			PID:          uint16(propInt(dev, keyProductID)),
+			UsagePage:    propInt(dev, keyUsagePage),
+			Usage:        propInt(dev, keyUsage),
+			Compose:      int(C.zvm_led_element(dev, usageCompose)),
+			Kana:         int(C.zvm_led_element(dev, usageKana)),
+			ScrollLock:   int(C.zvm_led_element(dev, usageScrollLock)),
+			NumLock:      int(C.zvm_led_element(dev, usageNumLock)),
+		})
+	}
+	return out
+}
 
 //export zvmDeviceMatched
 func zvmDeviceMatched(handle C.uintptr_t, dev C.IOHIDDeviceRef) {
@@ -354,7 +426,13 @@ func zvmDeviceMatched(handle C.uintptr_t, dev C.IOHIDDeviceRef) {
 	report := int(C.zvm_led_element(dev, usageCompose))
 	if report < 0 || int(C.zvm_led_element(dev, usageKana)) < 0 {
 		if b.f.RequireCodeLEDs {
-			b.log.Debug("skipping keyboard", "product", info.Product, "reason", "no Compose/Kana LEDs")
+			// Info, not debug: this device already passed the vendor filter, so
+			// it is almost certainly the user's keyboard running firmware
+			// without CONFIG_ZMK_HID_INDICATORS. Silence here looks like "no
+			// keyboard connected", which sends the diagnosis the wrong way.
+			b.log.Info("skipping keyboard: no Compose/Kana LED elements (CONFIG_ZMK_HID_INDICATORS=y?)",
+				"product", info.Product, "transport", info.Transport,
+				"vid", fmt.Sprintf("%04x", info.VID), "pid", fmt.Sprintf("%04x", info.PID))
 			return
 		}
 		report = 1

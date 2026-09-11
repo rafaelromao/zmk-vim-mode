@@ -90,8 +90,11 @@ func Run(w io.Writer, socket, cliVersion string) error {
 		}
 		// 2. devices
 		if len(st.Devices) == 0 {
-			add("keyboards", bad, "no keyboard exposing Compose+Kana+Scroll LEDs",
-				"is CONFIG_ZMK_HID_INDICATORS=y in the central/dongle .conf, and the keyboard connected?")
+			hint := "is CONFIG_ZMK_HID_INDICATORS=y in the central/dongle .conf, and the keyboard connected?"
+			if runtime.GOOS == "darwin" {
+				hint = "run `zmk-vim-mode hid-scan`: a ZMK keyboard serves one BLE profile at a time, so it may be talking to another host"
+			}
+			add("keyboards", bad, "no keyboard exposing Compose+Kana+Scroll LEDs", hint)
 		} else {
 			for _, d := range st.Devices {
 				r, hint := ok, ""
