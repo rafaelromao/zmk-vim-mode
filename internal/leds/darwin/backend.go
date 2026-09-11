@@ -156,6 +156,56 @@ static int zvm_led_value(IOHIDDeviceRef dev, int usage) {
 	return out;
 }
 
+// zvm_find_led returns the output element for one LED usage, retained, or NULL.
+static IOHIDElementRef zvm_find_led(IOHIDDeviceRef dev, int usage) {
+	CFMutableDictionaryRef m = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	zvm_dict_set_int(m, CFSTR(kIOHIDElementUsagePageKey), 0x08);
+	zvm_dict_set_int(m, CFSTR(kIOHIDElementUsageKey), usage);
+	CFArrayRef els = IOHIDDeviceCopyMatchingElements(dev, m, kIOHIDOptionsTypeNone);
+	CFRelease(m);
+	IOHIDElementRef found = NULL;
+	if (els) {
+		for (CFIndex i = 0; i < CFArrayGetCount(els); i++) {
+			IOHIDElementRef e = (IOHIDElementRef)CFArrayGetValueAtIndex(els, i);
+			if (IOHIDElementGetType(e) == kIOHIDElementTypeOutput) { found = (IOHIDElementRef)CFRetain(e); break; }
+		}
+		CFRelease(els);
+	}
+	return found;
+}
+
+static void zvm_release_element(IOHIDElementRef e) { if (e) CFRelease(e); }
+static int zvm_element_present(IOHIDElementRef e) { return e != NULL; }
+
+static int zvm_element_value(IOHIDDeviceRef dev, IOHIDElementRef e) {
+	if (!e) return 0;
+	IOHIDValueRef v = NULL;
+	if (IOHIDDeviceGetValue(dev, e, &v) != kIOReturnSuccess || !v) return 0;
+	return (int)IOHIDValueGetIntegerValue(v);
+}
+
+// zvm_set_leds sets every LED element at once. SetValueMultiple is the path
+// macOS keyboards honour (what screen readers and setledsmac use); it also
+// emits a single output report, so the firmware never sees a half-written
+// code. els/vals are parallel arrays of n entries; NULL elements are skipped.
+static int zvm_set_leds(IOHIDDeviceRef dev, IOHIDElementRef *els, int *vals, int n) {
+	CFMutableDictionaryRef d = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	int any = 0;
+	for (int i = 0; i < n; i++) {
+		if (!els[i]) continue;
+		IOHIDValueRef v = IOHIDValueCreateWithIntegerValue(kCFAllocatorDefault, els[i], 0, vals[i]);
+		if (!v) continue;
+		CFDictionarySetValue(d, els[i], v);
+		CFRelease(v);
+		any = 1;
+	}
+	IOReturn r = any ? IOHIDDeviceSetValueMultiple(dev, d) : kIOReturnNoResources;
+	CFRelease(d);
+	return (int)r;
+}
+
 static void zvm_retain(IOHIDDeviceRef dev) { CFRetain(dev); }
 static void zvm_release(IOHIDDeviceRef dev) { CFRelease(dev); }
 // zvm_scan_create returns every HID device the system knows, for diagnostics.
@@ -225,11 +275,18 @@ type Filter struct {
 	NameSubstring   string
 }
 
+// ledOrder is the element order used in device.els and in the value array
+// handed to zvm_set_leds.
+var ledOrder = [5]int{usageNumLock, usageCapsLock, usageScrollLock, usageCompose, usageKana}
+
 type device struct {
 	ref      C.IOHIDDeviceRef
 	info     leds.Device
 	reportID int
 	opened   bool
+	// els holds the output elements in ledOrder; a nil entry means the device
+	// does not expose that LED.
+	els [5]C.IOHIDElementRef
 }
 
 // Backend implements leds.Backend on IOKit.
@@ -288,17 +345,40 @@ func (b *Backend) Write(id leds.DeviceID, code uint8) error {
 	if !d.opened {
 		return fmt.Errorf("device %s not opened: %s", id, d.info.Note)
 	}
+	// Num and Caps Lock keep whatever the host has lit; the code owns the
+	// other three.
+	vals := [5]C.int{
+		C.zvm_element_value(d.ref, d.els[0]),
+		C.zvm_element_value(d.ref, d.els[1]),
+		boolBit(code&4 != 0),
+		boolBit(code&1 != 0),
+		boolBit(code&2 != 0),
+	}
+	if r := int(C.zvm_set_leds(d.ref, &d.els[0], &vals[0], 5)); r == 0 {
+		return nil
+	} else {
+		// Fall back to a raw output report: some devices expose no writable
+		// elements but accept the report.
+		b.log.Debug("SetValueMultiple failed, trying SetReport", "dev", id, "err", ioReturn(r))
+	}
 	bits := codeToBits(code)
-	if C.zvm_led_value(d.ref, usageNumLock) != 0 {
+	if vals[0] != 0 {
 		bits |= bitNumLock
 	}
-	if C.zvm_led_value(d.ref, usageCapsLock) != 0 {
+	if vals[1] != 0 {
 		bits |= bitCapsLock
 	}
-	if r := C.zvm_set_report(d.ref, C.int(d.reportID), C.uint8_t(bits)); r != 0 {
-		return fmt.Errorf("IOHIDDeviceSetReport: %s", ioReturn(int(r)))
+	if r := int(C.zvm_set_report(d.ref, C.int(d.reportID), C.uint8_t(bits))); r != 0 {
+		return fmt.Errorf("IOHIDDeviceSetReport: %s", ioReturn(r))
 	}
 	return nil
+}
+
+func boolBit(b bool) C.int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // codeToBits maps the 3-bit code (b0 Compose, b1 Kana, b2 Scroll Lock) to
@@ -445,18 +525,19 @@ func zvmDeviceMatched(handle C.uintptr_t, dev C.IOHIDDeviceRef) {
 	C.zvm_retain(dev)
 	if r := int(C.zvm_open(dev)); r != 0 {
 		d.info.Note = ioReturn(r)
-	} else if noCodeLEDs {
-		// The open may itself be what makes the elements readable.
-		if again := int(C.zvm_led_element(dev, usageCompose)); again >= 0 {
-			d.reportID = again
-			d.info.Note = ""
-			b.log.Info("Compose LED element visible after opening the device", "product", info.Product, "report", again)
-		}
-		d.opened = true
-		d.info.Writable = true
 	} else {
 		d.opened = true
 		d.info.Writable = true
+		// Elements are collected after opening: the list fills in once the
+		// process may monitor the device.
+		for i, usage := range ledOrder {
+			d.els[i] = C.zvm_find_led(dev, C.int(usage))
+		}
+		if noCodeLEDs && C.zvm_element_present(d.els[3]) != 0 {
+			d.reportID = int(C.zvm_led_element(dev, usageCompose))
+			d.info.Note = ""
+			b.log.Info("Compose LED element visible after opening the device", "product", info.Product, "report", d.reportID)
+		}
 	}
 	b.mu.Lock()
 	b.devs[id] = d
@@ -482,6 +563,9 @@ func zvmDeviceRemoved(handle C.uintptr_t, dev C.IOHIDDeviceRef) {
 	b.mu.Unlock()
 	if gone == nil {
 		return
+	}
+	for _, e := range gone.els {
+		C.zvm_release_element(e)
 	}
 	if gone.opened {
 		C.zvm_close(gone.ref)
