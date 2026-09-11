@@ -200,9 +200,25 @@ make install                                                        # cgo build;
 launchctl bootstrap gui/$UID ~/Library/LaunchAgents/dev.rafaelromao.zmk-vim-mode.plist
 ```
 
-Then grant **Input Monitoring** to `zmk-vim-mode` (System Settings → Privacy &
-Security) when macOS asks, or when `zmk-vim-mode devices` says *not
-permitted*: opening a keyboard's HID device requires it. LEDs are written
+Then grant **Input Monitoring** to `~/.local/bin/zmk-vim-mode` (System Settings
+→ Privacy & Security → `+`, ⌘⇧G to type the path): opening a keyboard's HID
+device requires it, and a background agent is never prompted, so the entry has
+to be added by hand.
+
+The grant is tied to the binary's code signature. Go's linker leaves an ad-hoc
+*linker-signed* signature identified as `a.out`, which TCC cannot hold a grant
+against -- added to the list, it stays ineffective -- so `make build` re-signs
+the binary with a stable identifier. Each rebuild still changes its hash, and
+the entry must then be removed and added again. To keep the grant across
+rebuilds, sign with a self-signed certificate instead: create one in Keychain
+Access (Certificate Assistant → Create a Certificate → *Code Signing*, e.g.
+named `zmk-vim-mode-dev`), then
+
+```bash
+make install CODESIGN_IDENTITY=zmk-vim-mode-dev
+```
+
+and grant Input Monitoring once. LEDs are written
 through IOKit (`IOHIDDeviceSetReport`, one atomic byte, Num/Caps Lock merged
 from the host's state); macOS never touches Compose, Kana or Scroll Lock, so a
 code is re-asserted only on device arrival and wake.

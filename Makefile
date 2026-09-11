@@ -11,11 +11,24 @@ CC ?= cc
 
 all: build
 
+UNAME_S := $(shell uname -s)
 # Linux is pure Go (static binary); macOS needs cgo for IOKit and Cocoa.
-CGO ?= $(if $(filter Darwin,$(shell uname -s)),1,0)
+CGO ?= $(if $(filter Darwin,$(UNAME_S)),1,0)
+# macOS ties Input Monitoring to the binary's code signature. Go's linker
+# leaves a "linker-signed" ad-hoc signature identified as "a.out", which TCC
+# cannot hold a grant against, so the binary is re-signed with a stable
+# identifier. Set CODESIGN_IDENTITY to a self-signed certificate in your
+# keychain to keep the grant across rebuilds; ad-hoc ("-") needs re-granting
+# each time the binary changes.
+CODESIGN_IDENTITY ?= -
+BUNDLE_ID := dev.rafaelromao.zmk-vim-mode
 
 build: ## build the daemon for this platform
 	CGO_ENABLED=$(CGO) $(GO) build $(LDFLAGS) -o $(BIN) ./cmd/zmk-vim-mode
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		codesign --force --sign $(CODESIGN_IDENTITY) --identifier $(BUNDLE_ID) $(BIN) \
+			&& echo "signed $(BIN) as $(BUNDLE_ID) ($(CODESIGN_IDENTITY))"; \
+	fi
 
 cross: ## cross-compile for the Omarchy box (linux/amd64 and linux/arm64)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BIN)-linux-amd64 ./cmd/zmk-vim-mode
