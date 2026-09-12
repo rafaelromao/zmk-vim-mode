@@ -117,6 +117,178 @@ because the kernel's cache holds 0 for Compose and Kana, so a compositor
 writing "all five bits" changes nothing and is dropped before any report is
 emitted. Re-assertion happens only on a real clobber or a reconnect.
 
+## The keyboard side
+
+### The least you need
+
+Four layers and one node. The layers may be entirely `&trans` to begin with —
+a vim layer is useful because you *put* something on it, but nothing breaks
+while it is empty, and `&to` leaves the base layer showing through.
+
+```c
+#include <dt-bindings/zmk/hid_usage.h>
+
+#define BASE        0
+#define VIM_NORMAL  1
+#define VIM_VISUAL  2
+#define VIM_INSERT  3
+#define VIM_CMDLINE 4
+
+/ {
+    vim_sync {
+        compatible = "zmk,hid-indicator-code-listener";
+        indicators = <HID_USAGE_LED_COMPOSE HID_USAGE_LED_KANA HID_USAGE_LED_SCROLL_LOCK>;
+        managed-layers = <VIM_NORMAL VIM_VISUAL VIM_INSERT VIM_CMDLINE>;
+
+        normal        { code = <1>; layers = <VIM_NORMAL>; };
+        insert        { code = <2>; layers = <VIM_INSERT>; };
+        visual        { code = <3>; layers = <VIM_NORMAL VIM_VISUAL>; };
+        legacy        { code = <4>; layers = <VIM_NORMAL>; bindings = <&kp ESC>; };
+        cmdline       { code = <5>; layers = <VIM_CMDLINE>; };
+        raw           { code = <6>; };
+        legacy_silent { code = <7>; layers = <VIM_NORMAL>; };
+        // code 0 is implicit: every managed layer off.
+    };
+};
+```
+
+With an editor that reports its mode — Neovim, or VSCode through
+vscode-neovim, or Obsidian — that is the whole keymap side. The host names the
+mode and the module switches layers; the keyboard never has to guess.
+
+### Inferring modes on the keyboard
+
+Codes 4 and 7 say only *"a vim-like editor has focus"*: the mode is unknown,
+because the editor has no plugin (IntelliJ, vim over SSH), or because you
+entered vim mode by hand. Then the keyboard has to follow the mode itself, by
+watching the keys that change it.
+
+These are the transitions worth implementing. `^C` behaves as `Esc`
+throughout; `I A O S C` are the shifted forms of the letters beside them.
+
+| In layer | Key | Goes to | Why |
+|---|---|---|---|
+| NORMAL | `i` `a` `o` `s` `I` `A` `O` `S` `C` | INSERT | the insert commands |
+| NORMAL | `c` | INSERT | see the caveat below |
+| NORMAL | `R` | INSERT | replace types like insert |
+| NORMAL | `v` `V` `^V` | VISUAL | the three visual modes |
+| NORMAL | `:` `/` `?` | CMDLINE | command line and search |
+| INSERT | `Esc` | NORMAL | |
+| VISUAL | `Esc` | NORMAL | |
+| VISUAL | `v` | NORMAL | pressing `v` again leaves visual |
+| VISUAL | `c` `s` | INSERT | change the selection |
+| VISUAL | `d` `x` `y` `p` `J` `=` `~` `u` | NORMAL | operators that consume the selection |
+| VISUAL | `:` | CMDLINE | `:'<,'>` |
+| CMDLINE | `Enter` `Esc` | NORMAL | the line is submitted or abandoned |
+
+Nothing tracks leaving vim altogether (`ZZ`, `:q`, closing the editor) — that
+is the host's job, and it sends code 0.
+
+### A sample implementation
+
+One macro helper covers nearly every row of that table: tap the key, then
+switch layer. ZMK's `&to` is the whole trick — it activates one layer and drops
+every other except the base, which is exactly how vim modes behave. Visual is
+the one exception, and uses `&tog` so it stacks on normal instead of replacing
+it.
+
+```c
+// Tap KEY, then make LAYER the only active layer.
+#define VIM_KEY(NAME, KEY, LAYER) \
+    NAME: NAME { \
+        compatible = "zmk,behavior-macro"; \
+        #binding-cells = <0>; \
+        bindings = <&kp KEY &to LAYER>; \
+    };
+
+/ {
+    macros {
+        VIM_KEY(vim_i,     I,     VIM_INSERT)
+        VIM_KEY(vim_a,     A,     VIM_INSERT)
+        VIM_KEY(vim_o,     O,     VIM_INSERT)
+        VIM_KEY(vim_s,     S,     VIM_INSERT)
+        VIM_KEY(vim_c,     C,     VIM_INSERT)
+        VIM_KEY(vim_r,     R,     VIM_INSERT)
+        VIM_KEY(vim_colon, COLON, VIM_CMDLINE)
+        VIM_KEY(vim_slash, SLASH, VIM_CMDLINE)
+        VIM_KEY(vim_esc,   ESC,   VIM_NORMAL)
+        VIM_KEY(vim_enter, RET,   VIM_NORMAL)
+        VIM_KEY(vim_d,     D,     VIM_NORMAL)   // visual-mode operators
+        VIM_KEY(vim_y,     Y,     VIM_NORMAL)
+        VIM_KEY(vim_p,     P,     VIM_NORMAL)
+        VIM_KEY(vim_x,     X,     VIM_NORMAL)
+
+        // Visual sits *on top of* normal, the way code 3 does, so it toggles
+        // rather than replaces. The same macro serves both rows of the table:
+        // `v` in normal turns VISUAL on, `v` in visual turns it off again.
+        vim_v: vim_v {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&kp V &tog VIM_VISUAL>;
+        };
+    };
+};
+```
+
+Then place them. Only the keys that change mode need an entry; everything else
+is `&trans`, so your base layout shows through — or your own vim bindings, if
+the point of the NORMAL layer is to move `hjkl` somewhere better.
+
+```c
+vim_normal_layer {
+    display-name = "NORMAL";
+    bindings = <
+        // ... &trans for the keys that do not change mode ...
+        &vim_i      &vim_a     &vim_o     &vim_s    &vim_c
+        &vim_r      &vim_v     &vim_colon &vim_slash
+    >;
+};
+
+vim_insert_layer {
+    display-name = "INSERT";
+    bindings = <
+        // all &trans except:
+        &vim_esc
+    >;
+};
+
+vim_visual_layer {
+    display-name = "VISUAL";
+    bindings = <
+        // sits over VIM_NORMAL, so it only needs the keys that leave visual;
+        // motions fall through to the layer underneath:
+        &vim_esc    &vim_v     &vim_c     &vim_d    &vim_y    &vim_p   &vim_x
+    >;
+};
+
+vim_cmdline_layer {
+    display-name = "CMDLINE";
+    bindings = <
+        // all &trans except:
+        &vim_esc    &vim_enter
+    >;
+};
+```
+
+Shifted variants (`I`, `A`, `O`, `C`, `V`) are the same macros behind a
+mod-morph, or simply the same key: `&vim_i` with Shift held already sends `I`
+and lands in INSERT, which is the correct outcome.
+
+Two things this simple version gets wrong, both survivable:
+
+- **`c{motion}`** — `cw` switches to INSERT on the `c`, so the `w` is typed
+  with the NORMAL layer already gone. Harmless when NORMAL leaves letters
+  alone; when NORMAL remaps letters, the motion key is the wrong one. The fix
+  is a short-lived operator-pending layer — see
+  [docs/keyboards-repo.md](docs/keyboards-repo.md) for one.
+- **counts and registers** — `3x`, `"ayy`: the digits and the register name
+  pass through NORMAL unchanged, which is right, but `x` in `3x` still returns
+  to NORMAL, which it already was. No harm.
+
+Anything the keyboard gets wrong here is corrected by the host within a
+keystroke as soon as a reporting editor is focused: local inference only has
+to be good enough for the editors that cannot speak.
+
 ## Install
 
 ```bash
