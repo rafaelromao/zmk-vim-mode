@@ -279,8 +279,7 @@ Two things this simple version gets wrong, both survivable:
 - **`c{motion}`** — `cw` switches to INSERT on the `c`, so the `w` is typed
   with the NORMAL layer already gone. Harmless when NORMAL leaves letters
   alone; when NORMAL remaps letters, the motion key is the wrong one. The fix
-  is a short-lived operator-pending layer — see
-  [docs/keyboards-repo.md](docs/keyboards-repo.md) for one.
+  is a short-lived operator-pending layer.
 - **counts and registers** — `3x`, `"ayy`: the digits and the register name
   pass through NORMAL unchanged, which is right, but `x` in `3x` still returns
   to NORMAL, which it already was. No harm.
@@ -552,7 +551,7 @@ it restarts the service, so it never leaves the old binary running.
 
 Four things it cannot do for you:
 
-- **flash the firmware module** — see [docs/keyboards-repo.md](docs/keyboards-repo.md);
+- **flash the firmware module**;
 - **restart the editors**, so they load their new plugins;
 - **`set -g focus-events on`** in `~/.tmux.conf`, or Neovim never sees
   `FocusLost` inside tmux;
