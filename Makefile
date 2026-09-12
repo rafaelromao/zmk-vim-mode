@@ -20,15 +20,28 @@ CGO ?= $(if $(filter Darwin,$(UNAME_S)),1,0)
 # identifier. Set CODESIGN_IDENTITY to a self-signed certificate in your
 # keychain to keep the grant across rebuilds; ad-hoc ("-") needs re-granting
 # each time the binary changes.
-CODESIGN_IDENTITY ?= -
 CODESIGN_CERT ?= zmk-vim-mode-dev
+# Sign with the self-signed certificate when the keychain has it, so the
+# Input Monitoring and Accessibility grants survive rebuilds; ad-hoc otherwise.
+CODESIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q '"$(CODESIGN_CERT)"' && echo $(CODESIGN_CERT) || echo -)
 BUNDLE_ID := dev.rafaelromao.zmk-vim-mode
+
+# What `install` sets up. The editor integrations skip whatever is not
+# installed, so asking for all of them is safe.
+INSTALL_FLAGS := --nvim --tmux --vscode --obsidian
+ifeq ($(UNAME_S),Linux)
+INSTALL_FLAGS += --atspi
+endif
 
 build: ## build the daemon for this platform
 	CGO_ENABLED=$(CGO) $(GO) build $(LDFLAGS) -o $(BIN) ./cmd/zmk-vim-mode
 	@if [ "$(UNAME_S)" = "Darwin" ]; then \
 		if codesign --force --sign $(CODESIGN_IDENTITY) --identifier $(BUNDLE_ID) $(BIN) 2>/dev/null; then \
 			echo "signed $(BIN) as $(BUNDLE_ID) ($(CODESIGN_IDENTITY))"; \
+			if [ "$(CODESIGN_IDENTITY)" = "-" ]; then \
+				echo "  ad-hoc: each rebuild voids the Input Monitoring and Accessibility grants."; \
+				echo "  run 'make codesign-cert' once to keep them."; \
+			fi; \
 		else \
 			echo "codesign failed with identity '$(CODESIGN_IDENTITY)'."; \
 			echo "code-signing identities in your keychain:"; \
@@ -66,11 +79,20 @@ vet: ## vet for this platform and for Linux
 
 lint: fmt vet ## format then vet
 
-install: build ## install the binary and the user service
+install: build ## install everything: binary, service, udev rule, editor integrations
 	@mkdir -p $(PREFIX)/bin
 	install -m 0755 $(BIN) $(PREFIX)/bin/$(BIN)
 	@echo "installed $(PREFIX)/bin/$(BIN)"
-	@$(PREFIX)/bin/$(BIN) install --nvim --tmux --udev
+	@$(PREFIX)/bin/$(BIN) install $(INSTALL_FLAGS)
+	@if [ "$(UNAME_S)" = "Linux" ]; then \
+		if ! cmp -s contrib/udev/60-zmk-vim-mode.rules /etc/udev/rules.d/60-zmk-vim-mode.rules; then \
+			echo; echo "--- udev rule (sudo) ---"; \
+			sudo install -m 0644 contrib/udev/60-zmk-vim-mode.rules /etc/udev/rules.d/60-zmk-vim-mode.rules \
+				&& sudo udevadm control --reload-rules && sudo udevadm trigger \
+				&& echo "installed /etc/udev/rules.d/60-zmk-vim-mode.rules"; \
+		fi; \
+		systemctl --user enable --now zmk-vim-mode.service && echo "service enabled and running"; \
+	fi
 
 codesign-cert: ## macOS: create the self-signed certificate that keeps TCC grants across rebuilds
 	@set -e; \

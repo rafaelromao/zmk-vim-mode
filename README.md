@@ -119,29 +119,62 @@ because the kernel's cache holds 0 for Compose and Kana, so a compositor
 writing "all five bits" changes nothing and is dropped before any report is
 emitted. Re-assertion happens only on a real clobber or a reconnect.
 
-## Install (Omarchy / Hyprland)
+## Install
 
 ```bash
-make install                     # builds, installs the binary, writes the service and the Neovim spec
-sudo cp contrib/udev/60-zmk-vim-mode.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules && sudo udevadm trigger
-systemctl --user enable --now zmk-vim-mode.service
+make install
 ```
 
-`make install` writes the lazy.nvim spec to `~/.config/nvim/lua/plugins/` when
-your config has none (an existing one is never touched), runs
-`systemctl --user daemon-reload`, and restarts the service if it is already
-running — a service left on the old binary is the classic reason a change
-seems to do nothing. Add `set -g focus-events on` to `~/.tmux.conf`, then flash
-the firmware module following [docs/keyboards-repo.md](docs/keyboards-repo.md).
+One command, both platforms. It builds and installs the binary, writes the
+user service and starts it, installs the Neovim plugin spec, and sets up
+VSCode and Obsidian — each editor is skipped when it is not installed, and an
+existing Neovim spec is never touched. On Linux it also installs the udev rule
+(the one `sudo` prompt) and enables the accessibility bus; on macOS it signs
+the binary and loads the launchd agent. Running it again is how you upgrade:
+it restarts the service, so it never leaves the old binary running.
 
-Editors other than Neovim are one more command, then a restart of each:
+Four things it cannot do for you:
+
+- **flash the firmware module** — see [docs/keyboards-repo.md](docs/keyboards-repo.md);
+- **restart the editors**, so they load their new plugins;
+- **`set -g focus-events on`** in `~/.tmux.conf`, or Neovim never sees
+  `FocusLost` inside tmux;
+- on macOS, **grant the two permissions** below.
+
+Then check everything:
 
 ```bash
-zmk-vim-mode install --vscode --obsidian --atspi && systemctl --user restart zmk-vim-mode
+zmk-vim-mode doctor
 ```
 
-Check everything with `zmk-vim-mode doctor`.
+### macOS permissions
+
+Two grants, each added by hand under System Settings → Privacy & Security,
+both pointing at `~/.local/bin/zmk-vim-mode` (`+`, then ⌘⇧G to type the path):
+
+- **Input Monitoring** — required to open the keyboard's HID device, so
+  without it nothing reaches the keyboard at all. `zmk-vim-mode devices` shows
+  `writable` once it is in place.
+- **Accessibility** — lets the daemon read window titles, which is how tool
+  windows are detected (VSCode's terminal, sidebar, panels). Without it only
+  the editors' own plugins report.
+
+A background agent is never prompted for either, which is why they have to be
+added manually. `zmk-vim-mode doctor` reports what the **daemon** was granted —
+the only answer that counts, since macOS judges such a request by the
+responsible process, and a CLI run from a terminal is judged on that
+terminal's permissions.
+
+Both grants are tied to the binary's code signature, and Go stamps the version
+into every build, so each rebuild would void them. `make install` avoids that
+by signing with a self-signed certificate when the keychain has one:
+
+```bash
+make codesign-cert    # once; asks to allow codesign to use the key, then for your login password
+```
+
+Without it the binary is signed ad-hoc and both permissions must be removed
+and re-added after every rebuild. `make build` says which of the two it used.
 
 ### Editors
 
@@ -176,21 +209,19 @@ Passed as `opts` in the lazy.nvim spec; all have working defaults.
 `:ZmkVimMode status` shows the socket, the connection, the state last sent and
 whether a leader or VSCode hint is active.
 
-### Following focus through the accessibility bus (optional)
+### Following focus through the accessibility bus (Linux)
 
 Two things nothing above can see: a quick input opened with the mouse, and the
 exact moment focus returns to the editor. Both are visible on AT-SPI2, the
 Linux accessibility bus, which every toolkit reports focus changes to -- when
-accessibility is on.
+accessibility is on. `make install` turns it on; `zmk-vim-mode install --atspi`
+does it alone, and dropping `--atspi` from `INSTALL_FLAGS` in the Makefile
+leaves it off.
 
-```bash
-zmk-vim-mode install --atspi --vscode && systemctl --user restart zmk-vim-mode   # then restart VSCode once
-```
-
-`--vscode` alongside `--atspi` also adds `--force-renderer-accessibility` to
-`~/.config/code-flags.conf` (read by Arch's `code` wrapper): Electron builds
-the accessibility tree of its web content only with that switch -- the bus
-flags alone reach GTK and Qt, not VSCode's DOM.
+It also adds `--force-renderer-accessibility` to `~/.config/code-flags.conf`
+(read by Arch's `code` wrapper): Electron builds the accessibility tree of its
+web content only with that switch -- the bus flags alone reach GTK and Qt, not
+VSCode's DOM. Restart VSCode afterwards.
 
 The daemon then keeps one connection to the bus, registers as a focus
 listener and classifies each focused widget of the frontmost VSCode: the
@@ -215,49 +246,7 @@ up. `zmk-vim-mode status` shows `focus : elsewhere (input.input …)` while a
 quick input is open. No D-Bus library is involved: `internal/dbus` is a
 300-line client for the handful of calls this needs.
 
-## Install (macOS)
-
-```bash
-make install                                                        # cgo build, signs the binary, writes the agent
-launchctl bootstrap gui/$UID ~/Library/LaunchAgents/dev.rafaelromao.zmk-vim-mode.plist
-```
-
-`bootstrap` is only for loading the agent the first time; afterwards
-`make install` restarts it itself (`launchctl kickstart -k` if you need to do
-it by hand — `bootstrap` on a loaded agent fails with `5: Input/output error`).
-
-Then grant **Input Monitoring** to `~/.local/bin/zmk-vim-mode`: System Settings
-→ Privacy & Security → Input Monitoring → `+`, ⌘⇧G to type the path. Opening a
-keyboard's HID device requires it, and a background agent is never prompted, so
-the entry has to be added by hand. `zmk-vim-mode devices` tells you whether it
-took: every keyboard must read `writable`.
-
-### Code signing, or why the grant may not stick
-
-The grant is tied to the binary's code signature. Go's linker leaves an ad-hoc
-*linker-signed* signature whose identifier is `a.out`; TCC cannot hold a grant
-against that, so the daemon could be added to Input Monitoring and every device
-open still failed. `make build` therefore re-signs with a stable identifier.
-
-Ad-hoc signing changes the binary's hash on every rebuild — and the version
-string is stamped in, so every commit changes it — which voids the grant each
-time. Sign with a self-signed certificate instead and it survives:
-
-```bash
-make codesign-cert                                   # once: creates zmk-vim-mode-dev
-make install CODESIGN_IDENTITY=zmk-vim-mode-dev      # and every time after
-```
-
-`codesign-cert` creates the key, imports it into the login keychain and trusts
-it for code signing; it asks to allow `codesign` to use the key and for your
-login password. Grant Input Monitoring once afterwards. The equivalent by hand
-is **Keychain Access** → menu *Keychain Access* → *Certificate Assistant* →
-*Create a Certificate*, with Name `zmk-vim-mode-dev`, Identity Type *Self
-Signed Root*, Certificate Type *Code Signing* (the dialog defaults to *SSL
-Client*). `security find-identity -v -p codesigning` lists what the keychain
-has.
-
-### What differs from Linux
+### What differs on macOS
 
 - **LED writes** go through IOKit `IOHIDDeviceSetValueMultiple`: all five
   indicators in one call, so one output report carries the whole code and the
@@ -285,9 +274,20 @@ has.
 - **No accessibility bus**: AT-SPI2 is Linux-only, so `--atspi` does nothing
   here and a quick input opened with the mouse is not detected.
 
-`zmk-vim-mode install --vscode --obsidian`, `status` and `doctor` work the same.
+Everything else is the same: `make install`, `status`, `doctor`.
 
-### Troubleshooting
+Why the signature matters, since it is the one thing with no visible cause:
+Go's linker leaves an ad-hoc *linker-signed* signature whose identifier is
+`a.out`, and TCC cannot hold a grant against that — the daemon can sit in the
+permission list with every device open still refused. `make build` re-signs
+with a stable identifier; `make codesign-cert` makes that identifier a
+certificate, so the grants outlive rebuilds. By hand the certificate is
+**Keychain Access** → menu *Keychain Access* → *Certificate Assistant* →
+*Create a Certificate*: Name `zmk-vim-mode-dev`, Identity Type *Self Signed
+Root*, Certificate Type *Code Signing* (the dialog opens on *SSL Client*).
+`security find-identity -v -p codesigning` lists what the keychain has.
+
+### Troubleshooting (macOS)
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -330,8 +330,8 @@ make cross         # static binaries for the Omarchy box (linux/amd64, linux/arm
 ```
 
 Linux builds are pure Go and static; macOS needs cgo for IOKit and Cocoa, and
-signs the result (see *Code signing* above). `make cross` stays CGO-free, so it
-can be run from either machine.
+signs the result (see *What differs on macOS*). `make cross` stays CGO-free, so
+it can be run from either machine.
 
 `scripts/spike-linux.sh` covers the bring-up checks on Linux: find the
 keyboard's device nodes, confirm the firmware exposes the three LEDs, write a
