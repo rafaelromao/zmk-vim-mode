@@ -12,8 +12,6 @@ Three parts, one repository:
 | Neovim plugin | `lua/`, `plugin/` | reports Neovim's effective state over a unix socket |
 | ZMK module | `firmware/`, `zephyr/` | decodes the state and switches layers |
 
-See [PLAN.md](PLAN.md) for the full design and the reasoning behind it.
-
 ## How it works
 
 ### The channel
