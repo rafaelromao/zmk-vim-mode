@@ -37,8 +37,8 @@ usage maximum Kana":
 └──────────────────────────────────── usage page = LED
 ```
 
-Three of those five are free: no operating system ever *sets* **Compose**,
-**Kana** or **Scroll Lock** on its own. Num Lock and Caps Lock are deliberately
+Three of those five are free, assuming the operating system never *sets* **Compose**,
+**Kana** or **Scroll Lock**. Num Lock and Caps Lock are deliberately
 left alone, because the OS owns them — a stray lock keypress would otherwise
 change your editor state. Those three free bits are read as one 3-bit number.
 
