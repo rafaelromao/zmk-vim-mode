@@ -599,7 +599,8 @@ and re-added after every rebuild. `make build` says which of the two it used.
 | Neovim in a terminal, Neovide | the Neovim plugin | the plugin: `raw` for pickers, the terminal, a pending `<leader>` | `zmk-vim-mode install --nvim` (also done by `make install`) |
 | VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, a companion extension for quick inputs and non-text editors, the accessibility bus for anything opened with the mouse (Linux) | `zmk-vim-mode install --vscode --atspi`, then [editors/vscode](editors/vscode/README.md) |
 | Obsidian | own plugin (CodeMirror vim events) | own plugin (`focusin`) | `zmk-vim-mode install --obsidian`, then [editors/obsidian](editors/obsidian/README.md) |
-| IntelliJ, anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
+| IntelliJ | own plugin (IdeaVim's mode listener) | own plugin (editor focus) | [editors/intellij](editors/intellij/README.md) — needs IdeaVim, and a build |
+| anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
 
 Inside an app the sources rank: window title (a focused tool window) →
 accessibility bus (focus anywhere but the text editor) → the app's own client

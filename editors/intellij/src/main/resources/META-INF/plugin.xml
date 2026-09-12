@@ -1,0 +1,19 @@
+<idea-plugin>
+    <id>dev.rafaelromao.zmk-vim-mode</id>
+    <name>ZMK Vim Mode</name>
+    <vendor url="https://github.com/rafaelromao/zmk-vim-mode">Rafael Romão</vendor>
+
+    <description><![CDATA[
+        Reports IdeaVim's mode to the zmk-vim-mode daemon, which keeps a ZMK
+        keyboard's layers in sync with the editor: NORMAL while you are issuing
+        commands, INSERT while typing, and no vim layers at all while focus is
+        in a tool window.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>IdeaVIM</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="dev.rafaelromao.zmkvimmode.Startup"/>
+    </extensions>
+</idea-plugin>
