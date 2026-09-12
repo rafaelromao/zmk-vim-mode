@@ -25,15 +25,27 @@ watching keys, exactly as it did before any of this existed.
 
 ## Build and install
 
+There is no Gradle wrapper checked in, so use one of these.
+
+**From IntelliJ, with no installs** — it bundles Gradle:
+
+1. *File → Open…* → `editors/intellij` → open as a project. IDEA sees
+   `build.gradle.kts` and loads it as a Gradle project.
+2. If it asks, point *Gradle JVM* at a JDK 21 or newer.
+3. Gradle tool window → *Tasks → intellij platform → buildPlugin*.
+
+**From the shell**, if you have or want the Gradle CLI:
+
 ```bash
+brew install gradle          # once
 cd editors/intellij
-$EDITOR gradle.properties     # platformPath, ideaVimVersion, sinceBuild
+gradle wrapper               # so ./gradlew exists next time
 ./gradlew buildPlugin
 ```
 
-The result is `build/distributions/zmk-vim-mode-intellij-0.1.0.zip`. Install it
-with Settings → Plugins → ⚙ → *Install Plugin from Disk…*, then restart the
-IDE.
+Either way check `gradle.properties` first, and the result is
+`build/distributions/zmk-vim-mode-intellij-0.1.0.zip`. Install it with
+Settings → Plugins → ⚙ → *Install Plugin from Disk…*, then restart the IDE.
 
 `gradle.properties` ships with the values for IntelliJ IDEA 2026.2
 (`IU-262.10315.125`) and IdeaVim 2.46.2. Change them for another machine:
