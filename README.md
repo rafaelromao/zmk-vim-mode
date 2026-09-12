@@ -294,12 +294,26 @@ to be good enough for the editors that cannot speak.
 Switching layers to follow the editor would be a curiosity if the layers only
 mirrored your base layout. The point is that they do not have to.
 
-`hjkl` sits on QWERTY's home row by accident of history. Move to Colemak,
-Dvorak, Graphite or anything hand-rolled and those four letters scatter — on
-Colemak `j` is under the right index but `k` and `l` are a row apart, and `h`
-is off in the corner. Every alternative-layout user meets this and picks a
-compromise: remap vim (and fight every plugin that assumes the defaults),
-learn the scattered positions, or give up on motions.
+`hjkl` sits on QWERTY's home row by accident of history. Move to any modern
+alternative and those four letters scatter. Gallium, the layout in the example
+below:
+
+```
+b l d c v   j y o u ,
+n r t s g   p h a e i
+x q m w z   k f ' ; .
+```
+
+`h` keeps the right index home position, but `j` and `k` are stacked on the
+index's inner column — one reach up, one reach down, same finger — and `l` is
+on the **left hand**, middle finger, top row. Cursor movement becomes a
+one-finger stretch plus a hand alternation. Colemak, Dvorak and Graphite each
+scatter it differently; none of them keeps the row.
+
+The usual answers are all bad. Remap vim and you fight every plugin, tutorial
+and muscle memory that assumes the defaults, on every machine you ever ssh
+into. Learn the scattered positions and you have made your best layout worse
+at the thing you do most. Give up on motions and you are not really using vim.
 
 A vim layer removes the compromise. While the editor is in normal mode the
 keyboard is not typing letters at all — it is issuing commands — so that layer
@@ -321,6 +335,13 @@ base layout shows through untouched. That is the trade this project exists to
 make — a dedicated command layout that appears exactly when the editor is
 expecting commands, and disappears exactly when it is not.
 
+**And vim itself needs no configuration.** The keyboard sends real `h`, `j`,
+`k`, `l` keycodes — the layer decides which physical key produces them, not
+what the editor does with them. So there is no `noremap` in your config,
+nothing to keep in sync between machines, nothing that breaks when a plugin
+binds `gj` or expects `dw` to work, and nothing to install on the server you
+ssh into. Stock vim, stock plugins, a keyboard that speaks their language.
+
 One ordering rule makes it behave: **keep the vim layers below your other
 layers**. Layer priority in ZMK is numeric, so with `NAV` and `SYM` above them,
 holding a nav key still works while vim layers are active. Put them above and
@@ -328,10 +349,11 @@ the vim layer would shadow everything you hold.
 
 ### A complete 34-key keymap
 
-A 3×5+2 board (Ferris Sweep, Cradio, Corne without the outer columns). QWERTY
+A 3×5+2 board (Ferris Sweep, Cradio, Corne without the outer columns). Gallium
 base with home-row mods, and the four vim layers. It is written to compile as
-it stands — drop it in as your `.keymap`, adjust the base layout to whatever
-you actually type on, and the vim side needs no changes.
+it stands — drop it in as your `.keymap`, swap the base layer for whatever you
+actually type on, and the vim layers need no changes at all: they name
+keycodes, not positions on your alpha layout.
 
 ```c
 #include <behaviors.dtsi>
@@ -420,12 +442,14 @@ you actually type on, and the vim side needs no changes.
     keymap {
         compatible = "zmk,keymap";
 
+        // Gallium. Note where h, j, k and l fall: h on the right index home,
+        // j and k stacked on the index's inner column, l on the other hand.
         base_layer {
             display-name = "BASE";
             bindings = <
-   &kp Q        &kp W        &kp E         &kp R         &kp T        &kp Y      &kp U          &kp I         &kp O        &kp P
-   &mt LGUI A   &mt LALT S   &mt LCTRL D   &mt LSHFT F   &kp G        &kp H      &mt RSHFT J    &mt RCTRL K   &mt RALT L   &mt RGUI SEMI
-   &kp Z        &kp X        &kp C         &kp V         &kp B        &kp N      &kp M          &kp COMMA     &kp DOT      &kp FSLH
+   &kp B        &kp L        &kp D         &kp C         &kp V        &kp J      &kp Y          &kp O         &kp U        &kp COMMA
+   &mt LGUI N   &mt LALT R   &mt LCTRL T   &mt LSHFT S   &kp G        &kp P      &mt RSHFT H    &mt RCTRL A   &mt RALT E   &mt RGUI I
+   &kp X        &kp Q        &kp M         &kp W         &kp Z        &kp K      &kp F          &kp SQT       &kp SEMI     &kp DOT
                                            &lt NAV ESC   &kp SPACE    &kp RET    &lt SYM BSPC
             >;
         };
@@ -506,6 +530,11 @@ the command line, and the right hand keeps `h j k l` on home with `w e b` above
 and `^D`/`^U` for paging. Everything not listed falls through to the base
 layer, so counts, registers and the commands you use once a month still work
 exactly as they do in vim.
+
+Compare the two right hands. On the Gallium base, `h j k l` are `h`, an
+up-reach, a down-reach and a key on the left hand. On the normal layer they are
+index, middle, ring, pinky — and `p`, `a`, `e`, `i` are still exactly where
+Gallium puts them the moment you press `i`.
 
 ## Install
 
