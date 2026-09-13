@@ -18,39 +18,44 @@ watching keys, exactly as it did before any of this existed.
 
 ## Requirements
 
-- **IdeaVim installed** — Settings → Plugins → Marketplace → *IdeaVim*. This
-  plugin declares a dependency on it and will not load without it.
-- **Gradle**, and the JDK your IDE runs on — which you already have, since the
-  IDE ships it; `gradle.properties` points Gradle at that one rather than
-  installing another. Both the IDE and IdeaVim are read from disk, so the only
-  downloads are Gradle's own plugin and the Kotlin compiler.
+**IdeaVim installed** — Settings → Plugins → Marketplace → *IdeaVim*. This
+plugin declares a dependency on it, will not load without it, and the build
+compiles against it.
 
-## Build and install
+That is the only thing you have to install. The Gradle wrapper is checked in
+and the JDK comes from the IDE itself, which ships exactly the one the
+platform expects.
 
-There is no Gradle wrapper checked in, so use one of these.
-
-**From IntelliJ, with no installs** — it bundles Gradle:
-
-1. *File → Open…* → `editors/intellij` → open as a project. IDEA sees
-   `build.gradle.kts` and loads it as a Gradle project.
-2. If it asks, point *Gradle JVM* at the IDE's own bundled JBR.
-3. Gradle tool window → *Tasks → intellij platform → buildPlugin*.
-
-**From the shell**, if you have or want the Gradle CLI:
+## Install
 
 ```bash
-brew install gradle          # once
-cd editors/intellij
-gradle buildPlugin
+zmk-vim-mode install --intellij
 ```
 
-Either way check `gradle.properties` first, and the result is
-`build/distributions/zmk-vim-mode-intellij-0.1.0.zip`. Install it with
-Settings → Plugins → ⚙ → *Install Plugin from Disk…*, then restart the IDE.
+(`make install` does this too.) It finds every JetBrains IDE on the machine,
+works out where each keeps its plugins, generates `gradle.properties` for it,
+builds the plugin against that exact IDE and IdeaVim, and unpacks the result
+where the IDE loads plugins from — the same place *Install Plugin from Disk*
+would put it. Restart the IDE afterwards; plugins are only scanned at startup.
 
-`gradle.properties` ships with the values for IntelliJ IDEA 2026.2
-(`IU-262.10315.125`) and its installed IdeaVim. Change them for another
-machine:
+The build runs in `~/.cache/zmk-vim-mode/intellij` (`~/Library/Caches` on
+macOS) rather than a throwaway directory, so Gradle's downloads are made once
+and reused. The first run fetches Gradle itself and the Kotlin compiler and is
+not quick; later runs are incremental.
+
+An IDE without IdeaVim is reported and skipped, not guessed at.
+
+### Building it by hand
+
+Only needed if you are changing the plugin, or the installer could not.
+
+```bash
+cd editors/intellij
+./gradlew buildPlugin
+```
+
+This uses the `gradle.properties` in the repo, which holds the values for
+whatever machine last edited it — check it first:
 
 | property | where to find it |
 |---|---|
@@ -61,7 +66,9 @@ machine:
 
 That last one exists because the build needs the JDK the IDE runs on (25 for
 2026.2) and you probably have a different one; the IDE ships exactly that JVM,
-so Gradle is pointed at it rather than downloading another.
+so Gradle is pointed at it rather than downloading another. The result is
+`build/distributions/zmk-vim-mode-intellij-0.1.0.zip` — install it with
+Settings → Plugins → ⚙ → *Install Plugin from Disk…*, then restart.
 
 The Kotlin version in `build.gradle.kts` has to be able to read the metadata
 in the IDE's jars — IntelliJ 2026.2 ships Kotlin 2.4, so the build asks for
@@ -98,9 +105,12 @@ IdeaVim's listeners, and a debug line when the socket is not there.
   are told apart by `EditorKind` — `CONSOLE` and `UNTYPED` report `raw`,
   anything else answers to vim — and mode changes are ignored while one is
   focused, since IdeaVim force-switches them to insert.
-- There is no `zmk-vim-mode install --intellij`, and `doctor` does not check
-  this plugin: a JetBrains plugin is installed through the IDE, from the zip
-  built above, and the IDE owns it from there.
+- `doctor` does not check this plugin, unlike the VSCode and Obsidian ones:
+  once unpacked it is the IDE's to enable or disable, and the IDE's own
+  Settings → Plugins is the honest answer to whether it is on.
+- The installer builds against the IDE it finds. An IDE upgrade changes the
+  platform the plugin was compiled for, so run `install --intellij` again
+  after one.
 - Two IDEs open at once both report; the daemon uses the most recent one, and
   the frontmost window decides which application is in charge anyway.
 - The mode listener uses IdeaVim's internal notifier

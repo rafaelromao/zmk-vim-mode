@@ -24,6 +24,9 @@ type Options struct {
 	VSCode bool
 	// Obsidian copies the plugin into every registered vault and enables it.
 	Obsidian bool
+	// IntelliJ builds the plugin against each installed JetBrains IDE and
+	// unpacks it where that IDE loads plugins from.
+	IntelliJ bool
 	// ATSPI starts the service with --atspi.
 	ATSPI   bool
 	Version string
@@ -226,10 +229,17 @@ func Run(w io.Writer, o Options) error {
 			return err
 		}
 	}
-	if !o.Nvim && !o.Tmux && !o.Udev && !o.VSCode && !o.Obsidian {
+	if o.IntelliJ {
+		fmt.Fprintln(w, "\n--- IntelliJ ---")
+		if err := InstallIntelliJ(w); err != nil {
+			return err
+		}
+	}
+	if !o.Nvim && !o.Tmux && !o.Udev && !o.VSCode && !o.Obsidian && !o.IntelliJ {
 		fmt.Fprintln(w, "\nrun with --nvim --tmux --udev to print the editor, tmux and udev snippets,")
 		fmt.Fprintln(w, "--vscode to apply the VSCode settings and install the companion extension,")
-		fmt.Fprintln(w, "--obsidian to install the plugin into your vaults.")
+		fmt.Fprintln(w, "--obsidian to install the plugin into your vaults,")
+		fmt.Fprintln(w, "--intellij to build and install the plugin for your JetBrains IDEs.")
 	}
 	return nil
 }

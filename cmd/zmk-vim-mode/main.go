@@ -36,10 +36,11 @@ Usage:
                                         (re-issuing the same mode toggles back to auto)
   zmk-vim-mode status [--json]          show decision, frontmost app, clients, devices
   zmk-vim-mode devices                  list keyboards the daemon can write to
-  zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode] [--obsidian] [--atspi]
+  zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode] [--obsidian] [--intellij] [--atspi]
                                         install the user service; print editor/tmux snippets;
                                         --vscode writes settings.json and installs the extensions;
                                         --obsidian installs the plugin into your vaults;
+                                        --intellij builds and installs the plugin for your JetBrains IDEs;
                                         --atspi makes the service follow focus inside VSCode
   zmk-vim-mode uninstall
   zmk-vim-mode atspi-watch              print accessibility-bus focus events with the classifier's verdict (Linux)
@@ -352,10 +353,11 @@ func runInstall(args []string) error {
 	vscode := fs.Bool("vscode", false, "apply the VSCode settings the daemon relies on and install the companion extension + vscode-neovim via the `code` CLI")
 	atspiOn := fs.Bool("atspi", false, "start the daemon with --atspi (follow focus inside VSCode through the accessibility bus)")
 	obsidian := fs.Bool("obsidian", false, "copy the Obsidian plugin into every registered vault and enable it")
+	intellij := fs.Bool("intellij", false, "build the IntelliJ plugin against each installed JetBrains IDE and install it (needs IdeaVim)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Obsidian: *obsidian, ATSPI: *atspiOn, Service: !*noService, Version: Version})
+	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Obsidian: *obsidian, IntelliJ: *intellij, ATSPI: *atspiOn, Service: !*noService, Version: Version})
 }
 
 func deref(p *uint8) uint8 {

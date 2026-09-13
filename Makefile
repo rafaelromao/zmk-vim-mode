@@ -27,8 +27,10 @@ CODESIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/nul
 BUNDLE_ID := dev.rafaelromao.zmk-vim-mode
 
 # What `install` sets up. The editor integrations skip whatever is not
-# installed, so asking for all of them is safe.
-INSTALL_FLAGS := --nvim --tmux --vscode --obsidian
+# installed, so asking for all of them is safe. --intellij is the one that can
+# take a while: with a JetBrains IDE and IdeaVim present it compiles the plugin,
+# and the first run downloads Gradle and the Kotlin compiler.
+INSTALL_FLAGS := --nvim --tmux --vscode --obsidian --intellij
 ifeq ($(UNAME_S),Linux)
 INSTALL_FLAGS += --atspi
 endif

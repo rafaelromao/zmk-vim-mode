@@ -600,7 +600,7 @@ and re-added after every rebuild. `make build` says which of the two it used.
 | Neovim in a terminal, Neovide | the Neovim plugin | the plugin: `raw` for pickers, the terminal, a pending `<leader>` | `zmk-vim-mode install --nvim` (also done by `make install`) |
 | VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, a companion extension for quick inputs and non-text editors, the accessibility bus for anything opened with the mouse (Linux) | `zmk-vim-mode install --vscode --atspi`, then [editors/vscode](editors/vscode/README.md) |
 | Obsidian | own plugin (CodeMirror vim events) | own plugin (`focusin`) | `zmk-vim-mode install --obsidian`, then [editors/obsidian](editors/obsidian/README.md) |
-| IntelliJ | own plugin (IdeaVim's mode listener) | own plugin: editor focus, and `EditorKind` to keep the terminal and consoles out — they are editors too | [editors/intellij](editors/intellij/README.md) — needs IdeaVim, and a build |
+| IntelliJ | own plugin (IdeaVim's mode listener) | own plugin: editor focus, and `EditorKind` to keep the terminal and consoles out — they are editors too | `zmk-vim-mode install --intellij` (also done by `make install`) — needs IdeaVim; it builds the plugin against your IDE, see [editors/intellij](editors/intellij/README.md) |
 | anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
 
 Inside an app the sources rank: window title (a focused tool window) →
@@ -726,7 +726,7 @@ zmk-vim-mode status             current decision, frontmost app, widget focus, c
 zmk-vim-mode devices            keyboards the daemon can write to, and the last code sent to each
 zmk-vim-mode set <mode>         manual override; repeating the same mode returns to auto
 zmk-vim-mode doctor             daemon, devices, permissions, old watchers, and the editor setups
-zmk-vim-mode install [flags]    service, Neovim spec, --vscode, --obsidian, --atspi, --udev, --tmux
+zmk-vim-mode install [flags]    service, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux
 zmk-vim-mode uninstall          remove the service (config is left alone)
 zmk-vim-mode atspi-watch        Linux: accessibility-bus focus events with the classifier's verdict
 zmk-vim-mode hid-scan [--all]   macOS: HID keyboards this host sees and the LEDs they expose

@@ -554,7 +554,12 @@ Phase 4c (IntelliJ) is **no longer deferred — built and verified on the Mac (2
    an editor, so focusing it fires `focusLost` immediately followed by `focusGained`, and the keyboard went
    straight back to the NORMAL layer. `EditorKind` separates them — `CONSOLE` and `UNTYPED` report `raw` — and
    mode changes are gated on the same decision, or IdeaVim's forced insert would undo it.
-3. **The build fights the corporate proxy, not the code.** TLS interception makes the JDK reject JetBrains'
+3. **`install --intellij` can do the whole job.** A JetBrains plugin is just a directory under the IDE's plugin
+   root, so the installer detects every IDE (via `build.txt`, whose branch number gives the config directory
+   name — 262 is 2026.2), generates `gradle.properties` for it, builds with the checked-in Gradle wrapper under
+   the IDE's own JBR, and unpacks the zip where the IDE looks. The sources are embedded in the binary as the
+   VSCode companion's are, so no checkout is needed. Only the restart is left to the user.
+4. **The build fights the corporate proxy, not the code.** TLS interception makes the JDK reject JetBrains'
    `cache-redirector`, so the IDE and IdeaVim are both consumed from disk (`local()`, `localPlugin()`) and
    `instrumentCode` is off — it exists for UI forms, of which there are none, and is the last thing that
    reached the network. The Kotlin compiler must also match the IDE's own (2.4 for 2026.2), or the build
