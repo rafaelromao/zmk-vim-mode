@@ -20,10 +20,10 @@ watching keys, exactly as it did before any of this existed.
 
 - **IdeaVim installed** — Settings → Plugins → Marketplace → *IdeaVim*. This
   plugin declares a dependency on it and will not load without it.
-- A JDK 21 or newer, and network access for the build: Gradle fetches IdeaVim
-  and the Kotlin compiler, while the IDE itself is used from disk. The build
-  targets Java 21 bytecode using whatever JDK runs Gradle, so no specific
-  version has to be installed.
+- **Gradle**, and the JDK your IDE runs on — which you already have, since the
+  IDE ships it; `gradle.properties` points Gradle at that one rather than
+  installing another. Both the IDE and IdeaVim are read from disk, so the only
+  downloads are Gradle's own plugin and the Kotlin compiler.
 
 ## Build and install
 
@@ -33,7 +33,7 @@ There is no Gradle wrapper checked in, so use one of these.
 
 1. *File → Open…* → `editors/intellij` → open as a project. IDEA sees
    `build.gradle.kts` and loads it as a Gradle project.
-2. If it asks, point *Gradle JVM* at a JDK 21 or newer.
+2. If it asks, point *Gradle JVM* at the IDE's own bundled JBR.
 3. Gradle tool window → *Tasks → intellij platform → buildPlugin*.
 
 **From the shell**, if you have or want the Gradle CLI:
@@ -41,8 +41,7 @@ There is no Gradle wrapper checked in, so use one of these.
 ```bash
 brew install gradle          # once
 cd editors/intellij
-gradle wrapper               # so ./gradlew exists next time
-./gradlew buildPlugin
+gradle buildPlugin
 ```
 
 Either way check `gradle.properties` first, and the result is
@@ -85,7 +84,8 @@ zmk-vim-mode status | grep intellij
 
 A client `intellij app=intellij` appears once a project is open. Then: `i` in
 the editor should put the keyboard in its INSERT layer, `Esc` back to NORMAL,
-and clicking the project tree should drop the vim layers entirely.
+and clicking the project tree — or the terminal — should drop the vim layers
+entirely, showing `raw (code 6)`.
 
 If nothing appears, *Help → Show Log in Finder* and search for
 `zmk-vim-mode`: the plugin logs a warning when it cannot subscribe to
@@ -98,6 +98,9 @@ IdeaVim's listeners, and a debug line when the socket is not there.
   are told apart by `EditorKind` — `CONSOLE` and `UNTYPED` report `raw`,
   anything else answers to vim — and mode changes are ignored while one is
   focused, since IdeaVim force-switches them to insert.
+- There is no `zmk-vim-mode install --intellij`, and `doctor` does not check
+  this plugin: a JetBrains plugin is installed through the IDE, from the zip
+  built above, and the IDE owns it from there.
 - Two IDEs open at once both report; the daemon uses the most recent one, and
   the frontmost window decides which application is in charge anyway.
 - The mode listener uses IdeaVim's internal notifier
@@ -112,7 +115,7 @@ IdeaVim's listeners, and a debug line when the socket is not there.
   [Modes.kt](src/main/kotlin/dev/rafaelromao/zmkvimmode/Modes.kt) matches mode
   *names* rather than importing the type, and accepts both the engine's
   `CMD_LINE` and the newer API's `COMMAND_LINE`, so renames there are harmless.
-- It compiles against IDEA 2026.2 and IdeaVim 2.46.2, but has not yet been run
-  in a live IDE. Code instrumentation is off in `build.gradle.kts`: it exists
-  for UI forms, there are none here, and leaving it on makes the build fetch an
-  extra artifact from JetBrains for nothing.
+- Built and confirmed working against IDEA 2026.2 (`IU-262.10315.125`) and
+  IdeaVim 2.46.2, on macOS. Code instrumentation is off in `build.gradle.kts`:
+  it exists for UI forms, there are none here, and leaving it on makes the
+  build fetch an extra artifact from JetBrains for nothing.

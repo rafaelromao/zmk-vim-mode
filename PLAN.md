@@ -264,7 +264,7 @@ What is installed here (verified locally):
 |---|---|---|
 | VSCode | `/Applications/Visual Studio Code.app` | `vscodevim.vim` 1.32.4, `vim.vimrc.enable: true`, `vim.vimrc.path: ~/.vscodevimrc` (empty); an `extensions.experimental.affinity` entry for `asvetliakov.vscode-neovim` exists but that extension is **not** installed. Linux VSCode settings have no vim config. |
 | Obsidian | `/Applications/Obsidian.app`, vault `~/projects/secondbrain` | `vimMode: true`; `obsidian-vimrc-support` 0.10.2 and `edit-in-neovim` 1.4.0 present but **disabled** |
-| IntelliJ | not installed (no app, no `~/.ideavimrc`, no JetBrains config) | defer IdeaVim until it is actually used |
+| IntelliJ | not installed (no app, no `~/.ideavimrc`, no JetBrains config) | defer IdeaVim until it is actually used — *installed since; see phase 4c* |
 
 **AT-SPI2 is rejected as the primary mechanism** (research killed the earlier fallback idea): it cannot see vim
 mode at all; Chromium maps Monaco's hidden textarea, the quick-input box, the find widget and xterm.js's helper
@@ -346,6 +346,7 @@ heavy Neovim user the embedded-nvim option is the consensus, and the only one th
   Existing Obsidian vim plugins all shell out to an IM-switcher binary; none speaks a socket.
 
 #### 4c. IntelliJ → defer; when needed, an IdeaVim extension plugin
+*(Superseded 2026-09-13: installed, built and verified — see the phase 4c note below for what this got wrong.)*
 `<depends>IdeaVIM</depends>` + the `IdeaVIM.vimExtension` extension point (as IdeaVim-EasyMotion and
 idea-which-key do). The new thin API `com.intellij.vim.api` has exactly the three callbacks needed —
 `listeners { onModeChange {}; onEditorFocusGain {}; onEditorFocusLost {} }` — but is marked **EXPERIMENTAL** and
@@ -538,6 +539,26 @@ title marker and the title heuristic are inert on macOS and the accessibility bu
 relies on the companion and the embedded Neovim. A background agent is never prompted for Input Monitoring:
 the entry has to be added by hand, and `zmk-vim-mode devices` reports whether it took. The AX-based context
 classifier for legacy apps on macOS is not started.
+
+Phase 4c (IntelliJ) is **no longer deferred — built and verified on the Mac (2026-09-13)** against IDEA 2026.2
+(`IU-262.10315.125`) and IdeaVim 2.46.2. `editors/intellij/` is a Kotlin plugin; the daemon's existing
+`jetbrains-*`/`com.jetbrains.*` rule needed no change. Three things the plan got wrong:
+
+1. **The public API is still unreachable.** `com.intellij.vim.api.scopes.ListenersScope` ships in IdeaVim 2.46.2
+   with exactly the `onModeChange`/`onEditorFocusGain`/`onEditorFocusLost` callbacks wanted, but nothing outside
+   its own jar exposes a way for a third-party plugin to obtain that scope. The planned fallback is what runs:
+   `injector.listenersNotifier.modeChangeListeners` (already a mutable collection, no cast needed) plus
+   `EditorEventMulticasterEx.addFocusChangeListener`. Worth revisiting when JetBrains opens the scope up.
+2. **Terminals and consoles must map to `raw` after all.** The plan said to leave them alone, since IdeaVim
+   force-switches them to insert and insert is already pass-through. On hardware that failed: the terminal *is*
+   an editor, so focusing it fires `focusLost` immediately followed by `focusGained`, and the keyboard went
+   straight back to the NORMAL layer. `EditorKind` separates them — `CONSOLE` and `UNTYPED` report `raw` — and
+   mode changes are gated on the same decision, or IdeaVim's forced insert would undo it.
+3. **The build fights the corporate proxy, not the code.** TLS interception makes the JDK reject JetBrains'
+   `cache-redirector`, so the IDE and IdeaVim are both consumed from disk (`local()`, `localPlugin()`) and
+   `instrumentCode` is off — it exists for UI forms, of which there are none, and is the last thing that
+   reached the network. The Kotlin compiler must also match the IDE's own (2.4 for 2026.2), or the build
+   drowns in "incompatible version of Kotlin" errors that look like a missing standard library.
 
 ## Phases (Omarchy first)
 

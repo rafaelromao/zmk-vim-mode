@@ -159,7 +159,8 @@ mode and the module switches layers; the keyboard never has to guess.
 ### Inferring modes on the keyboard
 
 Codes 4 and 7 say only *"a vim-like editor has focus"*: the mode is unknown,
-because the editor has no plugin (IntelliJ, vim over SSH), or because you
+because the editor has no plugin (vim over SSH, a JetBrains IDE without the
+plugin below, Helix, anything with vim keys of its own), or because you
 entered vim mode by hand. Then the keyboard has to follow the mode itself, by
 watching the keys that change it.
 
@@ -599,7 +600,7 @@ and re-added after every rebuild. `make build` says which of the two it used.
 | Neovim in a terminal, Neovide | the Neovim plugin | the plugin: `raw` for pickers, the terminal, a pending `<leader>` | `zmk-vim-mode install --nvim` (also done by `make install`) |
 | VSCode | the same plugin, inside [vscode-neovim](https://github.com/vscode-neovim/vscode-neovim) | window title `[${focusedView}]` read from Hyprland, a companion extension for quick inputs and non-text editors, the accessibility bus for anything opened with the mouse (Linux) | `zmk-vim-mode install --vscode --atspi`, then [editors/vscode](editors/vscode/README.md) |
 | Obsidian | own plugin (CodeMirror vim events) | own plugin (`focusin`) | `zmk-vim-mode install --obsidian`, then [editors/obsidian](editors/obsidian/README.md) |
-| IntelliJ | own plugin (IdeaVim's mode listener) | own plugin (editor focus) | [editors/intellij](editors/intellij/README.md) — needs IdeaVim, and a build |
+| IntelliJ | own plugin (IdeaVim's mode listener) | own plugin: editor focus, and `EditorKind` to keep the terminal and consoles out — they are editors too | [editors/intellij](editors/intellij/README.md) — needs IdeaVim, and a build |
 | anything else | none: `legacy`, the keyboard infers | — | nothing; `set raw` when a tool window traps you |
 
 Inside an app the sources rank: window title (a focused tool window) →
