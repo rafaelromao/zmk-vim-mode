@@ -20,8 +20,10 @@ watching keys, exactly as it did before any of this existed.
 
 - **IdeaVim installed** — Settings → Plugins → Marketplace → *IdeaVim*. This
   plugin declares a dependency on it and will not load without it.
-- A JDK 21 and network access for the build (Gradle fetches IdeaVim and the
-  Kotlin compiler; the IDE itself is used from disk, not downloaded).
+- A JDK 21 or newer, and network access for the build: Gradle fetches IdeaVim
+  and the Kotlin compiler, while the IDE itself is used from disk. The build
+  targets Java 21 bytecode using whatever JDK runs Gradle, so no specific
+  version has to be installed.
 
 ## Build and install
 
