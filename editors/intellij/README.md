@@ -9,7 +9,7 @@ the daemon, so the keyboard follows IntelliJ the way it follows Neovim.
 | insert, replace | insert |
 | visual, select | visual |
 | command line (`:`) | cmdline |
-| focus left the editor: project tree, settings, a dialog | raw |
+| focus left the editor: project tree, settings, a dialog, the terminal, a console | raw |
 | operator pending (`c` waiting for a motion) | nothing — the keyboard's own gesture layer owns that moment |
 
 Without this plugin IntelliJ still works: the daemon classifies it as a
@@ -93,10 +93,11 @@ IdeaVim's listeners, and a debug line when the socket is not there.
 
 ## Limits
 
-- **IntelliJ's terminal and consoles are IdeaVim editors**, force-switched to
-  insert, so they report `insert` rather than `raw`. Keys reach them either
-  way — the vim layers are transparent in insert — but Esc belongs to the
-  editor, not the keyboard.
+- **IntelliJ's terminal and consoles are editors**, so focus moving into one
+  arrives as an ordinary editor focus rather than as leaving the editor. They
+  are told apart by `EditorKind` — `CONSOLE` and `UNTYPED` report `raw`,
+  anything else answers to vim — and mode changes are ignored while one is
+  focused, since IdeaVim force-switches them to insert.
 - Two IDEs open at once both report; the daemon uses the most recent one, and
   the frontmost window decides which application is in charge anyway.
 - The mode listener uses IdeaVim's internal notifier
