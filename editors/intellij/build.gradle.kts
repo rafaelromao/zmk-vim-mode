@@ -36,6 +36,12 @@ dependencies {
 // only invites mismatches. See gradle.properties for where that JDK is found.
 
 intellijPlatform {
+    // Bytecode instrumentation covers UI forms and @NotNull assertions, and
+    // pulls java-compiler-ant-tasks from JetBrains' repository to do it. There
+    // are no forms here, so it buys nothing -- and skipping it keeps the build
+    // free of the network entirely.
+    instrumentCode = false
+
     pluginConfiguration {
         ideaVersion {
             // Widen if your IDE is older; the build fails loudly if it is

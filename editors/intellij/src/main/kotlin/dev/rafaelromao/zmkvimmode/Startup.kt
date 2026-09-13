@@ -50,9 +50,7 @@ class ZmkVimModeService : Disposable {
                 // current one, read below.
                 override fun modeChanged(editor: VimEditor, oldMode: Mode) = reportCurrentMode()
             }
-            @Suppress("UNCHECKED_CAST")
-            val listeners = injector.listenersNotifier.modeChangeListeners as MutableCollection<ModeChangeListener>
-            listeners.add(listener)
+            injector.listenersNotifier.modeChangeListeners.add(listener)
         } catch (e: Throwable) {
             LOG.warn("cannot follow IdeaVim's mode changes; reporting focus only", e)
         }
