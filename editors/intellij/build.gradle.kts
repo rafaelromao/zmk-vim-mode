@@ -1,9 +1,10 @@
 plugins {
-    // If either of these fails to resolve, the version is simply out of date:
-    // check plugins.gradle.org for the current one. Nothing here depends on a
-    // particular version beyond supporting your Gradle and IDE.
-    kotlin("jvm") version "2.2.20"
-    id("org.jetbrains.intellij.platform") version "2.9.0"
+    // The Kotlin compiler must be able to read the metadata in the IDE's own
+    // jars: IntelliJ 2026.2 ships Kotlin 2.4, and an older compiler fails with
+    // hundreds of "incompatible version of Kotlin" errors that look like the
+    // standard library has vanished. Match it to your IDE.
+    kotlin("jvm") version "2.4.0"
+    id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
 group = "dev.rafaelromao"

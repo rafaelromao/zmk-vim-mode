@@ -59,6 +59,13 @@ machine:
 | `ideaVimPath` | the IdeaVim plugin directory: `~/Library/Application Support/JetBrains/<IDE>/plugins/IdeaVim` on macOS, `~/.local/share/JetBrains/<IDE>/IdeaVim` on Linux |
 | `sinceBuild` | Help → About → the `Build #IU-262.xxxx` number, first three digits |
 
+The Kotlin version in `build.gradle.kts` has to be able to read the metadata
+in the IDE's jars — IntelliJ 2026.2 ships Kotlin 2.4, so the build asks for
+2.4.0. Using an older compiler produces hundreds of *"was compiled with an
+incompatible version of Kotlin"* errors followed by unresolved references to
+`runCatching` and friends, which looks like a broken project but is only that
+mismatch.
+
 Both the IDE and IdeaVim are read from disk, so the build downloads only the
 Kotlin compiler and the Gradle plugin. That also sidesteps a proxy that
 intercepts TLS: the JDK keeps its own truststore, so it will refuse handshakes
