@@ -50,13 +50,20 @@ Either way check `gradle.properties` first, and the result is
 Settings → Plugins → ⚙ → *Install Plugin from Disk…*, then restart the IDE.
 
 `gradle.properties` ships with the values for IntelliJ IDEA 2026.2
-(`IU-262.10315.125`) and IdeaVim 2.46.2. Change them for another machine:
+(`IU-262.10315.125`) and its installed IdeaVim. Change them for another
+machine:
 
 | property | where to find it |
 |---|---|
 | `platformPath` | the IDE's path — `/Applications/IntelliJ IDEA.app` on macOS, the Toolbox directory on Linux |
-| `ideaVimVersion` | Settings → Plugins → Installed → IdeaVim |
+| `ideaVimPath` | the IdeaVim plugin directory: `~/Library/Application Support/JetBrains/<IDE>/plugins/IdeaVim` on macOS, `~/.local/share/JetBrains/<IDE>/IdeaVim` on Linux |
 | `sinceBuild` | Help → About → the `Build #IU-262.xxxx` number, first three digits |
+
+Both the IDE and IdeaVim are read from disk, so the build downloads only the
+Kotlin compiler and the Gradle plugin. That also sidesteps a proxy that
+intercepts TLS: the JDK keeps its own truststore, so it will refuse handshakes
+that `curl` and the browser accept, and JetBrains' `cache-redirector` is the
+usual casualty.
 
 ## Verify
 

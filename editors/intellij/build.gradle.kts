@@ -21,9 +21,12 @@ dependencies {
         // is the directory the Toolbox unpacked.
         local(providers.gradleProperty("platformPath").get())
 
-        // IdeaVim, from the Marketplace. Set the version to the one you have:
-        // Settings -> Plugins -> Installed -> IdeaVim.
-        plugin("IdeaVIM", providers.gradleProperty("ideaVimVersion").get())
+        // IdeaVim from its installed directory rather than the Marketplace:
+        // it is already on disk, it is guaranteed to be the version actually
+        // running, and it needs no network -- which matters behind a proxy
+        // that intercepts TLS, since the JDK has its own truststore and will
+        // refuse the handshake the rest of the system accepts.
+        localPlugin(providers.gradleProperty("ideaVimPath").get())
     }
 }
 
