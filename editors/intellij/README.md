@@ -58,6 +58,11 @@ machine:
 | `platformPath` | the IDE's path — `/Applications/IntelliJ IDEA.app` on macOS, the Toolbox directory on Linux |
 | `ideaVimPath` | the IdeaVim plugin directory: `~/Library/Application Support/JetBrains/<IDE>/plugins/IdeaVim` on macOS, `~/.local/share/JetBrains/<IDE>/IdeaVim` on Linux |
 | `sinceBuild` | Help → About → the `Build #IU-262.xxxx` number, first three digits |
+| `org.gradle.java.installations.paths` | the IDE's bundled JVM, `<IDE>/Contents/jbr/Contents/Home` on macOS, `<IDE>/jbr` on Linux |
+
+That last one exists because the build needs the JDK the IDE runs on (25 for
+2026.2) and you probably have a different one; the IDE ships exactly that JVM,
+so Gradle is pointed at it rather than downloading another.
 
 The Kotlin version in `build.gradle.kts` has to be able to read the metadata
 in the IDE's jars — IntelliJ 2026.2 ships Kotlin 2.4, so the build asks for

@@ -31,20 +31,9 @@ dependencies {
     }
 }
 
-// Target Java 21 bytecode with whatever JDK runs Gradle, rather than asking
-// for a JDK 21 toolchain: requiring one means either having that exact version
-// installed or letting Gradle download it. The IDE runs on 21 or newer, so 21
-// is the safe floor.
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
-    }
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
+// The Java toolchain and bytecode target are left to the platform plugin: it
+// knows which JVM the target IDE runs on, and picking a different one here
+// only invites mismatches. See gradle.properties for where that JDK is found.
 
 intellijPlatform {
     pluginConfiguration {
