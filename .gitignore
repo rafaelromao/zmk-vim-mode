@@ -21,3 +21,9 @@
 .DS_Store
 .nvimlog
 .claude/.cc-writes/
+
+# IntelliJ plugin build output
+editors/intellij/.gradle/
+editors/intellij/.idea/
+editors/intellij/build/
+editors/intellij/.kotlin/
