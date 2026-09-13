@@ -111,8 +111,7 @@ IdeaVim's listeners, and a debug line when the socket is not there.
   [Modes.kt](src/main/kotlin/dev/rafaelromao/zmkvimmode/Modes.kt) matches mode
   *names* rather than importing the type, and accepts both the engine's
   `CMD_LINE` and the newer API's `COMMAND_LINE`, so renames there are harmless.
-- **This plugin has never been compiled.** The API signatures were read out of
-  the installed IdeaVim jars with `javap`, so the IdeaVim side is accurate, but
-  the IntelliJ platform calls (`FocusChangeListener`, `ProjectActivity`) are
-  written from memory. Expect the first `./gradlew buildPlugin` to want a fix
-  or two.
+- It compiles against IDEA 2026.2 and IdeaVim 2.46.2, but has not yet been run
+  in a live IDE. Code instrumentation is off in `build.gradle.kts`: it exists
+  for UI forms, there are none here, and leaving it on makes the build fetch an
+  extra artifact from JetBrains for nothing.
