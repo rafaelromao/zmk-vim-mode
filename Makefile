@@ -85,6 +85,17 @@ install: build ## install everything: binary, service, udev rule, editor integra
 	@mkdir -p $(PREFIX)/bin
 	install -m 0755 $(BIN) $(PREFIX)/bin/$(BIN)
 	@echo "installed $(PREFIX)/bin/$(BIN)"
+	@# A fresh macOS has no ~/.local/bin on PATH, and the only symptom is
+	@# "command not found" from a command that installed perfectly.
+	@case ":$(PATH):" in \
+		*":$(PREFIX)/bin:"*) ;; \
+		*) echo; \
+		   echo "note: $(PREFIX)/bin is not on your PATH, so \`$(BIN)\` will not be found."; \
+		   echo "      add it to your shell profile:"; \
+		   echo "        export PATH=\"$(PREFIX)/bin:\$$PATH\""; \
+		   echo "      (the service runs the binary by full path, so it works either way)"; \
+		   echo ;; \
+	esac
 	@$(PREFIX)/bin/$(BIN) install $(INSTALL_FLAGS)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		if ! cmp -s contrib/udev/60-zmk-vim-mode.rules /etc/udev/rules.d/60-zmk-vim-mode.rules; then \

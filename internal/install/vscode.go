@@ -449,6 +449,15 @@ func InstallVSCode(w io.Writer, atspi bool) error {
 		}
 	}
 	fmt.Fprintln(w, "\nrestart VSCode fully (not just reload) so the title template and the accessibility setting apply.")
+	if runtime.GOOS == "darwin" {
+		// The title marker is useless without this grant, and nothing about
+		// the install fails visibly when it is missing -- tool windows simply
+		// keep the vim layers, which reads as the feature not working.
+		fmt.Fprintln(w, "macOS reads window titles through the Accessibility API, so the daemon needs that grant")
+		fmt.Fprintln(w, "or the terminal, sidebar and panels will keep the vim layers:")
+		fmt.Fprintln(w, "  System Settings → Privacy & Security → Accessibility → add zmk-vim-mode")
+		fmt.Fprintln(w, "(--atspi is Linux-only and does nothing here.)")
+	}
 	fmt.Fprintln(w, "then: zmk-vim-mode doctor")
 	return nil
 }

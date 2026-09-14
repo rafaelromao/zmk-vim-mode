@@ -7,25 +7,40 @@ instant focus returns to the text.
 
 ## Install
 
+`make install` already does this. To do it on its own — **Linux**:
+
 ```bash
 zmk-vim-mode install --vscode --atspi && systemctl --user restart zmk-vim-mode
 ```
 
-Then quit VSCode fully and start it again. Add `vscode = true` to your lazy.nvim
-spec for this plugin if it predates that line (see *Layer 1* below). Check with
-`zmk-vim-mode doctor`.
+**macOS** — there is no accessibility bus and no systemctl, and the agent is
+restarted for you:
+
+```bash
+zmk-vim-mode install --vscode
+```
+
+macOS then needs one thing no installer can do for you: grant **Accessibility**
+to `~/.local/bin/zmk-vim-mode` in System Settings → Privacy & Security. Window
+titles are read through that API, and without it the terminal, sidebar and
+panels keep the vim layers (see *On macOS* below).
+
+Either way, quit VSCode fully and start it again. Add `vscode = true` to your
+lazy.nvim spec for this plugin if it predates that line (see *Layer 1* below).
+Check with `zmk-vim-mode doctor`.
 
 What the command does, all idempotent and each with a backup:
 
 - `settings.json` (every VSCode flavour found): `window.title` gets the
   ` [${focusedView}]` marker appended to whatever template you have;
   `editor.accessibilitySupport` is set to `off`.
-- `~/.config/code-flags.conf`: `--force-renderer-accessibility` (only with
-  `--atspi`; Arch's `code` wrapper appends the file's lines to the command line).
+- `~/.config/code-flags.conf`: `--force-renderer-accessibility` (Linux only,
+  and only with `--atspi`; Arch's `code` wrapper appends the file's lines to
+  the command line — macOS has no such hook).
 - Installs vscode-neovim if missing and the companion extension, packaged from
   files embedded in the daemon binary -- no node, no vsce, no network for it.
   It never uninstalls anything: if VSCodeVim is present it prints the command.
-- Writes the service unit with `--atspi`, which stays on across later
+- Writes the service unit with `--atspi` (Linux), which stays on across later
   reinstalls.
 
 ## How it works: four layers
