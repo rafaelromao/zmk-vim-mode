@@ -99,7 +99,14 @@ func Run(w io.Writer, socket, cliVersion string) error {
 			for _, d := range st.Devices {
 				r, hint := ok, ""
 				if !d.Writable {
-					r, hint = bad, "install the udev rule: zmk-vim-mode install --udev"
+					// Device permissions come from udev on Linux and from
+					// Input Monitoring on macOS; sending a Mac user to install
+					// a udev rule is advice for the wrong operating system.
+					hint = "install the udev rule: zmk-vim-mode install --udev"
+					if runtime.GOOS == "darwin" {
+						hint = "System Settings → Privacy & Security → Input Monitoring → remove ~/.local/bin/zmk-vim-mode, add it again, then: launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode"
+					}
+					r = bad
 				}
 				last := "never written"
 				if d.LastCode != nil {
