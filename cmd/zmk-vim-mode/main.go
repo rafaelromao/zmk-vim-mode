@@ -354,10 +354,12 @@ func runInstall(args []string) error {
 	atspiOn := fs.Bool("atspi", false, "start the daemon with --atspi (follow focus inside VSCode through the accessibility bus)")
 	obsidian := fs.Bool("obsidian", false, "copy the Obsidian plugin into every registered vault and enable it")
 	intellij := fs.Bool("intellij", false, "build the IntelliJ plugin against each installed JetBrains IDE and install it (needs IdeaVim)")
+	noPath := fs.Bool("no-path", false, "do not add the binary's directory to PATH in your shell profile")
+	noOpen := fs.Bool("no-open", false, "do not open the macOS Privacy & Security panes that need a manual grant")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Obsidian: *obsidian, IntelliJ: *intellij, ATSPI: *atspiOn, Service: !*noService, Version: Version})
+	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Obsidian: *obsidian, IntelliJ: *intellij, ATSPI: *atspiOn, Service: !*noService, PathEntry: !*noPath, OpenPrivacy: !*noOpen, Version: Version})
 }
 
 func deref(p *uint8) uint8 {

@@ -7,7 +7,7 @@ GO ?= go
 NVIM ?= nvim
 CC ?= cc
 
-.PHONY: all build test test-go test-lua test-firmware fmt vet lint install uninstall doctor clean cross codesign-cert
+.PHONY: all build test test-go test-lua test-firmware fmt vet lint install uninstall doctor clean cross codesign-cert codesign-ensure
 
 all: build
 
@@ -23,8 +23,17 @@ CGO ?= $(if $(filter Darwin,$(UNAME_S)),1,0)
 CODESIGN_CERT ?= zmk-vim-mode-dev
 # Sign with the self-signed certificate when the keychain has it, so the
 # Input Monitoring and Accessibility grants survive rebuilds; ad-hoc otherwise.
-CODESIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q '"$(CODESIGN_CERT)"' && echo $(CODESIGN_CERT) || echo -)
+# Both are recursively expanded on purpose: `make install` can create the
+# certificate (see codesign-ensure) after this file is parsed, and the build
+# recipe must see the identity that exists by the time it runs, not the one
+# that existed at startup.
+HAVE_IDENTITY = $(shell security find-identity -v -p codesigning 2>/dev/null | grep -F '"$(CODESIGN_CERT)"')
+CODESIGN_IDENTITY ?= $(if $(HAVE_IDENTITY),$(CODESIGN_CERT),-)
 BUNDLE_ID := dev.rafaelromao.zmk-vim-mode
+# Recursing through $(MAKE) would make this recipe run even under `make -n`,
+# and a dry run that asks for your login password and mints a certificate is
+# not a dry run. Spelling it differently keeps make's scanner out of it.
+SUBMAKE := $(MAKE)
 
 # What `install` sets up. The editor integrations skip whatever is not
 # installed, so asking for all of them is safe. --intellij is the one that can
@@ -35,7 +44,7 @@ ifeq ($(UNAME_S),Linux)
 INSTALL_FLAGS += --atspi
 endif
 
-build: ## build the daemon for this platform
+build: codesign-ensure ## build the daemon for this platform
 	CGO_ENABLED=$(CGO) $(GO) build $(LDFLAGS) -o $(BIN) ./cmd/zmk-vim-mode
 	@if [ "$(UNAME_S)" = "Darwin" ]; then \
 		if codesign --force --sign $(CODESIGN_IDENTITY) --identifier $(BUNDLE_ID) $(BIN) 2>/dev/null; then \
@@ -85,17 +94,8 @@ install: build ## install everything: binary, service, udev rule, editor integra
 	@mkdir -p $(PREFIX)/bin
 	install -m 0755 $(BIN) $(PREFIX)/bin/$(BIN)
 	@echo "installed $(PREFIX)/bin/$(BIN)"
-	@# A fresh macOS has no ~/.local/bin on PATH, and the only symptom is
-	@# "command not found" from a command that installed perfectly.
-	@case ":$(PATH):" in \
-		*":$(PREFIX)/bin:"*) ;; \
-		*) echo; \
-		   echo "note: $(PREFIX)/bin is not on your PATH, so \`$(BIN)\` will not be found."; \
-		   echo "      add it to your shell profile:"; \
-		   echo "        export PATH=\"$(PREFIX)/bin:\$$PATH\""; \
-		   echo "      (the service runs the binary by full path, so it works either way)"; \
-		   echo ;; \
-	esac
+	@# The installer puts $(PREFIX)/bin on PATH itself (it edits the login
+	@# shell's profile), restarts the agent, and opens the macOS privacy panes.
 	@$(PREFIX)/bin/$(BIN) install $(INSTALL_FLAGS)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		if ! cmp -s contrib/udev/60-zmk-vim-mode.rules /etc/udev/rules.d/60-zmk-vim-mode.rules; then \
@@ -107,11 +107,34 @@ install: build ## install everything: binary, service, udev rule, editor integra
 		systemctl --user enable --now zmk-vim-mode.service && echo "service enabled and running"; \
 	fi
 
+# Creating the certificate is part of `make install`: without it every build is
+# signed ad-hoc, which silently voids the Input Monitoring and Accessibility
+# grants and leaves a daemon that runs but drives nothing. It asks for the
+# login password, so it only runs when there is a terminal to ask on.
+codesign-ensure:
+	@if [ "$(UNAME_S)" = "Darwin" ] && [ -z "$(HAVE_IDENTITY)" ]; then \
+		if [ -t 0 ]; then \
+			echo "no code-signing identity yet; creating $(CODESIGN_CERT) so the macOS grants survive rebuilds."; \
+			echo "(it will ask for your login password)"; echo; \
+			$(SUBMAKE) --no-print-directory codesign-cert; \
+		else \
+			echo "note: no $(CODESIGN_CERT) identity and no terminal to ask on; signing ad-hoc."; \
+			echo "      run 'make codesign-cert' to stop re-granting Input Monitoring after every build."; \
+		fi; \
+	fi
+
 codesign-cert: ## macOS: create the self-signed certificate that keeps TCC grants across rebuilds
 	@set -e; \
 	if [ "$(UNAME_S)" != "Darwin" ]; then echo "macOS only"; exit 1; fi; \
+	if [ -n "$(HAVE_IDENTITY)" ]; then \
+		echo "$(CODESIGN_CERT) is already a usable signing identity"; exit 0; \
+	fi; \
 	if security find-certificate -c $(CODESIGN_CERT) >/dev/null 2>&1; then \
-		echo "$(CODESIGN_CERT) already exists; build with:  make install CODESIGN_IDENTITY=$(CODESIGN_CERT)"; exit 0; \
+		echo "a $(CODESIGN_CERT) certificate exists but is not a usable signing identity"; \
+		echo "(no private key, or not trusted for code signing). Importing a second one"; \
+		echo "would leave codesign with an ambiguous name, so remove the old one first:"; \
+		echo "  Keychain Access → login → Certificates → delete $(CODESIGN_CERT), then: make codesign-cert"; \
+		exit 1; \
 	fi; \
 	d=$$(mktemp -d); \
 	: "PKCS#12 has to be written the way macOS's Security framework reads it:"; \
@@ -129,8 +152,7 @@ codesign-cert: ## macOS: create the self-signed certificate that keeps TCC grant
 	security add-trusted-cert -r trustRoot -p codeSign -k "$$HOME/Library/Keychains/login.keychain-db" $$d/cert.pem; \
 	rm -rf $$d; \
 	echo; security find-identity -v -p codesigning; \
-	echo "now:  make install CODESIGN_IDENTITY=$(CODESIGN_CERT)"; \
-	echo "then grant Input Monitoring once; later rebuilds keep it."
+	echo "builds are signed with it from now on; grant Input Monitoring once and rebuilds keep it."
 
 uninstall: ## remove the user service and the binary
 	-$(PREFIX)/bin/$(BIN) uninstall

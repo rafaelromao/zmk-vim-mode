@@ -542,13 +542,22 @@ Gallium puts them the moment you press `i`.
 make install
 ```
 
-One command, both platforms. It builds and installs the binary, writes the
-user service and starts it, installs the Neovim plugin spec, and sets up
+One command, both platforms. It builds and installs the binary, adds
+`~/.local/bin` to your shell profile when it is not already on `PATH`, writes
+the user service and starts it, installs the Neovim plugin spec, and sets up
 VSCode and Obsidian — each editor is skipped when it is not installed, and an
 existing Neovim spec is never touched. On Linux it also installs the udev rule
-(the one `sudo` prompt) and enables the accessibility bus; on macOS it signs
-the binary and loads the launchd agent. Running it again is how you upgrade:
-it restarts the service, so it never leaves the old binary running.
+(the one `sudo` prompt) and enables the accessibility bus; on macOS it creates
+the code-signing certificate if you have none (your login password), signs the
+binary, loads the launchd agent, and opens the two Privacy & Security panes.
+Running it again is how you upgrade: it restarts the service, so it never
+leaves the old binary running.
+
+The `PATH` line goes in `~/.zshrc`, `~/.bash_profile` or `config.fish`
+depending on `$SHELL`, is marked so a second install never stacks a duplicate,
+and only takes effect in a **new** shell — no process can change the `PATH` of
+the shell that started it. Opt out with `--no-path`, and out of the panes with
+`--no-open`.
 
 Four things it cannot do for you:
 
@@ -556,7 +565,8 @@ Four things it cannot do for you:
 - **restart the editors**, so they load their new plugins;
 - **`set -g focus-events on`** in `~/.tmux.conf`, or Neovim never sees
   `FocusLost` inside tmux;
-- on macOS, **grant the two permissions** below.
+- on macOS, **grant the two permissions** below — it opens the panes, but only
+  System Settings itself may write TCC.
 
 Then check everything:
 
@@ -567,7 +577,10 @@ zmk-vim-mode doctor
 ### macOS permissions
 
 Two grants, each added by hand under System Settings → Privacy & Security,
-both pointing at `~/.local/bin/zmk-vim-mode` (`+`, then ⌘⇧G to type the path):
+both pointing at `~/.local/bin/zmk-vim-mode` (`+`, then ⌘⇧G to type the path).
+`make install` opens both panes for you at the end of the run — it cannot fill
+them in, because TCC's database is SIP-protected and System Settings is the
+only thing allowed to write it:
 
 - **Input Monitoring** — required to open the keyboard's HID device, so
   without it nothing reaches the keyboard at all. `zmk-vim-mode devices` shows
@@ -584,14 +597,17 @@ terminal's permissions.
 
 Both grants are tied to the binary's code signature, and Go stamps the version
 into every build, so each rebuild would void them. `make install` avoids that
-by signing with a self-signed certificate when the keychain has one:
+by signing with a self-signed certificate, which it creates on the first run
+that finds no signing identity — it asks to allow `codesign` to use the key,
+then for your login password. To create it separately:
 
 ```bash
-make codesign-cert    # once; asks to allow codesign to use the key, then for your login password
+make codesign-cert
 ```
 
-Without it the binary is signed ad-hoc and both permissions must be removed
-and re-added after every rebuild. `make build` says which of the two it used.
+Without a certificate the binary is signed ad-hoc and both permissions must be
+removed and re-added after every rebuild; that is what happens in CI, or in any
+build with no terminal to ask on. `make build` says which of the two it used.
 
 ### Editors
 
@@ -686,9 +702,9 @@ quick input is open. No D-Bus library is involved: `internal/dbus` is a
   the Accessibility API (`AXUIElement`), not Screen Recording. Grant it and
   VSCode's `[${focusedView}]` marker works exactly as on Linux, tool windows
   included; without it the daemon sees no titles and only the companion
-  extension and the embedded Neovim report VSCode's state. `zmk-vim-mode
-  doctor` opens the system dialog; the entry is System Settings → Privacy &
-  Security → Accessibility → `~/.local/bin/zmk-vim-mode`.
+  extension and the embedded Neovim report VSCode's state. `make install` opens the pane and
+  `zmk-vim-mode doctor` opens the system dialog; the entry to add is System
+  Settings → Privacy & Security → Accessibility → `~/.local/bin/zmk-vim-mode`.
 - **No accessibility bus**: AT-SPI2 is Linux-only, so `--atspi` does nothing
   here and a quick input opened with the mouse is not detected.
 
@@ -698,8 +714,10 @@ Why the signature matters, since it is the one thing with no visible cause:
 Go's linker leaves an ad-hoc *linker-signed* signature whose identifier is
 `a.out`, and TCC cannot hold a grant against that — the daemon can sit in the
 permission list with every device open still refused. `make build` re-signs
-with a stable identifier; `make codesign-cert` makes that identifier a
-certificate, so the grants outlive rebuilds. By hand the certificate is
+with a stable identifier, and `make install` makes that identifier a
+certificate — it creates `zmk-vim-mode-dev` on the first run that finds no
+signing identity, so the grants outlive later rebuilds. `make codesign-cert`
+does only that step. By hand the certificate is
 **Keychain Access** → menu *Keychain Access* → *Certificate Assistant* →
 *Create a Certificate*: Name `zmk-vim-mode-dev`, Identity Type *Self Signed
 Root*, Certificate Type *Code Signing* (the dialog opens on *SSL Client*).
@@ -709,6 +727,8 @@ Root*, Certificate Type *Code Signing* (the dialog opens on *SSL Client*).
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `zmk-vim-mode: command not found` | `~/.local/bin` is not on `PATH` | `make install` appends the line to your shell profile, but only a **new** shell reads it: `exec $SHELL`. A profile that writes `"~/bin"` inside double quotes leaves an unexpanded tilde, which names nothing — use `$HOME` |
+| grants lost again after a rebuild | the binary was signed ad-hoc | no signing identity existed at build time (or the build had no terminal to ask on): `make codesign-cert`, then `make install` |
 | `devices`: no keyboards | the keyboard serves another host | `zmk-vim-mode hid-scan` lists what this Mac sees; a ZMK keyboard talks to one BLE profile at a time |
 | `hid-scan` shows it, `devices` does not | daemon still on the old binary | `make install` (it restarts the agent) |
 | `NOT writable`, *not permitted* | Input Monitoring missing for **this** build | remove and re-add `~/.local/bin/zmk-vim-mode`, then `launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode` |
@@ -726,7 +746,8 @@ zmk-vim-mode status             current decision, frontmost app, widget focus, c
 zmk-vim-mode devices            keyboards the daemon can write to, and the last code sent to each
 zmk-vim-mode set <mode>         manual override; repeating the same mode returns to auto
 zmk-vim-mode doctor             daemon, devices, permissions, old watchers, and the editor setups
-zmk-vim-mode install [flags]    service, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux
+zmk-vim-mode install [flags]    service, PATH entry, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux
+                                --no-path keeps your shell profile untouched; --no-open leaves the macOS panes closed
 zmk-vim-mode uninstall          remove the service (config is left alone)
 zmk-vim-mode atspi-watch        Linux: accessibility-bus focus events with the classifier's verdict
 zmk-vim-mode hid-scan [--all]   macOS: HID keyboards this host sees and the LEDs they expose

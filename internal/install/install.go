@@ -28,8 +28,14 @@ type Options struct {
 	// unpacks it where that IDE loads plugins from.
 	IntelliJ bool
 	// ATSPI starts the service with --atspi.
-	ATSPI   bool
-	Version string
+	ATSPI bool
+	// PathEntry appends the binary's directory to the login shell's profile
+	// when it is not already on PATH.
+	PathEntry bool
+	// OpenPrivacy opens the macOS panes whose grants cannot be scripted, so
+	// the user lands on the right list instead of hunting for it.
+	OpenPrivacy bool
+	Version     string
 }
 
 // UdevRule is the rule granting the seat user read/write on the ZMK keyboard's
@@ -115,6 +121,13 @@ func Run(w io.Writer, o Options) error {
 	if p, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = p
 	}
+	if o.PathEntry {
+		if err := EnsurePATH(w, filepath.Dir(exe)); err != nil {
+			// A profile we cannot write is not worth failing the install for:
+			// everything else still works, and the daemon runs by full path.
+			fmt.Fprintf(w, "path       : could not update your shell profile (%v)\n", err)
+		}
+	}
 	if o.Service {
 		path, err := ServicePath()
 		if err != nil {
@@ -170,9 +183,18 @@ func Run(w io.Writer, o Options) error {
 			} else {
 				fmt.Fprintln(w, "loaded the agent")
 			}
-			fmt.Fprintln(w, "\nmacOS ties Input Monitoring to the binary's identity, so a rebuilt daemon loses it:")
-			fmt.Fprintln(w, "  System Settings → Privacy & Security → Input Monitoring → remove zmk-vim-mode, add it again")
-			fmt.Fprintf(w, "  (the binary is %s)\n", TrimHome(exe))
+			// Input Monitoring and Accessibility live in TCC, which is
+			// SIP-protected: nothing outside System Settings may grant them,
+			// so opening the right pane is as far as automation goes.
+			fmt.Fprintln(w, "\nmacOS ties Input Monitoring and Accessibility to the binary's identity,")
+			fmt.Fprintln(w, "so a rebuilt daemon loses both. In each pane, remove the old zmk-vim-mode")
+			fmt.Fprintln(w, "entry with − and add it again:")
+			fmt.Fprintf(w, "  %s\n", exe)
+			if o.OpenPrivacy {
+				openPrivacyPanes(w)
+			} else {
+				fmt.Fprintln(w, "  System Settings → Privacy & Security → Input Monitoring, and → Accessibility")
+			}
 		} else {
 			// Rewriting the unit without telling systemd leaves it acting on a
 			// stale copy, and its warning is easy to miss in build output.
