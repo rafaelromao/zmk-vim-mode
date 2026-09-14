@@ -29,3 +29,4 @@ editors/intellij/build/
 editors/intellij/.kotlin/
 # Gradle's sandbox IDE and its copies of the local platform and IdeaVim
 editors/intellij/.intellijPlatform/
+toked-optimizer/

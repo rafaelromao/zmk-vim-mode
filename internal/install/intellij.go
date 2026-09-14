@@ -16,8 +16,8 @@ import (
 	intellijplugin "github.com/rafaelromao/zmk-vim-mode/editors/intellij"
 )
 
-// ideaVimDir is the directory name IdeaVim installs itself under, and the one
-// the build reads the API jars from.
+// IdeaVim releases use different capitalization (including IdeaVIM). Match
+// without case sensitivity, but pass the actual directory to the build.
 const ideaVimDir = "IdeaVim"
 
 // jetbrainsProducts maps the product code in build.txt to the name JetBrains
@@ -170,9 +170,13 @@ func jbrPath(homeDir string) string {
 
 // FindIntelliJ returns every JetBrains IDE found, newest build first.
 func FindIntelliJ(home string) []IntelliJIDE {
+	return findIntelliJ(home, intellijSearchDirs(home))
+}
+
+func findIntelliJ(home string, searchDirs []string) []IntelliJIDE {
 	seen := map[string]bool{}
 	var out []IntelliJIDE
-	for _, dir := range intellijSearchDirs(home) {
+	for _, dir := range searchDirs {
 		for _, cand := range ideHomeCandidates(dir) {
 			raw, err := os.ReadFile(buildTxtPath(cand))
 			if err != nil {
@@ -192,9 +196,7 @@ func FindIntelliJ(home string) []IntelliJIDE {
 			if p := jbrPath(cand); dirExists(p) {
 				ide.JBR = p
 			}
-			if p := filepath.Join(ide.PluginsDir, ideaVimDir); dirExists(p) {
-				ide.IdeaVim = p
-			}
+			ide.IdeaVim = findIdeaVim(ide.PluginsDir)
 			out = append(out, ide)
 		}
 	}
@@ -205,6 +207,22 @@ func FindIntelliJ(home string) []IntelliJIDE {
 func dirExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && st.IsDir()
+}
+
+func findIdeaVim(pluginsDir string) string {
+	entries, err := os.ReadDir(pluginsDir)
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		if strings.EqualFold(entry.Name(), ideaVimDir) {
+			p := filepath.Join(pluginsDir, entry.Name())
+			if dirExists(p) {
+				return p
+			}
+		}
+	}
+	return ""
 }
 
 // intellijWorkDir is a stable build directory rather than a fresh temporary

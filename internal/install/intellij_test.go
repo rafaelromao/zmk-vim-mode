@@ -105,7 +105,7 @@ func TestFindIntelliJ(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found := FindIntelliJ(home)
+	found := findIntelliJ(home, []string{apps, apps})
 	if len(found) != 1 {
 		t.Fatalf("found %d IDEs, want 1: %+v", len(found), found)
 	}
@@ -119,6 +119,56 @@ func TestFindIntelliJ(t *testing.T) {
 	// IdeaVim was never created, and that has to be visible rather than guessed.
 	if got.IdeaVim != "" {
 		t.Errorf("IdeaVim = %q, want empty", got.IdeaVim)
+	}
+}
+
+func TestFindIntelliJIdeaVimDirectoryNames(t *testing.T) {
+	for _, code := range []string{"IC", "IU"} {
+		for _, name := range []string{"IdeaVim", "IdeaVIM", "ideavim"} {
+			t.Run(code+"/"+name, func(t *testing.T) {
+				home := t.TempDir()
+				apps := intellijSearchDirs(home)[0]
+				ide := filepath.Join(apps, "IDEA")
+				if runtime.GOOS == "darwin" {
+					ide += ".app"
+				}
+				build := code + "-262.10315.125"
+				mustWrite(t, buildTxtPath(ide), build)
+				_, config, _ := ParseBuildTxt(build)
+				plugin := filepath.Join(PluginsDirFor(home, config), name)
+				mustWrite(t, filepath.Join(plugin, "lib", "IdeaVIM.jar"), "jar")
+				for _, got := range findIntelliJ(home, []string{apps}) {
+					if got.Home == ide {
+						if got.IdeaVim != plugin {
+							t.Fatalf("installed IdeaVim not detected: got %q, want %q", got.IdeaVim, plugin)
+						}
+						return
+					}
+				}
+				t.Fatal("fixture IDE not found")
+			})
+		}
+	}
+}
+
+func TestFindIdeaVimIgnoresFilesAndUnrelatedPlugins(t *testing.T) {
+	plugins := t.TempDir()
+	mustWrite(t, filepath.Join(plugins, "IdeaVIM"), "not a directory")
+	mustWrite(t, filepath.Join(plugins, "IdeaVimExtension", "lib", "plugin.jar"), "jar")
+	if got := findIdeaVim(plugins); got != "" {
+		t.Fatalf("detected non-IdeaVim plugin: %q", got)
+	}
+}
+
+func TestFindIdeaVimFollowsSymlink(t *testing.T) {
+	plugins := t.TempDir()
+	target := t.TempDir()
+	link := filepath.Join(plugins, "IdeaVIM")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if got := findIdeaVim(plugins); got != link {
+		t.Fatalf("symlinked IdeaVim not detected: got %q, want %q", got, link)
 	}
 }
 
