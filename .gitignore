@@ -20,6 +20,8 @@
 # Local junk
 .DS_Store
 .nvimlog
+nvim.log
+__pycache__/
 .claude/.cc-writes/
 
 # IntelliJ plugin build output
@@ -31,3 +33,15 @@ editors/intellij/.kotlin/
 editors/intellij/.intellijPlatform/
 toked-optimizer/
 token-optimizer/
+
+# Showcase video: runtime files, generated HUD data, editor state inside the demo content
+/showcase/run/
+/showcase/hud/keymap.json
+/showcase/hud/keymap.js
+/showcase/demo-java/.idea/
+/showcase/demo-java/out/
+/showcase/demo-go/vimmode
+/showcase/Demo/.obsidian/workspace.json
+/showcase/Demo/.obsidian/workspace-mobile.json
+/showcase/Demo/.obsidian/plugins/
+/showcase/Demo/.trash/

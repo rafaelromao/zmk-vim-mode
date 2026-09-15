@@ -1,0 +1,12 @@
+{
+  "folders": [{ "path": "demo-go" }],
+  "settings": {
+    "editor.fontSize": 18,
+    "editor.lineHeight": 1.6,
+    "editor.minimap.enabled": false,
+    "window.zoomLevel": 1,
+    "workbench.startupEditor": "none",
+    "terminal.integrated.cwd": "${workspaceFolder}",
+    "files.hotExit": "off"
+  }
+}
