@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Linux (Omarchy / Hyprland) port of hud/rehearse.lua: performs the scripted actions of
-SCRIPT.md with synthesized keystrokes (wtype), asks the daemon what it decided after each one,
-and writes a PASS/FAIL report to showcase/run/rehearsal.log.
+SCRIPT.md with synthesized keystrokes (ydotool/uinput), asks the daemon what it decided
+after each one, and writes a PASS/FAIL report to showcase/run/rehearsal.log.
 
     python3 showcase/linux/rehearse.py [3|4|5|6|7|8|all] [--verbose]
 
 Run showcase/linux/prepare.sh first. Keep your hands off the keyboard while it runs.
-Needs: wtype (Wayland typing), hyprctl, the zmk-vim-mode daemon, Ghostty, the editors.
+Needs: ydotool (+ ydotoold, user in the `input` group), hyprctl, the daemon, Ghostty, editors.
 
 Port notes (UNTESTED as of the handoff, ported 1:1 from the Lua):
   * focus is by Hyprland window class and verified by address before typing. Demo Ghostty
@@ -65,44 +65,93 @@ def sh(cmd, wait=0.6):
     time.sleep(wait)
 
 
-def wtype(*args):
+def ensure_ydotoold():
+    """ydotool injects via /dev/uinput (kernel-level, identical to a real keyboard).
+    wtype's Wayland virtual-keyboard events are silently dropped by VS Code's input
+    layer, so the rehearsal types everything through ydotool. Needs `input` group."""
+    if subprocess.run(["pgrep", "-x", "ydotoold"], capture_output=True).returncode != 0:
+        subprocess.Popen(["ydotoold"], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        time.sleep(1)
+    subprocess.run(["ydotool", "key", "119:1", "119:0"],
+                   capture_output=True)  # no-op probe: Break key, harmless anywhere
+
+
+# Linux evdev keycodes for the non-printable keys the segments need.
+KEYCODES = {
+    "Escape": 1, "Return": 28, "Tab": 15, "space": 57, "BackSpace": 14,
+    "grave": 41, "backslash": 43,
+    "F1": 59, "F12": 88,
+    "Up": 103, "Down": 108, "Left": 105, "Right": 106,
+    "Home": 102, "End": 107, "PageUp": 104, "PageDown": 109,
+    "ctrl": 29, "shift": 42, "alt": 56, "super": 125,
+    "b": 48, "e": 18, "f": 33, "n": 49, "p": 25,
+}
+MODS = {"ctrl", "shift", "alt", "super"}
+
+
+def send(*args):
     if target_address:
         active = json.loads(subprocess.check_output(["hyprctl", "activewindow", "-j"], text=True))
         if active.get("address") != target_address:
             raise RuntimeError(f"Focus left rehearsal window; refusing to type into {active.get('title')!r}")
-    subprocess.run(["wtype", *args], check=True)
+    subprocess.run(["ydotool", *args], check=True)
 
 
 def keys(text, wait=0.6):
-    """Type text one character at a time; "\\n" is a Return key."""
+    """Type text; "\\n" is a Return key. Plain runs go out as one `ydotool type`
+    call so the keyfeed/HUD strip sees them exactly like Diamond keystrokes."""
+    run = ""
+    def flush():
+        nonlocal run
+        if run:
+            if VERBOSE:
+                log("  · type " + run)
+            send("type", run)
+            time.sleep(CHAR_GAP)
+            run = ""
     for ch in text:
-        if VERBOSE:
-            log("  · type " + ("⏎" if ch == "\n" else ch))
         if ch == "\n":
-            wtype("-k", "Return")
+            flush()
+            if VERBOSE:
+                log("  · type ⏎")
+            send("key", "28:1", "28:0")
             time.sleep(0.35)
         else:
-            wtype(ch)
-            time.sleep(CHAR_GAP)
+            run += ch
+    flush()
     time.sleep(wait)
 
 
 def key(mods, k, wait=0.6):
-    """A chord: mods is a list of wtype modifier names (ctrl, alt, shift, super)."""
+    """A chord: mods is a list of modifier names (ctrl, alt, shift, super);
+    k is a KEYCODES name (Return, Escape, F1, Down, grave, ...) or a letter."""
     if VERBOSE:
         log("  · " + "+".join(mods + [k]))
-    args = []
-    for m in mods:
-        args += ["-M", m]
-    args += ["-k", k]
-    for m in reversed(mods):
-        args += ["-m", m]
-    wtype(*args)
+    if k in MODS:
+        raise ValueError(f"{k} is a modifier, not a key")
+    code = KEYCODES.get(k)
+    if code is None:
+        if len(k) == 1 and k.isalpha():
+            code = KEYCODES[k.lower()]
+        else:
+            raise ValueError(f"no keycode for {k!r}")
+    args = [f"{KEYCODES[m]}:1" for m in mods] + [f"{code}:1", f"{code}:0"]
+    args += [f"{KEYCODES[m]}:0" for m in reversed(mods)]
+    send("key", *args)
     time.sleep(wait)
 
 
 def esc(wait=0.6):
     key([], "Escape", wait)
+
+
+def palette(command, wait=2.0):
+    """Run a VS Code command via the F1 palette. Ctrl+` never reaches this box's
+    VS Code (chord swallowed with zero effect, fresh-instance verified)."""
+    key([], "F1", 1.2)
+    keys(command, 0.8)
+    key([], "Return", wait)
 
 
 def focus(cls, wait=2.0, pid=None):
@@ -111,6 +160,11 @@ def focus(cls, wait=2.0, pid=None):
         log("  · focus " + cls)
     windows = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True))
     matches = [w for w in windows if re.fullmatch(cls, w["class"]) and (pid is None or w["pid"] == pid)]
+    # IDEs can leave an untitled transient frame (splash/welcome) beside the project
+    # window; prefer windows that already have a title.
+    titled = [w for w in matches if w["title"]]
+    if len(titled) == 1:
+        matches = titled
     if len(matches) != 1:
         raise RuntimeError(f"Expected one {cls!r} window, found {len(matches)}; refusing to type")
     address = matches[0]["address"]
@@ -126,6 +180,56 @@ def focus(cls, wait=2.0, pid=None):
     if active.get("address") != address:
         raise RuntimeError(f"Could not focus {cls!r}; refusing to type")
     target_address = address
+
+
+def wait_window(cls, timeout=90.0, pid=None):
+    """Poll until exactly one titled window matches (launches are slow; transient
+    doubles while an old window closes settle on their own)."""
+    end = time.time() + timeout
+    while time.time() < end:
+        windows = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True))
+        matches = [w for w in windows if re.fullmatch(cls, w["class"]) and (pid is None or w["pid"] == pid)]
+        titled = [w for w in matches if w["title"]]
+        if len(titled) == 1:
+            return titled[0]
+        time.sleep(0.5)
+    raise RuntimeError(f"no single {cls!r} window appeared; refusing to type")
+
+
+def place(address, workspace):
+    """Move a window to its demo workspace and maximize it inside the HUD rails."""
+    subprocess.run(["hyprctl", "dispatch",
+                    f'hl.dsp.window.move({{workspace="{workspace}", window="address:{address}"}})'],
+                   capture_output=True, check=True)
+    subprocess.run(["hyprctl", "dispatch",
+                    f'hl.dsp.window.fullscreen({{mode="maximized", action="set", window="address:{address}"}})'],
+                   capture_output=True, check=True)
+
+
+def wait_editor(app, timeout=40.0):
+    """Ground-truth gate before scripted typing: the daemon must see this app's
+    editor focused, not a dialog, sidebar, picker or splash. Window focus alone
+    cannot see those; mode expects after the fact can only fail, not prevent."""
+    end = time.time() + timeout
+    while time.time() < end:
+        st = status()
+        front = (st.get("frontmost") or {}).get("class", "")
+        widget_editor = (st.get("widget") or {}).get("editor", False)
+        clients = st.get("clients") or []
+        if app == "vscode":
+            ok = front == "code" and widget_editor and any(
+                c.get("app") == "vscode" and c.get("focused") for c in clients)
+        elif app == "intellij":
+            ok = front in ("jetbrains-idea", "jetbrains-idea-ultimate", "jetbrains-idea-community")
+        elif app == "obsidian":
+            ok = front in ("obsidian", "md.obsidian.Obsidian")
+        else:
+            ok = False
+        if ok:
+            log(f"  · editor focus confirmed: {app}")
+            return True
+        time.sleep(0.5)
+    raise RuntimeError(f"{app} editor never reported focus; refusing to type")
 
 
 def expect(mode, reason=None):
@@ -217,10 +321,14 @@ def seg4():
 
 def seg5():
     log("--- segment 5: VS Code")
-    sh(f"code '{SHOW}/demo-go.code-workspace'", 5)
+    windows = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True))
+    if not any(w["class"] == "code" for w in windows):
+        sh(f"code '{SHOW}/demo-go.code-workspace'", 5)
+    place(wait_window("code")["address"], 5)
     focus("code", 1)
     key(["ctrl"], "p", 0.8); keys("modes.go", 0.6); key([], "Return", 2.0)
     esc(0.8); expect("normal", "client")
+    wait_editor("vscode")
     vim_tour()
     keys("/Kana\n", 1.0); expect("normal")
     keys("A", 0.5); expect("insert")
@@ -228,9 +336,9 @@ def seg5():
     esc(0.5); expect("normal")
     keys("v", 0.5); expect("visual")
     esc(0.5); expect("normal")
-    key(["ctrl"], "grave", 1.5); expect("raw", "tool window")
+    palette("View: Toggle Integrated Terminal"); expect("raw", "tool window")
     keys("go run ./cmd/vimmode\n", 2.5); expect("raw", "tool window")
-    key(["ctrl"], "grave", 1.2); expect("normal")
+    palette("View: Toggle Integrated Terminal"); expect("normal")
     key([], "F1", 1.2); expect("raw")
     keys("keyboard", 0.9); expect("raw")
     esc(0.8); expect("normal")
@@ -242,9 +350,11 @@ def seg5():
 
 def seg6():
     log("--- segment 6: IntelliJ IDEA")
+    place(wait_window("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")["address"], 6)
     focus("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$", 2)
     key(["ctrl", "shift"], "n", 1.0); keys("ModeTable", 0.8); key([], "Return", 2.0)
     expect("normal", "intellij")          # no Esc: IdeaVim beeps on Esc in normal mode
+    wait_editor("intellij")
     vim_tour()
     keys("/COMPOSE\n", 1.0)
     keys("A", 0.5); expect("insert")
@@ -266,8 +376,10 @@ def seg6():
 def seg7():
     log(f"--- segment 7: Obsidian (vault {VAULT})")
     sh(f"xdg-open 'obsidian://open?vault={VAULT}&file=Tasks'", 3)
+    place(wait_window("obsidian|md\\.obsidian\\.Obsidian")["address"], 7)
     focus("obsidian|md\\.obsidian\\.Obsidian", 1)
     esc(0.8); expect("normal", "obsidian")
+    wait_editor("obsidian")
     vim_tour()
     keys("jj", 0.3); keys("A", 0.5); expect("insert")
     keys(" (rehearsal)", 0.4)
@@ -309,6 +421,7 @@ def seg8():
 SEGMENTS = {"3": seg3, "4": seg4, "5": seg5, "6": seg6, "7": seg7, "8": seg8}
 
 if __name__ == "__main__":
+    ensure_ydotoold()
     which = next((a for a in sys.argv[1:] if not a.startswith("--")), "all")
     order = list(SEGMENTS) if which == "all" else [which]
     log(f"rehearsal {which} — hands off the keyboard")
