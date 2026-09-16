@@ -114,6 +114,11 @@ def focus(cls, wait=2.0, pid=None):
     if len(matches) != 1:
         raise RuntimeError(f"Expected one {cls!r} window, found {len(matches)}; refusing to type")
     address = matches[0]["address"]
+    if LUA:
+        # Maximized fills the work area but leaves the HUD's right/bottom panels visible.
+        subprocess.run(["hyprctl", "dispatch",
+                        f'hl.dsp.window.fullscreen({{mode="maximized", action="set", window="address:{address}"}})'],
+                       capture_output=True, check=True)
     args = [f'hl.dsp.focus({{window="address:{address}"}})'] if LUA else ["focuswindow", f"address:{address}"]
     subprocess.run(["hyprctl", "dispatch", *args], capture_output=True, check=True)
     time.sleep(wait)
@@ -135,6 +140,8 @@ def expect(mode, reason=None):
 
 
 def open_demo_ghostty():
+    if LUA:
+        subprocess.run(["hyprctl", "dispatch", 'hl.dsp.focus({workspace="8"})'], check=True)
     conf = os.path.join(SHOW, "env", "ghostty-demo.conf")
     with open(os.path.join(RUN, "ghostty.log"), "w") as output:
         proc = subprocess.Popen(["ghostty", "--gtk-single-instance=false", f"--config-file={conf}",
@@ -233,7 +240,7 @@ def seg5():
 
 def seg6():
     log("--- segment 6: IntelliJ IDEA")
-    focus("jetbrains-idea", 2)
+    focus("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$", 2)
     key(["ctrl", "shift"], "n", 1.0); keys("ModeTable", 0.8); key([], "Return", 2.0)
     expect("normal", "intellij")          # no Esc: IdeaVim beeps on Esc in normal mode
     vim_tour()

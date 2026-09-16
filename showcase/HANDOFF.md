@@ -63,6 +63,19 @@ the expected state at every step before anyone presses record.
   now installed and enabled. Remaining warning (`editor clients none connected`) is expected
   with no editor open. Doctor: 0 failed, 1 warning.
 
+### Layout/reset correction, 2026-09-16
+
+- Use **maximized**, not fullscreen: fullscreen hides the layer-shell HUD and ignores its reservations.
+- User assigned demo workspaces starting at **5**: VS Code 5, IntelliJ 6, Obsidian 7,
+  Neovim/Bash 8. Preparation switches workspace before launching and verifies maximized state.
+- Removed broad `pkill` calls from preparation. VS Code logs showed renderer/utility exits with
+  code 15 immediately before the SIGTRAP core; the reset killed subprocesses while the app was alive.
+  Graceful window closure now waits, and VS Code workspace/recovery storage is preserved.
+- Closed three leftover `hyprland-dialog` application-not-responding dialogs by their verified PIDs.
+- Latest preparation verified VS Code briefly, then stopped because no demo-java window appeared.
+  Full editor startup/stability remains unverified. No editor windows remained at the last check;
+  do not treat script messages alone as proof of a stable layout.
+
 ### Original macOS state
 
 Verified on macOS (Rafael's MacBook, Diamond over USB, external 27" as recording display):

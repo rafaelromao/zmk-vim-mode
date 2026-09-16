@@ -86,7 +86,15 @@ No persistent Hyprland configuration is needed. Software WebKit rendering avoids
 Wayland protocol error observed on this NVIDIA machine.
 
 Editor preparation ran; segments 4–7 still need a fully passing run. Save existing editor work first:
-`linux/prepare.sh` closes editor instances, including those on other projects.
+`linux/prepare.sh` gracefully closes editor windows, including those on other projects, and
+waits for them to close. It stops on unresolved save prompts rather than killing Electron's
+child processes. VS Code workspace/recovery storage is preserved.
+
+The demo editors use workspaces 5 (VS Code), 6 (IntelliJ), 7 (Obsidian), and 8 (Neovim/Bash), with Hyprland's
+**maximized** mode. True fullscreen hides the HUD and bypasses panel reservations. Preparation
+checks the resulting window state before reporting success; launcher output is kept in
+`run/{code,idea,obsidian}.log`. The rehearsal also maximizes each target window, including Neovim's
+demo terminal, within the reserved work area.
 
 Linux rehearsals use Bash with `env/demo.bashrc` (isolated prompt/history). The demo terminal
 keeps Ghostty's standard application class so the daemon recognizes it, and the runner selects

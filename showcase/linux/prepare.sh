@@ -4,41 +4,80 @@
 #
 #   bash showcase/linux/prepare.sh
 #
-# Window placement is left to Hyprland's tiling plus the reserved bottom band that hud.sh sets.
-# UNTESTED as of the handoff (written on macOS). Adjust the launcher names to the box:
+# Editors are maximized inside the HUD's reserved work area on separate workspaces.
+# Requires Hyprland's Lua dispatchers (0.55+). Launcher names:
 # `code`, `idea` (Toolbox shell script) or `intellij-idea-ultimate`, `obsidian`, `ghostty`.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SHOW="$(cd "$HERE/.." && pwd)"
 VAULT_NAME="Demo"
+RUN="$SHOW/run"
+mkdir -p "$RUN"
 
 step() { printf '\n▸ %s\n' "$*"; }
 
-step "demo content back to the committed state"
-bash "$SHOW/setup.sh" >/dev/null 2>&1 || bash "$SHOW/setup.sh"
+close_editor_windows() {
+  hyprctl clients -j | jq -r '.[] | select(.class == "code" or .class == "obsidian" or .class == "md.obsidian.Obsidian" or (.class | test("^jetbrains-idea"))) | .address' |
+    while read -r address; do
+      [ -n "$address" ] || continue
+      hyprctl eval "return hl.dispatch(hl.dsp.window.close({window='address:$address'}))" >/dev/null
+    done
+  for _ in {1..60}; do
+    if hyprctl clients -j | jq -e '[.[] | select(.class == "code" or .class == "obsidian" or .class == "md.obsidian.Obsidian" or (.class | test("^jetbrains-idea")))] | length == 0' >/dev/null; then
+      sleep 2
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "Editors have not closed; resolve any save prompts before preparing again." >&2
+  return 1
+}
+
+maximize_window() {
+  local pattern="$1" workspace="$2" project="$3"
+  local address
+  for _ in {1..240}; do
+    address="$(hyprctl clients -j | jq -r --arg pattern "$pattern" --arg project "$project" \
+      '[.[] | select((.class | test($pattern)) and (.title | contains($project)) and .mapped and (.floating == false)) | .address][0] // empty')"
+    if [ -n "$address" ]; then
+      hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='$workspace', window='address:$address'})); hl.dispatch(hl.dsp.window.fullscreen({mode='maximized', action='set', window='address:$address'}))" || return 1
+      sleep 1
+      if hyprctl clients -j | jq -e --arg address "$address" --arg workspace "$workspace" \
+        'any(.[]; .address == $address and .fullscreen == 1 and .workspace.id == ($workspace | tonumber))' >/dev/null; then
+        echo "  maximized: $project on workspace $workspace (HUD space retained)"
+        return 0
+      fi
+    fi
+    sleep 0.25
+  done
+  echo "Could not verify maximized $project; check $RUN launch logs." >&2
+  return 1
+}
 
 step "quitting the editors"
-pkill -x code 2>/dev/null || pkill -f 'code --' 2>/dev/null || true
-pkill -f 'idea' 2>/dev/null || true
-pkill -x obsidian 2>/dev/null || pkill -f 'obsidian' 2>/dev/null || true
-pkill -f 'ghostty-demo.conf' 2>/dev/null || true
-sleep 3
+close_editor_windows || exit 1
+
+step "demo content back to the committed state"
+bash "$SHOW/setup.sh" || exit 1
 
 step "forgetting per-project UI state"
-for storage in "$HOME/.config/Code/User/workspaceStorage" "$HOME/.config/Code - OSS/User/workspaceStorage" "$HOME/.config/VSCodium/User/workspaceStorage"; do
-  [ -d "$storage" ] || continue
-  grep -l "demo-go.code-workspace" "$storage"/*/workspace.json 2>/dev/null | while read -r f; do
-    rm -rf "$(dirname "$f")" && echo "  vscode: cleared $(basename "$(dirname "$f")")"
-  done
-done
+# Preserve VS Code workspace storage: it can contain recovery state for unsaved tabs.
 rm -f "$SHOW/demo-java/.idea/workspace.xml" 2>/dev/null && echo "  intellij: cleared .idea/workspace.xml"
 rm -f "$SHOW/Demo/.obsidian/workspace.json" 2>/dev/null && echo "  obsidian: cleared Demo/.obsidian/workspace.json"
 
-step "reopening on the demo projects"
-(code "$SHOW/demo-go.code-workspace" --goto "$SHOW/demo-go/internal/modes/modes.go:1:1" >/dev/null 2>&1 &)
+step "reopening each editor maximized beside the HUD"
+hyprctl dispatch 'hl.dsp.focus({workspace="5"})' || exit 1
+nohup code --new-window "$SHOW/demo-go.code-workspace" --goto "$SHOW/demo-go/internal/modes/modes.go:1:1" >"$RUN/code.log" 2>&1 &
+maximize_window '^code$' 5 'demo-go' || exit 1
 IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intellij-idea-community || true)"
-[ -n "$IDEA" ] && ("$IDEA" "$SHOW/demo-java" >/dev/null 2>&1 &) || echo "  intellij launcher not found; open showcase/demo-java by hand"
-(xdg-open "obsidian://open?vault=$VAULT_NAME&file=Tasks" >/dev/null 2>&1 &)
+[ -n "$IDEA" ] && {
+  hyprctl dispatch 'hl.dsp.focus({workspace="6"})' || exit 1
+  nohup "$IDEA" "$SHOW/demo-java" >"$RUN/idea.log" 2>&1 &
+  maximize_window '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java' || exit 1
+} || echo "  intellij launcher not found; open showcase/demo-java by hand"
+hyprctl dispatch 'hl.dsp.focus({workspace="7"})' || exit 1
+nohup obsidian "obsidian://open?vault=$VAULT_NAME&file=Tasks" >"$RUN/obsidian.log" 2>&1 &
+maximize_window '^(obsidian|md\.obsidian\.Obsidian)$' 7 ' - Demo - ' || exit 1
 
 cat <<EOF
 
