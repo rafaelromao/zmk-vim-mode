@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Transparent Wayland showcase surfaces: layer HUD and an exclusive bottom panel."""
+"""Transparent Wayland showcase surfaces: layer HUD with typed-keys below it.
+
+The right rail reserves space beside tiled editors; the typed-keys strip is an
+overlay stacked under the HUD and reserves nothing, leaving the bottom of the
+screen for editors."""
 
 import json
 import os
@@ -22,7 +26,9 @@ from gi.repository import Gdk, GLib, Gtk, GtkLayerShell, WebKit2
 
 SHOW = Path(__file__).resolve().parent.parent
 RUN = SHOW / "run"
-PANEL_HEIGHT = 96
+HUD_W, HUD_H = 598, 392
+KEYS_W, KEYS_H = 598, 96
+KEYS_GAP = 8
 INSET = 8
 WINDOWS = []
 
@@ -80,7 +86,7 @@ def main():
                      default=monitor.get_geometry().width - info["reserved"][2])
     right = monitor.get_geometry().width - right_edge + INSET
 
-    hud = surface(monitor, "index.html", "zmkhud-layer", 598, 392)
+    hud = surface(monitor, "index.html", "zmkhud-layer", HUD_W, HUD_H)
     GtkLayerShell.set_anchor(hud, GtkLayerShell.Edge.TOP, True)
     GtkLayerShell.set_anchor(hud, GtkLayerShell.Edge.RIGHT, True)
     # Explicit coordinates include the top bar; ignore other panels' exclusive zones.
@@ -105,15 +111,19 @@ def main():
     GtkLayerShell.set_exclusive_zone(rail, rail_width)
     WINDOWS.append(rail)
 
-    keys = surface(monitor, "keys.html", "zmkhud-keys", 900, PANEL_HEIGHT)
-    for edge in (GtkLayerShell.Edge.BOTTOM, GtkLayerShell.Edge.LEFT, GtkLayerShell.Edge.RIGHT):
-        GtkLayerShell.set_anchor(keys, edge, True)
-    GtkLayerShell.set_exclusive_zone(keys, PANEL_HEIGHT)
+    # Typed-keys strip sits below the HUD in the right rail; it reserves no space
+    # of its own so the bottom of the screen is reclaimed for editors.
+    keys = surface(monitor, "keys.html", "zmkhud-keys", KEYS_W, KEYS_H)
+    GtkLayerShell.set_anchor(keys, GtkLayerShell.Edge.TOP, True)
+    GtkLayerShell.set_anchor(keys, GtkLayerShell.Edge.RIGHT, True)
+    GtkLayerShell.set_exclusive_zone(keys, -1)
+    GtkLayerShell.set_margin(keys, GtkLayerShell.Edge.TOP, top + HUD_H + KEYS_GAP)
+    GtkLayerShell.set_margin(keys, GtkLayerShell.Edge.RIGHT, right)
     rail.show_all()
     keys.show_all()
     hud.show_all()
-    print(f"Panel on {info['name']}: reserved right {rail_width}px, bottom {PANEL_HEIGHT}px; "
-          f"HUD inset top={top}, right={right}", flush=True)
+    print(f"Panel on {info['name']}: reserved right {rail_width}px, bottom reclaimed; "
+          f"HUD inset top={top}, right={right}; keys below HUD", flush=True)
 
     def quit_host(*_):
         Gtk.main_quit()

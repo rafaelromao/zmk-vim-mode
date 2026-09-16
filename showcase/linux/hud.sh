@@ -27,4 +27,4 @@ nohup python3 -u "$HERE/panel.py" >"$RUN/panel.log" 2>&1 &
 PID=$!
 sleep 2
 kill -0 "$PID" 2>/dev/null || { echo "HUD failed; see $RUN/panel.log" >&2; exit 1; }
-echo "HUD started; HUD reserves the right rail, typed keys the bottom panel. Stop with: $0 stop"
+echo "HUD started; HUD reserves the right rail, typed keys sit below it. Stop with: $0 stop"

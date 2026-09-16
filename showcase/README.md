@@ -73,13 +73,13 @@ python3 showcase/linux/rehearse.py 3 --verbose
 bash showcase/linux/hud.sh stop
 ```
 
-`linux/panel.py` hosts both pages in transparent WebKitGTK layer-shell surfaces. The typed-keys
-panel reserves 96 logical pixels at the bottom of the recording monitor and the HUD reserves
-a right rail (~617 px: 598 px panel + insets), keeping tiled editors beside and above them.
-The HUD is inset 8 pixels from the tiled client area's top/right edges so the blue
-window border stays visible. The surrounding window canvas and outlines are transparent;
-the HUD panel and typed-key chips retain their dark backgrounds, and keycaps remain solid.
-The surfaces never take keyboard focus.
+`linux/panel.py` hosts both pages in transparent WebKitGTK layer-shell surfaces. The HUD reserves
+a right rail (~617 px: 598 px panel + insets), keeping tiled editors beside it; the typed-keys
+strip is stacked below the HUD inside that rail and reserves nothing, so the bottom of the
+screen belongs to the editors again. The HUD is inset 8 pixels from the tiled client area's
+top/right edges so the blue window border stays visible. The surrounding window canvas and
+outlines are transparent; the HUD panel and typed-key chips retain their dark backgrounds,
+and keycaps remain solid. The surfaces never take keyboard focus.
 
 Stopping the host or using the HUD's close request releases the reserved area automatically.
 No persistent Hyprland configuration is needed. Software WebKit rendering avoids a DMA-BUF

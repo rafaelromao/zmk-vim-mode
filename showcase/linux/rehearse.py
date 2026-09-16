@@ -137,6 +137,8 @@ def expect(mode, reason=None):
     results["pass" if ok else "fail"] += 1
     want = f"mode={mode}" + (f" reason~{reason}" if reason else "")
     log(f'{verdict}  want {want}  got mode={st.get("mode")} code={st.get("code")} reason="{st.get("reason")}"')
+    if not ok:
+        raise RuntimeError("Rehearsal stopped at the first unexpected state; see rehearsal.log")
 
 
 def open_demo_ghostty():

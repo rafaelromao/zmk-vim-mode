@@ -59,6 +59,10 @@ the expected state at every step before anyone presses record.
 - Added a full-height right rail (`zmkhud-reserved`) so the HUD reserves space too:
   monitor reserved `[0,43,617,96]` (top bar, right rail, bottom panel), bottom strip spans
   the editor width only. Restarted HUD to activate it and re-verified segment 3 (4/4 PASS).
+- Moved the typed-keys strip below the HUD inside the right rail (same 598 px width, 8 px gap)
+  and reclaimed the bottom: monitor reserved `[0,43,617,0]`, keys overlay at y=454 with no
+  exclusive zone. Fixed the demo terminal theme case (`tokyonight` → `TokyoNight`, matching
+  `/usr/share/ghostty/themes`) to silence the theme error popup on launch.
 - Fixed `doctor` Obsidian warning via `zmk-vim-mode install --obsidian`: Demo vault plugin
   now installed and enabled. Remaining warning (`editor clients none connected`) is expected
   with no editor open. Doctor: 0 failed, 1 warning.
