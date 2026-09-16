@@ -80,6 +80,19 @@ the expected state at every step before anyone presses record.
   Full editor startup/stability remains unverified. No editor windows remained at the last check;
   do not treat script messages alone as proof of a stable layout.
 
+### AFK pause, 2026-09-16 ~11:38 -03 — recording environment lost
+
+- External Dell display disconnected: only a FALLBACK 1920x1080 output remains, reserved
+  `[0,43,0,0]` (top bar only). The HUD host is still running but bound to the gone HDMI-A-1;
+  restart it with `bash showcase/linux/hud.sh` once the recording display is back.
+- Diamond USB side gone (`keyfeed: event11 gone`; doctor lists only the Bluetooth endpoint).
+  No Diamond evdev nodes readable, so typed-key lighting has no input. Reconnect USB/BLE dongle.
+- All demo editor windows/processes gone (VS Code, IntelliJ, Obsidian). Daemon healthy:
+  segment 3 re-verified 4/4 PASS, doctor 0 failed / 1 warning (no editors, expected).
+- On return: re-dock display, reconnect keyboard, `bash showcase/linux/prepare.sh`,
+  `bash showcase/linux/hud.sh`, then `python3 showcase/linux/rehearse.py all` hands-off.
+  Segments 5–7 still have no full pass (seg5 reached the terminal-toggle step on ydotool).
+
 ### Original macOS state
 
 Verified on macOS (Rafael's MacBook, Diamond over USB, external 27" as recording display):
