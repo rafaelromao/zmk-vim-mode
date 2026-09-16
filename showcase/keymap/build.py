@@ -5,7 +5,8 @@ Source of truth: ~/projects/keyboards/docs/img/diagrams/keymap-drawer/keymap-dra
 (the hand-curated keymap-drawer input that renders the diagrams on
 https://rafaelromao.github.io/keyboards). The HUD consumes the JSON this emits.
 
-Only `yq` (v4) is needed: it converts the YAML to JSON, the rest is stdlib.
+Only `yq` (Mike Farah v4 or the Python/jq wrapper) is needed: it converts the YAML
+to JSON, the rest is stdlib.
 """
 
 from __future__ import annotations
@@ -132,7 +133,10 @@ COMBO_SANITY = {
 
 
 def load_yaml(path: str) -> dict:
-    res = subprocess.run(["yq", "-o=json", ".", path], capture_output=True, text=True, check=True)
+    version = subprocess.run(["yq", "--version"], capture_output=True, text=True, check=True)
+    # Arch's `yq` package wraps jq; `go-yq` is Mike Farah's implementation.
+    args = ["-o=json"] if "mikefarah" in version.stdout.lower() else []
+    res = subprocess.run(["yq", *args, ".", path], capture_output=True, text=True, check=True)
     return json.loads(res.stdout)
 
 

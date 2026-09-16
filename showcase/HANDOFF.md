@@ -20,6 +20,51 @@ the expected state at every step before anyone presses record.
 
 ## State at handoff
 
+### Omarchy continuation, 2026-09-15
+
+- Daemon doctor: 15 checks passed, no warnings; Diamond writable on USB and Bluetooth.
+- Installed `python-evdev` and `python-websockets`; Diamond input devices are readable.
+- Fixed the builder for Arch's Python/jq `yq` (its `4.1.2` version is not Mike Farah v4).
+  Build passes: 24 keys, 22 layers, 148 combos, 35 activators.
+- Added Lua runtime window rules for Hyprland 0.56.2; Chromium Wayland app windows use
+  generated classes despite `--class`. Both overlays verified floating/pinned at their
+  requested sizes and positions; WebSocket sends daemon mode. HUD left running.
+- Linux segment 3: **4 PASS, 0 FAIL**, override cleared afterward.
+- Still pending: physical key-light/close-button confirmation, fully passing segments 4–7,
+  and the IntelliJ issues below.
+- User closed VS Code and authorized preparation. Preparation ran, but the first segment 4
+  exposed Linux launcher/focus issues and was interrupted while the vault was being configured.
+- Fixed the runner for Lua Hyprland focus commands, verified window addresses before typing,
+  and made reason mismatches fail checks. Ghostty now uses its standard class (daemon-recognized)
+  and is selected by PID. User requested Bash: Linux uses `env/demo.bashrc`; macOS keeps Zsh.
+  Zsh was installed during diagnosis before the Bash request, but Linux rehearsals no longer need it.
+- Segment 8 with Bash: **4 PASS, 0 FAIL**. Segment 4 with Bash: **26 PASS, 1 FAIL**;
+  only the short leader-pending RAW check failed. Shortened its wait to account for the
+  character delay. Verification retry stopped before typing because demo focus was not held;
+  that timing change still needs verification in a hands-off run.
+- User requested HUD alignment with blue borders: verified top **44**, right **2047** logical
+  pixels on this monitor. Startup derives those edges from tiled windows rather than a fixed margin.
+- Superseded Chromium with `linux/panel.py` (WebKitGTK + GTK layer shell) after the user requested
+  transparent backgrounds and a bottom panel. Installed `gtk-layer-shell`; GObject/WebKitGTK
+  were already available. Both page backgrounds and typed-key chips are transparent; keycaps
+  stay solid. HUD now sits **8 px inside the client edges**, leaving the blue border visible
+  (top 54, right inset 11 on this monitor). Verified visually with a screenshot.
+- Typed keys now occupy a **96 px exclusive bottom panel**, verified monitor reserved area
+  `[0,43,0,96]` and master client height 1007. Close protocol releases the reservation; restarting
+  restores it. HUD left running. No persistent Hyprland config edits. WebKit DMA-BUF rendering
+  is disabled by default to avoid an observed NVIDIA Wayland protocol error.
+- User clarified transparency: only the surrounding white window areas/outlines should be
+  transparent. Restored the original dark HUD panel and typed-key chip backgrounds; retained
+  the transparent native canvas, bottom reservation, and HUD inset.
+- Added a full-height right rail (`zmkhud-reserved`) so the HUD reserves space too:
+  monitor reserved `[0,43,617,96]` (top bar, right rail, bottom panel), bottom strip spans
+  the editor width only. Restarted HUD to activate it and re-verified segment 3 (4/4 PASS).
+- Fixed `doctor` Obsidian warning via `zmk-vim-mode install --obsidian`: Demo vault plugin
+  now installed and enabled. Remaining warning (`editor clients none connected`) is expected
+  with no editor open. Doctor: 0 failed, 1 warning.
+
+### Original macOS state
+
 Verified on macOS (Rafael's MacBook, Diamond over USB, external 27" as recording display):
 
 | Piece | Status |

@@ -60,6 +60,39 @@ ZDOTDIR=$PWD/showcase/env open -na Ghostty --args --config-file=$PWD/showcase/en
 Then follow `env/obs-scene.md` and `env/privacy-checklist.md`, and record one take per beat of
 `SCRIPT.md`. On Omarchy use `linux/prepare.sh`, `linux/hud.sh`, `linux/rehearse.py`.
 
+## Linux verification (Omarchy)
+
+On 2026-09-15, verified the native layer-shell HUD on Hyprland 0.56.2, readable USB/Bluetooth
+Diamond input devices, WebSocket mode delivery, and segment 3 (`pass=4 fail=0`). Arch packages:
+`python-gobject webkit2gtk-4.1 gtk-layer-shell python-evdev python-websockets`.
+The keymap builder accepts both Arch's Python `yq` and Mike Farah's `yq`.
+
+```bash
+bash showcase/linux/hud.sh
+python3 showcase/linux/rehearse.py 3 --verbose
+bash showcase/linux/hud.sh stop
+```
+
+`linux/panel.py` hosts both pages in transparent WebKitGTK layer-shell surfaces. The typed-keys
+panel reserves 96 logical pixels at the bottom of the recording monitor and the HUD reserves
+a right rail (~617 px: 598 px panel + insets), keeping tiled editors beside and above them.
+The HUD is inset 8 pixels from the tiled client area's top/right edges so the blue
+window border stays visible. The surrounding window canvas and outlines are transparent;
+the HUD panel and typed-key chips retain their dark backgrounds, and keycaps remain solid.
+The surfaces never take keyboard focus.
+
+Stopping the host or using the HUD's close request releases the reserved area automatically.
+No persistent Hyprland configuration is needed. Software WebKit rendering avoids a DMA-BUF
+Wayland protocol error observed on this NVIDIA machine.
+
+Editor preparation ran; segments 4–7 still need a fully passing run. Save existing editor work first:
+`linux/prepare.sh` closes editor instances, including those on other projects.
+
+Linux rehearsals use Bash with `env/demo.bashrc` (isolated prompt/history). The demo terminal
+keeps Ghostty's standard application class so the daemon recognizes it, and the runner selects
+it by PID. Focus is verified before every keystroke; an unexpected focus change stops the run.
+Segment 8 has also passed (`pass=4 fail=0`) with this Bash launcher.
+
 ## How the HUD works
 
 The keymap on the HUD is the keyboards repo's own keymap-drawer description
