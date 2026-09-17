@@ -143,6 +143,28 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   `bash showcase/hud.sh`, then `python3 showcase/rehearse.py all` hands-off.
   Segments 5–7 still have no full pass (seg5 reached the terminal-toggle step on ydotool).
 
+### Take-HUD setup, 2026-09-17 (ran on the box)
+
+- Prereqs that were already satisfied: system `python-gobject webkit2gtk-4.1 gtk-layer-shell
+  python-evdev`, Diamond on `/dev/hidraw0` (USB `0003:1D50:615E`), the hidraw udev rule (identical
+  to the daemon's — no sudo needed), firmware already flashed.
+- `make venv` in `~/projects/zmk-layer-hud` + `~/.config/zmk-layer-hud/config.yaml` (copied from
+  `config/diamond.yaml`; keyboards paths check out) + keymap converts (24 keys, 148 combos).
+- **Gotcha, reported upstream, not fixed there:** pip's `hidapi` builds the hidraw backend as a
+  *separate* `hidraw` module; `import hid` is libusb-only, enumerates no hidraw paths and cannot
+  open a kernel-bound keyboard (`cannot open ? (b'1-5.1.1:1.0')`). The venv's `hidraw` module
+  opens the Diamond fine. Workaround in use: `ZMKHUD_PYTHON=/usr/bin/python3` (Arch's
+  `python-hidapi`, whose `hid` has the hidraw backend) — so `bash showcase/hud.sh` currently
+  depends on that env var. Durable options for Rafael: `hudfeed.py` prefers `import hidraw`
+  (one line), or the Makefile asserts a hidraw path post-venv. Rebuilding the venv's hidapi
+  from source (`pip install --force-reinstall --no-binary hidapi`, gcc + libudev.h present)
+  does NOT help — same split modules.
+- Verified live: `zmk-vim-mode set normal` → banner *Vim normal* (screenshot); daemon stays
+  `writable` on USB+BT while the feed reads (open issue 3 closed on the daemon side); physical
+  Diamond presses arrive as `{"kind":"press","pos":16/19}`. Override cleared afterwards
+  (daemon back to auto/off). Key *lighting* on camera still needs eyes, not logs.
+- Rehearsal side untouched: `rehearsal-feed.py`/`rehearsal-panel.py` still **not yet run**.
+
 ### Corrections, 2026-09-17 (agent got these wrong)
 
 - **No custom keybindings are needed — reverted.** `seg5` toggles the terminal through
@@ -178,7 +200,7 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 | Piece | Status |
 |---|---|
 | the layer HUD | now `zmk-layer-hud`; its own README carries its status. Its Linux panel had not been run on hardware when it was adopted |
-| `hud.sh` | written 2026-09-16, **not yet run**: a preflight wrapper around that project's `host/linux/hud.sh` |
+| `hud.sh` | **ran 2026-09-17 on Omarchy Quattro** (see HUD setup notes below); take HUD verified: banner follows `zmk-vim-mode set`, physical Diamond presses arrive with positions |
 | `rehearsal-panel.py` + `rehearsal-feed.py` | written 2026-09-16, **not yet run**. The panel is the old `linux/panel.py` (verified 2026-09-15 with the old pages) repointed at zmk-layer-hud's pages on port 8767; the feed is new |
 | `prepare.sh` (was `linux/prepare.sh`) | ran on the previous box; editors maximized on workspaces 5/6/7. Full editor startup/stability still unverified |
 | `rehearse.py` (was `linux/rehearse.py`) | segment 3: 4 PASS / 0 FAIL; segment 8: 4 PASS / 0 FAIL; segment 4: 26 PASS / 1 FAIL (the leader-pending RAW check, since shortened, needs a hands-off re-run). Segments 5–7 never fully passed |
