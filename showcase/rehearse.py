@@ -192,7 +192,11 @@ def esc(wait=0.6):
 
 def palette(command, wait=2.0):
     """Run a VS Code command via the F1 palette. Ctrl+` never reaches this box's
-    VS Code (chord swallowed with zero effect, fresh-instance verified)."""
+    VS Code (chord swallowed with zero effect, fresh-instance verified). The palette
+    retains its previous input across invocations, so dismiss it first: a fresh F1
+    always starts with a bare `>` command-mode prefix. (Do NOT clear with BackSpace:
+    it eats the `>` and drops the palette into file-search mode.)"""
+    key([], "Escape", 0.4)
     key([], "F1", 1.2)
     keys(command, 0.8)
     key([], "Return", wait)

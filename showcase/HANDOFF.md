@@ -143,6 +143,36 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   `bash showcase/hud.sh`, then `python3 showcase/rehearse.py all` hands-off.
   Segments 5–7 still have no full pass (seg5 reached the terminal-toggle step on ydotool).
 
+### Corrections, 2026-09-17 (agent got these wrong)
+
+- **No custom keybindings are needed — reverted.** `seg5` toggles the terminal through
+  `palette("View: Toggle Integrated Terminal")`, exactly as upstream wrote it. The temporary
+  `~/.config/Code/User/keybindings.json` (F20, then F12 bindings) is deleted; the profile is
+  back to stock. The `F20`/`F12` detour and the full a–z `KEYCODES` table are reverted out of
+  `rehearse.py`. What the evidence actually supports, kept as comments: keycode 41 (grave)
+  arrives fine at kernel level (`showkey`: 96 0140 0x60) but this box's VS Code never fires its
+  default Ctrl+` binding from uinput-injected chords; keycode 190 never leaves ydotool's virtual
+  device (`showkey` stays silent). The recording takes press the real chord on the Diamond and
+  are unaffected either way.
+- **IntelliJ was not blocked.** The user confirmed `demo-java` opens with the correct project;
+  the Welcome-screen / "Cannot Execute Command" / instant-dispose episodes were a stale
+  windowless instance being reused plus slow startup, not a broken project. `prepare.sh` now
+  waits for the `idea` process itself to quit before relaunching (committed).
+- **The new HUD's firmware is already flashed** (prerequisites in `README.md`); there is no
+  reflash unknown. What remains is host setup + a live run: `make venv` + websockets in
+  `~/projects/zmk-layer-hud`, the hidraw udev rule, `~/.config/zmk-layer-hud/config.yaml`,
+  then `bash showcase/hud.sh` with the Diamond typing.
+- **Old HUD orphans stopped.** `showcase/linux/panel.py` + `keyfeed.py` were still running after
+  the merge deleted those paths; both processes are terminated. Nothing HUD-related runs now.
+- **Demo content on disk was always clean.** Every rehearsal failure left edits in VS Code
+  buffers only; they were discarded with `:q!` + quick-open reopen (verified pristine tab, no
+  dot), and `git status` on the demo dirs came back clean each time. The editors are currently
+  closed by the user with the right files last open.
+- **Uncommitted rehearsal fixes in this tree** (beyond upstream): `palette()` dismisses any open
+  palette with Escape before F1 (the palette retains input across invocations; BackSpace-clearing
+  must NOT be used — it eats the `>` prefix and drops to file-search). `seg5` close-toggle is the
+  current frontier: open-toggle proven twice, close-toggle not yet green in a full run.
+
 ### Where each piece stands
 
 | Piece | Status |
