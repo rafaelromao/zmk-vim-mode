@@ -30,6 +30,6 @@ One-time GUI steps (if not done yet):
   IntelliJ : File → Open → showcase/demo-java; accept the JDK prompt (download if needed);
              View → Appearance → Zoom IDE In (~125%); Settings → Editor → Font 20 (revert after).
   VS Code  : `code showcase/demo-go.code-workspace` once, trust the folder.
-  Neovim   : `ZDOTDIR=showcase/env open -na Ghostty --args --config-file=showcase/env/ghostty-demo.conf`
-             then `nvim` (the demo shell starts in showcase/demo-go).
+  Neovim   : open the demo terminal (the command is in env/ghostty-demo.conf; it is Bash with
+             env/demo.bashrc, starting in showcase/demo-go), then `nvim`.
 EOF

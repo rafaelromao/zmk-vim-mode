@@ -1,82 +1,74 @@
 # OBS scene for the showcase
 
-## Displays (from `displayplacer list`, 2026-09-15)
+Recorded on Omarchy Quattro (Hyprland). Fill the display table in on the box itself:
 
-| Display | id | Current mode | Role |
-|---|---|---|---|
-| MacBook built-in, main | `37D8832A-2D66-02CA-B9F7-8F30A301B230` | 1512×982 HiDPI (3024×1964 panel) | OBS, notes, this script |
-| 27" external, right of the laptop | `1B2458CE-ADBD-4AD9-9827-FBB82B823C77` | 2560×1440, scaling off | **recording display** |
+```bash
+hyprctl monitors -j | jq -r '.[] | "\(.name)\t\(.width)x\(.height)@\(.refreshRate|floor)\tscale \(.scale)\tfocused=\(.focused)"'
+```
 
-Both displays stay on: the recording display holds only the editor, the typed-keys strip and the HUD;
-OBS and the script live on the laptop. Start the HUD with the mouse on the 27" (it opens on
-the screen under the mouse) or `hs -c "zmkhud.moveTo(hs.screen.allScreens()[2])"`.
+| Monitor | Mode | Role |
+|---|---|---|
+| `eDP-…` (laptop) | | OBS, notes, this script |
+| the external one | | **recording monitor** |
+
+Both stay on: the recording monitor holds only the editor and the HUD; OBS and the script live
+on the laptop. Nothing picks the monitor by hand — `hud.sh`, `prepare.sh` and the rehearsal all
+use the first monitor whose name does not start with `eDP`.
 
 ## Canvas and output
 
-**Recommended: HiDPI 1920×1080 on the 27".** Mode 34 renders a 3840×2160 framebuffer and
-scales it to the panel, so macOS UI is 33 % larger without touching any app setting, and OBS
-captures the 4K framebuffer and downsamples it 2:1 — the crispest 1080p you can get. The
-panel itself looks slightly soft to *you* (1.5× scaling); the recording does not.
+Record at the monitor's native mode and let OBS scale to 1080p. On Hyprland, a fractional
+`scale` enlarges every app at once (the counterpart of the old HiDPI trick); `hyprctl keyword
+monitor NAME,PREFERRED,auto,1.25` tries one live, and `hyprctl reload` puts your config back.
 
-```bash
-# before recording
-displayplacer "id:1B2458CE-ADBD-4AD9-9827-FBB82B823C77 res:1920x1080 hz:60 color_depth:8 scaling:on origin:(1512,0) degree:0"
-# after recording (the arrangement `displayplacer list` printed)
-displayplacer "id:37D8832A-2D66-02CA-B9F7-8F30A301B230 res:1512x982 hz:120 color_depth:8 enabled:true scaling:on origin:(0,0) degree:0" "id:1B2458CE-ADBD-4AD9-9827-FBB82B823C77 res:2560x1440 hz:60 color_depth:8 enabled:true scaling:off origin:(1512,0) degree:0"
-```
+| Setting | Value |
+|---|---|
+| Settings → Video → Base (canvas) | the recording monitor's mode (e.g. 2560×1440) |
+| Settings → Video → Output (scaled) | 1920×1080, Lanczos |
+| FPS | 60 |
+| Settings → Output → Recording | MP4 (or MKV then remux), H.264 (VAAPI/NVENC) CQ ~18 |
+| Audio | mic on its own track, desktop audio muted |
+| Text sizes | the table below is mandatory at 1440p |
 
-| Setting | HiDPI route (recommended) | Native route |
-|---|---|---|
-| 27" mode | 1920×1080 `scaling:on` (mode 34) | 2560×1440 `scaling:off` (current, mode 27) |
-| Settings → Video → Base (canvas) | 1920×1080 (the 3840×2160 source is fitted to it, *Lanczos*) | 2560×1440 |
-| Settings → Video → Output (scaled) | 1920×1080 | **1920×1080**, Lanczos |
-| Text sizes | app defaults already read at 1.33×; keep the sizes below anyway | sizes below are mandatory |
-| FPS | 60 | 60 |
-| Settings → Output → Recording | MP4 (or MKV then remux), Apple VT H.264 CQ ~18, or ProRes if you edit afterwards | same |
-| Audio | mic on its own track, desktop audio muted | same |
+At 60 fps the HUD's key flashes read cleanly; at 30 they stutter. The flash is `hud.press_ms`
+(320 ms) in `~/.config/zmk-layer-hud/config.yaml`, with `hud.combo_pill_ms` (1000 ms) for the
+combo pill — raise them if the cut is faster than the eye.
 
-At 60 fps the HUD's ~300 ms key flashes read cleanly; at 30 they stutter.
+## Sources
 
-Laptop-only fallback (no external): `displayplacer "id:37D8832A-2D66-02CA-B9F7-8F30A301B230 res:1920x1200 hz:60 color_depth:8 scaling:on"`,
-canvas 1920×1200 with a 60 px top/bottom crop filter on the display source, then restore
-1512×982 with the command above.
+1. **Screen Capture (PipeWire)** — pick the recording monitor in the portal dialog, cursor
+   shown. Wayland has no "capture that window forever" without the portal, so re-pick it if the
+   session restarts.
+2. Nothing else. The HUD's surfaces are real layer-shell windows on that monitor, so they are
+   captured as-is and you see exactly what the viewer sees while presenting.
 
-## Sources (top to bottom)
-
-1. **Display Capture** — pick the *27 inch* display (display 2), cursor shown. Grant OBS
-   Screen Recording on first use.
-2. Nothing else. The HUD and its typed-keys strip are real windows on that display, so
-   they are captured as-is and you see exactly what the viewer sees while presenting.
-
-## Window layout on the recording display (1920×1080 points on the HiDPI route)
+## Window layout on the recording monitor
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│   editor / terminal, maximised (menu bar auto-hidden)        │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                          ┌────────────────┐  │
-│  (HUD is top-right, 24 pt margins)       │ layer HUD      │  │
-│                                          │ 598×392 pt     │  │
-│  ┌──────────────┐                        └────────────────┘  │
-│  │ typed keys   │   bottom band, 120 pt                      │
-│  └──────────────┘                                            │
+│                                        ┆┌────────────────┐   │
+│                                        ┆│ layer HUD      │   │
+│   editor / terminal,                   ┆│ 598×392        │   │
+│   maximized (never fullscreen)         ┆└────────────────┘   │
+│                                        ┆┌────────────────┐   │
+│                                        ┆│ typed keys  96 │   │
+│                                        ┆└────────────────┘   │
+│                                        ┆                     │
+│                                        ┆ reserved rail ~617  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **HUD**: `bash showcase/hud/start.sh` puts it 24 pt from the top-right
-  corner of the recording display. Move it with
-  `hs -c "zmkhud.moveTo(hs.screen.allScreens()[2])"` if it picked the wrong one.
-  It opens at 598×392 pt; shrink it with `hs -c "zmkhud.resize(480, 315)"` if it covers too much.
-- **Typed keys**: drawn by the HUD itself (`hud/keys.html`) bottom-left of the same
-  display, fed by Hammerspoon's event tap: characters run together into one chip,
-  chords and special keys get their own, everything fades after 1.8 s. KeyCastr is
-  no longer needed; quit it so the keys are not shown twice.
-- Editors fill the display minus a 120 pt band at the bottom, where the typed-keys strip
-  lives (`prepare.sh` and the rehearsal size them that way). The HUD sits top-right over the
-  editor by design; set a plain wallpaper so the band below the editors is a clean colour.
+- **HUD**: `bash showcase/hud.sh`. It reserves the right rail, so a maximized editor tiles
+  beside it rather than under it, and it never takes keyboard focus. The panel is inset 8 px
+  from the tiled client area so the window border stays visible. `bash showcase/hud.sh stop`,
+  or the ✕ on the panel, releases the reservation.
+- **Width**: `hud.width` in `~/.config/zmk-layer-hud/config.yaml` (598 by default); the height
+  follows the board. `hud.opacity` (86) is the panel background. Restart the HUD after editing.
+- **Typed keys**: the strip below the HUD, in the same rail. It shows the keys the *keyboard*
+  sends — nothing typed on the laptop's built-in keyboard appears, and neither does anything a
+  script injects. Characters run together into one chip, chords and special keys get their own.
+- **Editors** are maximized on their workspaces by `prepare.sh` — never fullscreen, which hides
+  layer-shell surfaces and ignores their reservations.
 
 ## Text sizes (everything ≥ 18 pt at 1440p)
 
@@ -91,9 +83,13 @@ canvas 1920×1200 with a 60 px top/bottom crop filter on the display source, the
 ## Recording routine
 
 1. `bash showcase/prepare.sh`: pristine sources, editors reopened clean and placed.
-2. Privacy checklist (`privacy-checklist.md`), then `bash showcase/hud/start.sh`.
-3. One OBS recording **per segment** of `SCRIPT.md`; say the segment number
-   before starting to type so the cut is easy.
-4. After each take: `zmk-vim-mode status` must show the reason the script expects.
-5. Narration: record per segment while watching the take, or read the script
-   live — the script's timings assume ~140 words per minute.
+2. Privacy checklist (`privacy-checklist.md`), then `bash showcase/hud.sh`.
+3. Check the HUD is live **before** the first take: type on the Diamond and watch the exact keys
+   light. A HUD stuck on "waiting for the keyboard's layers…" means the feed never opened the
+   device — `bash showcase/hud.sh log` says why (usually the hidraw udev rule).
+4. One OBS recording **per segment** of `SCRIPT.md`; say the segment number before starting to
+   type so the cut is easy.
+5. After each take: `zmk-vim-mode status` must show the reason the script expects. The HUD shows
+   the keyboard's layers, not the daemon's reason, so `status` is the only judge.
+6. Narration: record per segment while watching the take, or read the script live — the script's
+   timings assume ~140 words per minute.

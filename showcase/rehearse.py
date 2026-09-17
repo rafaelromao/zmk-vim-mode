@@ -1,33 +1,38 @@
 #!/usr/bin/env python3
-"""Linux (Omarchy / Hyprland) port of hud/rehearse.lua: performs the scripted actions of
-SCRIPT.md with synthesized keystrokes (ydotool/uinput), asks the daemon what it decided
-after each one, and writes a PASS/FAIL report to showcase/run/rehearsal.log.
+"""Rehearsal runner (Omarchy / Hyprland): performs the scripted actions of SCRIPT.md with
+synthesized keystrokes (ydotool/uinput), asks the daemon what it decided after each one, and
+writes a PASS/FAIL report to showcase/run/rehearsal.log.
 
-    python3 showcase/linux/rehearse.py [3|4|5|6|7|8|all] [--verbose]
+    python3 showcase/rehearse.py [3|4|5|6|7|8|all] [--verbose]
 
-Run showcase/linux/prepare.sh first. Keep your hands off the keyboard while it runs.
+Run showcase/prepare.sh first. Keep your hands off the keyboard while it runs.
 Needs: ydotool (+ ydotoold, user in the `input` group), hyprctl, the daemon, Ghostty, editors.
 
-Port notes (UNTESTED as of the handoff, ported 1:1 from the Lua):
+The HUD: synthesized keys never reach the Diamond, and zmk-layer-hud draws only what the
+keyboard reports, so a rehearsal runs its own copy of it — rehearsal-panel.py with
+rehearsal-feed.py, on their own port — which adds the injected keys to the layers the keyboard
+really is on. See rehearsal-feed.py. Takes use `bash showcase/hud.sh` instead.
+
+Notes:
   * focus is by Hyprland window class and verified by address before typing. Demo Ghostty
     uses its standard class (recognized by the daemon) and is selected by process ID.
-  * the Linux demo shell is Bash with env/demo.bashrc; macOS keeps its Zsh configuration.
-  * "cmd" chords from the Mac become "super" or their Linux defaults (see CHORDS below):
-    VS Code Ctrl+P / Ctrl+Shift+E / Ctrl+`, IntelliJ Ctrl+Shift+N (go to file) / Alt+F12,
-    Obsidian Ctrl+E / Ctrl+Shift+F. The Meh chord (Ctrl+Alt+Shift+B) is the same everywhere.
-  * the daemon on Linux reads window titles and the accessibility bus (--atspi), so VS Code's
-    tool windows report the same `tool window focused: …` reasons as on macOS.
+  * the demo shell is Bash with env/demo.bashrc.
+  * the chords are the Linux defaults (see CHORDS below): VS Code Ctrl+P / Ctrl+Shift+E /
+    Ctrl+`, IntelliJ Ctrl+Shift+N (go to file) / Alt+F12, Obsidian Ctrl+E / Ctrl+Shift+F.
+    The Meh chord (Ctrl+Alt+Shift+B) comes off the keymap and is the same everywhere.
+  * the daemon reads window titles and the accessibility bus (--atspi), so VS Code's tool
+    windows report `tool window focused: …` reasons.
 """
 
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SHOW = os.path.abspath(os.path.join(HERE, ".."))
+SHOW = os.path.dirname(os.path.abspath(__file__))
 RUN = os.path.join(SHOW, "run")
 BINARY = os.path.expanduser("~/.local/bin/zmk-vim-mode")
 VAULT = "Demo"
@@ -77,6 +82,44 @@ def ensure_ydotoold():
                    capture_output=True)  # no-op probe: Break key, harmless anywhere
 
 
+PANEL = os.path.join(SHOW, "rehearsal-panel.py")
+
+
+def start_hud():
+    """The rehearsal's own copy of the layer HUD (rehearsal-panel.py): zmk-layer-hud's pages fed
+    with the keys ydotool injects on top of the layers the keyboard really is on. A take uses
+    `bash showcase/hud.sh` instead, which reads the keyboard alone. NO_HUD=1 skips this: the
+    daemon expectations below do not depend on it."""
+    if os.environ.get("NO_HUD") == "1":
+        log("HUD skipped (NO_HUD=1)")
+        return None
+    # A take's HUD anchors to the same corner and reserves the same rail: two of them stack.
+    if subprocess.run(["pgrep", "-f", "zmk-layer-hud/host/linux/panel.py"],
+                      capture_output=True).returncode == 0:
+        sys.exit("The take's HUD is running and would sit under the rehearsal's copy: "
+                 "`bash showcase/hud.sh stop` first (or rehearse with NO_HUD=1).")
+    subprocess.run(["pkill", "-f", PANEL], capture_output=True)
+    time.sleep(0.5)
+    output = open(os.path.join(RUN, "rehearsal-panel.log"), "w")
+    proc = subprocess.Popen([sys.executable, "-u", PANEL], stdout=output, stderr=output,
+                            start_new_session=True)
+    time.sleep(2)
+    if proc.poll() is not None:
+        sys.exit("The rehearsal HUD did not start; see showcase/run/rehearsal-panel.log "
+                 "(and run/rehearsal-feed.log). Rehearse without it with NO_HUD=1.")
+    log("HUD started (rehearsal-panel.py)")
+    return proc
+
+
+def stop_hud(proc):
+    if proc is None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+
+
 # Linux evdev keycodes for the non-printable keys the segments need.
 KEYCODES = {
     "Escape": 1, "Return": 28, "Tab": 15, "space": 57, "BackSpace": 14,
@@ -100,7 +143,8 @@ def send(*args):
 
 def keys(text, wait=0.6):
     """Type text; "\\n" is a Return key. Plain runs go out as one `ydotool type`
-    call so the keyfeed/HUD strip sees them exactly like Diamond keystrokes."""
+    call, at the pace the script asks for on camera; rehearsal-feed.py reads them off
+    ydotool's virtual device so the HUD shows them like Diamond keystrokes."""
     run = ""
     def flush():
         nonlocal run
@@ -169,7 +213,7 @@ def focus(cls, wait=2.0, pid=None):
         raise RuntimeError(f"Expected one {cls!r} window, found {len(matches)}; refusing to type")
     address = matches[0]["address"]
     if LUA:
-        # Maximized fills the work area but leaves the HUD's right/bottom panels visible.
+        # Maximized fills the work area, which excludes the HUD's reserved right rail.
         subprocess.run(["hyprctl", "dispatch",
                         f'hl.dsp.window.fullscreen({{mode="maximized", action="set", window="address:{address}"}})'],
                        capture_output=True, check=True)
@@ -197,7 +241,7 @@ def wait_window(cls, timeout=90.0, pid=None):
 
 
 def place(address, workspace):
-    """Move a window to its demo workspace and maximize it inside the HUD rails."""
+    """Move a window to its demo workspace and maximize it beside the HUD's right rail."""
     subprocess.run(["hyprctl", "dispatch",
                     f'hl.dsp.window.move({{workspace="{workspace}", window="address:{address}"}})'],
                    capture_output=True, check=True)
@@ -422,16 +466,20 @@ SEGMENTS = {"3": seg3, "4": seg4, "5": seg5, "6": seg6, "7": seg7, "8": seg8}
 
 if __name__ == "__main__":
     ensure_ydotoold()
+    hud = start_hud()
     which = next((a for a in sys.argv[1:] if not a.startswith("--")), "all")
     order = list(SEGMENTS) if which == "all" else [which]
     log(f"rehearsal {which} — hands off the keyboard")
     print("starting in 3 seconds…")
     time.sleep(3)
-    for k in order:
-        if k in SEGMENTS:
-            time.sleep(1.5)
-            SEGMENTS[k]()
-        else:
-            log(f"unknown segment {k}")
+    try:
+        for k in order:
+            if k in SEGMENTS:
+                time.sleep(1.5)
+                SEGMENTS[k]()
+            else:
+                log(f"unknown segment {k}")
+    finally:
+        stop_hud(hud)
     log(f"DONE  pass={results['pass']} fail={results['fail']}")
     sys.exit(1 if results["fail"] else 0)
