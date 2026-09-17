@@ -165,6 +165,28 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   (daemon back to auto/off). Key *lighting* on camera still needs eyes, not logs.
 - Rehearsal side untouched: `rehearsal-feed.py`/`rehearsal-panel.py` still **not yet run**.
 
+### Segments 5–7 green, 2026-09-17 (all on Omarchy Quattro, hands-off runs)
+
+- **seg5 20/0.** The terminal toggle is `palette("View: Toggle Terminal")` — the exact command
+  name matters: "...Integrated Terminal" fuzzy-matches "Browser: Open Integrated Browser" first
+  and Return opens a Simple Browser tab (found via screenshot; tab surgery with `:q!` + quick-open
+  + "Close All Editors" cleaned up). `palette()` dismisses with Escape first (retained input!) and
+  gates on the reason containing "widget outside" before typing — F1 is slow on a loaded box and
+  blind typing lands in the editor as vim commands. A `wait_reason("Terminal")` gate stands between
+  toggle-open and the `go run` typing for the same reason. Ctrl+grave and F20 stay out (evidence in
+  the previous section).
+- **seg7 15/15** with no fixes needed beyond the shared gates.
+- **seg6 19/19** after two fixes: Escape + `expect normal` after the `/COMPOSE` search (IdeaVim can
+  leave the search bar open), and three Escapes returning from the project tool window (close speed
+  search, leave the tree, leave visual). The earlier `visual`-stuck failure was real state, not lag.
+- **IntelliJ paint dies ~10–20 min into a session** (window goes fully blank; JVM alive and logging,
+  input still processed). Un-maximizing does not restore it; a process restart does. Cause unknown —
+  prime suspect is Skiko/GL on NVIDIA Wayland. This is a take-blocker for beat 6, not a rehearsal
+  blocker. Do NOT touch `idea64.vmoptions` (symlink into the user's dotfiles repo); launch-only
+  mitigations (`_JAVA_OPTIONS` software render / XToolkit) are untried.
+- IntelliJ also leaves an untitled empty-title frame beside the project window; the runner prefers
+  titled windows, and `demo-java` opens in the titled one.
+
 ### Corrections, 2026-09-17 (agent got these wrong)
 
 - **No custom keybindings are needed — reverted.** `seg5` toggles the terminal through
@@ -203,7 +225,7 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 | `hud.sh` | **ran 2026-09-17 on Omarchy Quattro** (see HUD setup notes below); take HUD verified: banner follows `zmk-vim-mode set`, physical Diamond presses arrive with positions |
 | `rehearsal-panel.py` + `rehearsal-feed.py` | written 2026-09-16, **not yet run**. The panel is the old `linux/panel.py` (verified 2026-09-15 with the old pages) repointed at zmk-layer-hud's pages on port 8767; the feed is new |
 | `prepare.sh` (was `linux/prepare.sh`) | ran on the previous box; editors maximized on workspaces 5/6/7. Full editor startup/stability still unverified |
-| `rehearse.py` (was `linux/rehearse.py`) | segment 3: 4 PASS / 0 FAIL; segment 8: 4 PASS / 0 FAIL; segment 4: 26 PASS / 1 FAIL (the leader-pending RAW check, since shortened, needs a hands-off re-run). Segments 5–7 never fully passed |
+| `rehearse.py` (was `linux/rehearse.py`) | segment 3: 4 PASS / 0 FAIL; segment 8: 4 PASS / 0 FAIL; segment 4: 26 PASS / 1 FAIL (the leader-pending RAW check, since shortened, needs a hands-off re-run). **Segments 5, 6, 7 fully green 2026-09-17: 20/0, 19/0, 15/0** (see findings below) |
 | `setup.sh` | git-based content reset; works |
 | `SCRIPT.md` | beat 8 re-staged for the new HUD 2026-09-16; not re-timed on camera |
 

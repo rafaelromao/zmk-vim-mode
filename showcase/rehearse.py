@@ -197,7 +197,8 @@ def palette(command, wait=2.0):
     always starts with a bare `>` command-mode prefix. (Do NOT clear with BackSpace:
     it eats the `>` and drops the palette into file-search mode.)"""
     key([], "Escape", 0.4)
-    key([], "F1", 1.2)
+    key([], "F1", 0.5)
+    wait_reason("widget outside")
     keys(command, 0.8)
     key([], "Return", wait)
 
@@ -278,6 +279,19 @@ def wait_editor(app, timeout=40.0):
             return True
         time.sleep(0.5)
     raise RuntimeError(f"{app} editor never reported focus; refusing to type")
+
+
+def wait_reason(substr, timeout=15.0):
+    """Wait until the daemon's reason contains substr. Ground-truth gates for UI
+    that reports through the companion: the palette ("widget outside") and the
+    terminal ("Terminal") both read raw, so expects alone cannot tell them apart."""
+    end = time.time() + timeout
+    while time.time() < end:
+        st = status()
+        if substr in str(st.get("reason", "")):
+            return True
+        time.sleep(0.3)
+    raise RuntimeError(f"reason never contained {substr!r}; refusing to type blind")
 
 
 def expect(mode, reason=None):
@@ -384,9 +398,13 @@ def seg5():
     esc(0.5); expect("normal")
     keys("v", 0.5); expect("visual")
     esc(0.5); expect("normal")
-    palette("View: Toggle Integrated Terminal"); expect("raw", "tool window")
+    # NOTE: the command is "View: Toggle Terminal", not "...Integrated Terminal".
+    # The longer name fuzzy-matches "Browser: Open Integrated Browser" first (recently
+    # used), and Return opens a Simple Browser tab instead of the terminal.
+    palette("View: Toggle Terminal"); expect("raw", "tool window")
+    wait_reason("Terminal")
     keys("go run ./cmd/vimmode\n", 2.5); expect("raw", "tool window")
-    palette("View: Toggle Integrated Terminal"); expect("normal")
+    palette("View: Toggle Terminal"); expect("normal")
     key([], "F1", 1.2); expect("raw")
     keys("keyboard", 0.9); expect("raw")
     esc(0.8); expect("normal")
@@ -405,6 +423,7 @@ def seg6():
     wait_editor("intellij")
     vim_tour()
     keys("/COMPOSE\n", 1.0)
+    esc(0.6); expect("normal", "intellij")   # IdeaVim can leave the search bar open
     keys("A", 0.5); expect("insert")
     keys(" // Compose is bit 0", 0.4)
     esc(0.5); expect("normal")
@@ -414,7 +433,9 @@ def seg6():
     esc(0.6); expect("normal")
     key(["ctrl", "alt", "shift"], "b", 2.0); expect("raw", "intellij")   # Meh+B: project tool window
     keys("readme", 0.9); expect("raw")
-    esc(0.5); esc(1.0); expect("normal")
+    # Three Escapes: close speed search, leave the tree for the editor,
+    # leave visual. Extra ones only bell (visualbell is set for the recording).
+    esc(0.5); esc(0.5); esc(1.0); expect("normal")
     key(["alt"], "F12", 1.5); expect("raw")
     keys("ls\n", 1.5); expect("raw")
     key(["alt"], "F12", 1.2); expect("normal")
