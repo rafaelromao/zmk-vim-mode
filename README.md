@@ -4,6 +4,13 @@ Keeps a ZMK keyboard's layers in sync with the editor's real vim state, so the
 keyboard is in NORMAL when the editor is in normal mode, in INSERT when you are
 typing, and out of vim layers entirely when keys must pass through untouched.
 
+![The keyboard following the editor: typing on the base layer, then NORMAL with h j k l under four
+fingers of the right hand, a yank combo, v into VISUAL, Esc back, i into INSERT and Esc back
+again](docs/img/vim-layers.gif)
+
+*The author's Diamond, drawn by [zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud)
+from the keyboard's own layer reports — [how it is made](docs/hud/README.md).*
+
 Three parts, one repository:
 
 | Part | Path | Role |
