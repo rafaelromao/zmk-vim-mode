@@ -2,8 +2,10 @@
 
 **Format:** screen recording with English voice-over, 7:00 target (6–8 min).
 **Resolution:** recorded at 2560×1440, delivered at 1920×1080 (see `env/obs-scene.md`).
-**On screen throughout the demos:** the editor, the typed-keys strip (bottom-left) and the
-layer HUD (top-right, the Diamond's active layer with keys and combos lighting up).
+**On screen throughout the demos:** the editor, and the layer HUD on the right rail — the
+Diamond's active layer with keys and combos lighting up, the typed-keys strip below it. The HUD
+([zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud)) reads the keyboard's own HID
+reports, so what lights is what the keyboard did.
 **Narration pace:** ~140 words per minute; each beat lists its word count.
 
 The keymap on screen is the one in [rafaelromao/keyboards](https://github.com/rafaelromao/keyboards);
@@ -28,11 +30,11 @@ are commands, and installs with one command.
 ### 0 · Cold open — 0:00–0:25 (58 words)
 
 **Screen.** Ghostty, Neovim with `internal/modes/modes.go` open, INSERT mode, cursor in a
-comment. HUD shows `alpha1` with the INSERT chip. Type a few words, then `Esc`, then `h j k l`
-slowly, twice.
+comment. The HUD banner reads *Vim insert* over Alpha 1's legends. Type a few words, then
+`Esc`, then `h j k l` slowly, twice.
 
-**Expect.** HUD: INSERT → NORMAL on `Esc`; on the vim layer the right home row lights
-index→pinky in order. Before `Esc`, while INSERT, tap `h` `j` `k` `l` once too: `h` lights the
+**Expect.** Banner *Vim insert* → *Vim normal* on `Esc`; on the vim layer the right home row
+lights index→pinky in order. Before `Esc`, while INSERT, tap `h` `j` `k` `l` once too: `h` lights the
 magic key, `j` lights the `h,` combo, `k` lights the `mg` combo, `l` lights the top row.
 
 **Narration.**
@@ -75,8 +77,10 @@ combos. Short cut to the old approach: a `.dtsi` excerpt with `&none` positions 
 **Screen.** README diagram of the HID report descriptor (`05 08 19 01 29 05…`), then the
 code table (0 off, 1 normal, 2 insert, 3 visual, 4 legacy, 5 cmdline, 6 raw, 7 legacy silent).
 Terminal: `zmk-vim-mode status`; then `zmk-vim-mode set insert`, `set normal`, `set off`,
-`set off` again (back to auto) — the HUD chip follows each one; the daemon log's
-`led write … code=N` lines scroll in a second pane (`tail -f ~/Library/Logs/zmk-vim-mode.log | grep -E 'decision|led'`).
+`set off` again (back to auto) — the banner follows each one (*Vim insert*, *Vim normal*,
+*Alpha 1*); the daemon log's `led write … code=N` lines scroll in a second pane
+(`journalctl --user -u zmk-vim-mode -f -o cat | grep -E 'decision|led'`). `set off` and
+`set raw` both leave the banner on *Alpha 1*: that second pane is what tells them apart.
 
 **Expect.** `status`: `decision : normal (code 1) — nvim client`, the Diamond listed
 `writable`. Each `set` produces one `led write` line per device.
@@ -97,11 +101,16 @@ Terminal: `zmk-vim-mode status`; then `zmk-vim-mode set insert`, `set normal`, `
 
 **Screen.** Ghostty (demo shell) in `showcase/demo-go`. Actions, each with the HUD/`status` expectation:
 
-| Action | HUD chip | `status` reason |
+The *HUD banner* column uses the daemon's mode names; the banner spells them from the
+keyboard's layers: NORMAL → *Vim normal*, INSERT → *Vim insert*, VISUAL → *Vim visual · Vim
+normal*, CMDLINE → *Vim cmdline*. **RAW and OFF both read *Alpha 1*** — `raw` selects no vim
+layer — so only `status` tells those two apart.
+
+| Action | HUD banner | `status` reason |
 |---|---|---|
 | `nvim` → LazyVim dashboard | RAW | `nvim client` (mode raw) |
 | `f` → pick `modes.go`, Enter | NORMAL | `nvim client` |
-| **the tour**, slowly: `j j j k`, `l l l h h`, `w w e b b`, `0 $ 0`, `i` `Esc`, `a` `Esc` — every one on the right home row or its neighbours | NORMAL, INSERT, NORMAL | the HUD lights `h j k l` index→pinky |
+| **the tour**, slowly: `j j j k`, `l l l h h`, `w w e b b`, `0 $ 0`, `i` `Esc`, `a` `Esc` — every one on the right home row or its neighbours | NORMAL, INSERT, NORMAL | the HUD lights `h j k l` index→pinky, from the keyboard's own key positions |
 | `/Compose` Enter (CMDLINE on the way), `A`, type ` // bit 0 of the code`, `Esc`, `u` | CMDLINE → NORMAL → INSERT → NORMAL | |
 | `v`, `j`, `j`, `y`, `Esc` | VISUAL → NORMAL | |
 | `:` then `%s/leds/report/g` Enter | CMDLINE → NORMAL | |
@@ -128,14 +137,14 @@ Terminal: `zmk-vim-mode status`; then `zmk-vim-mode set insert`, `set normal`, `
 **Screen.** `code showcase/demo-go.code-workspace`, open `modes.go`. Title bar reads
 `modes.go — demo-go [Text Editor]`.
 
-| Action | HUD chip | `status` reason |
+| Action | HUD banner | `status` reason |
 |---|---|---|
 | click into the editor, `Esc`, then the same tour (`hjkl`, `web`, `i`/`a`) | NORMAL | `client vscode` |
 | `/Kana` Enter, `A`, type ` // bit 1 of the code`, `Esc`; `v`, `Esc`; `u` at the end | INSERT/VISUAL/NORMAL | |
 | `` Ctrl+` `` → terminal, type `go run ./cmd/vimmode`, Enter | RAW | `tool window focused: Terminal` |
 | `` Ctrl+` `` → back to the editor | NORMAL | `client vscode` |
 | `F1` → command palette, type `keyboard` (k would be *up*), `Esc` | RAW → NORMAL | `tool window focused: widget outside any view` |
-| `⇧⌘E` → Explorer sidebar, `↓` `↓` (letters create files in this Explorer setup), `⇧⌘E` again → back to the editor | RAW → NORMAL | `tool window focused: Folders` |
+| `Ctrl+Shift+E` → Explorer sidebar, `↓` `↓` (letters create files in this Explorer setup), `Ctrl+Shift+E` again → back to the editor | RAW → NORMAL | `tool window focused: Folders` |
 
 **Narration.**
 > VS Code runs a real Neovim inside it, through vscode-neovim, and that Neovim loads the same
@@ -150,14 +159,14 @@ Terminal: `zmk-vim-mode status`; then `zmk-vim-mode set insert`, `set normal`, `
 
 **Screen.** IntelliJ, `demo-java`, `ModeTable.java` open, IdeaVim on.
 
-| Action | HUD chip | `status` reason |
+| Action | HUD banner | `status` reason |
 |---|---|---|
-| open `ModeTable.java` (`⇧⌘O`) — already normal mode, no `Esc` (IdeaVim beeps on `Esc` in normal mode; `set visualbell` in `~/.ideavimrc` silences it), then the tour (`hjkl`, `web`, `i`/`a`) | NORMAL | `client intellij` |
+| open `ModeTable.java` (`Ctrl+Shift+N`) — already normal mode, no `Esc` (IdeaVim beeps on `Esc` in normal mode; `set visualbell` in `~/.ideavimrc` silences it), then the tour (`hjkl`, `web`, `i`/`a`) | NORMAL | `client intellij` |
 | `/COMPOSE` Enter, `A`, type ` // Compose is bit 0`, `Esc`; `v` `e` `y` `Esc`; `:` `w` Enter | INSERT/VISUAL → NORMAL; `:` shows **RAW** (IdeaVim's ex line is a separate component, so the plugin reports focus left the editor) | `intellij client raw` while the ex line is open |
 | Meh+B → Project tool window (the MEHS layer's *project* key), type `readme` in the speed search, `Esc` `Esc` | RAW → NORMAL | `intellij client raw` |
 | `Esc` → back to the editor | NORMAL | |
-| `⌥F12` → terminal, type `ls`, Enter; `Esc`/`⌥F12` back | RAW → NORMAL | |
-| Meh+G (`Ctrl+Alt+Shift+G`) → *Reformat Code* | — | shown as held modifiers on the HUD |
+| `Alt+F12` → terminal, type `ls`, Enter; `Esc`/`Alt+F12` back | RAW → NORMAL | |
+| Meh+G (`Ctrl+Alt+Shift+G`) → *Reformat Code* | *Mehs* | MEHS is a real layer, so the banner names it and the pressed key lights |
 
 **Narration.**
 > IntelliJ has IdeaVim, and IdeaVim has a mode listener, so this plugin subscribes to it and
@@ -173,15 +182,15 @@ Terminal: `zmk-vim-mode status`; then `zmk-vim-mode set insert`, `set normal`, `
 
 **Screen.** Obsidian, the *Demo* vault (`showcase/Demo`), note *Tasks*.
 
-| Action | HUD chip | `status` reason |
+| Action | HUD banner | `status` reason |
 |---|---|---|
 | click into the note, `Esc`, then the tour (`hjkl`, `web`, `i`/`a`) | NORMAL | `client obsidian` |
 | `j` to a task, `i`, type, `Esc` | INSERT → NORMAL | |
 | `o` then the `- [ ]` macro key, type `Record the wrap-up`, `Esc` | INSERT → NORMAL | |
 | `:` → `w` Enter | CMDLINE → NORMAL | |
-| `⌘E` → reading view | RAW | `client obsidian` (mode raw) |
-| `⌘E` back; click the note title | NORMAL → RAW | |
-| `⇧⌘F` → search pane, type `layer`, then click back into the note body | RAW → NORMAL | `obsidian client raw` while searching |
+| `Ctrl+E` → reading view | RAW | `client obsidian` (mode raw) |
+| `Ctrl+E` back; click the note title | NORMAL → RAW | |
+| `Ctrl+Shift+F` → search pane, type `layer`, then click back into the note body | RAW → NORMAL | `obsidian client raw` while searching |
 
 **Narration.**
 > Obsidian's editor is CodeMirror with a vim extension, and its own plugin listens to it:
@@ -193,10 +202,13 @@ Terminal: `zmk-vim-mode status`; then `zmk-vim-mode set insert`, `set normal`, `
 
 ### 8 · Everywhere else — 6:10–6:35 (58 words)
 
-**Screen.** `⌘Tab` to the plain Ghostty shell (no Neovim running) — HUD: OFF, reason
-`terminal without nvim client`; any non-editor app gives OFF too (`non-editor app <bundle id>`).
-Back to Ghostty (no nvim) — OFF. In Ghostty: `zmk-vim-mode set raw`, HUD RAW with `override`;
-`zmk-vim-mode set raw` again — back to auto. `zmk-vim-mode devices` shows the Diamond on USB.
+**Screen.** This beat is carried by the terminal, not the banner: OFF and RAW both leave the
+HUD on *Alpha 1*, and the board showing plain Romak is the point the narration makes. Switch to
+the plain Ghostty shell (no Neovim running) and run `zmk-vim-mode status` on camera —
+`off (code 0) — terminal without nvim client`; any non-editor app gives OFF too
+(`non-editor app <window class>`). Then `zmk-vim-mode set raw` and `status` again —
+`raw (code 6)` with the `override` line; `set raw` once more and `status` a third time — the
+override is gone. `zmk-vim-mode devices` shows the Diamond on USB.
 
 **Narration.**
 > Anywhere else the vim layers are simply off. For the cases nothing can detect — vim over
@@ -212,7 +224,7 @@ links.
 
 **Narration.**
 > One command installs the daemon, the service, the Neovim spec and the editor extensions, and
-> doctor tells you what's left — on macOS, two permissions. The keymap, the layout and the tool
+> doctor tells you what's left — here, a udev rule. The keymap, the layout and the tool
 > are all on my GitHub. If you type on an alternative layout and live in vim, this is the
 > compromise you no longer have to make.
 
@@ -230,7 +242,7 @@ links.
 | F | VS Code segment | live | beat 5 |
 | G | IntelliJ segment | live | beat 6 |
 | H | Obsidian segment | live | beat 7 |
-| I | Safari + `set` | live | beat 8 |
+| I | Browser + `set` | live | beat 8 |
 | J | `make install` / `doctor` | pre-rendered or blurred paths | beat 9 |
 | K | B-roll: hands on the Diamond | phone camera, top-down, 30 s | cut under beats 0, 2 and 4 |
 | L | End card | title + three URLs | beat 9 |
@@ -238,9 +250,10 @@ links.
 ## Pass/fail per take
 
 Run `zmk-vim-mode status` at the end of each segment; the *reason* column above is the
-expected value. A take with a different reason is a setup problem (plugin not loaded, title
-marker missing, Accessibility not granted), not a script problem — see the editor READMEs'
-troubleshooting tables.
+expected value. The HUD cannot confirm it — it shows the keyboard's layers, not the daemon's
+reasoning — so `status` is the only judge. A take with a different reason is a setup problem
+(plugin not loaded, title marker missing, the unit without `--atspi`), not a script problem —
+see the editor READMEs' troubleshooting tables.
 
 ## Words → time
 

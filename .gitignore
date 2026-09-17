@@ -34,10 +34,8 @@ editors/intellij/.intellijPlatform/
 toked-optimizer/
 token-optimizer/
 
-# Showcase video: runtime files, generated HUD data, editor state inside the demo content
+# Showcase video: runtime files and editor state inside the demo content
 /showcase/run/
-/showcase/hud/keymap.json
-/showcase/hud/keymap.js
 /showcase/demo-java/.idea/
 /showcase/demo-java/out/
 /showcase/demo-go/vimmode

@@ -1,68 +1,117 @@
 #!/bin/bash
-# Put the editors into a clean, known state before a rehearsal or a recording (macOS):
-# committed demo content, every editor quit and reopened on the right project with no
-# leftover tabs, panels or tool windows, windows placed on the recording display.
+# Put the editors into a clean, known state before a rehearsal or a recording (Omarchy /
+# Hyprland): committed demo content, every editor quit and reopened on the right project with
+# its UI state cleared.
 #
 #   bash showcase/prepare.sh
 #
-# Runs in your terminal (needs the `hs` CLI and `osascript`). ~30 s, mostly IntelliJ starting.
-# If an editor asks about unsaved changes, answer "Don't Save": the content is reset anyway.
-# The Linux counterpart is showcase/linux/prepare.sh.
+# Editors are maximized inside the HUD's reserved work area on separate workspaces.
+# Requires Hyprland's Lua dispatchers (0.55+). Launcher names:
+# `code`, `idea` (Toolbox shell script) or `intellij-idea-ultimate`, `obsidian`, `ghostty`.
 set -uo pipefail
-HERE="$(cd "$(dirname "$0")" && pwd)"
-HS=/opt/homebrew/bin/hs
-VAULT_NAME="Demo"                 # showcase/Demo, registered in Obsidian under that folder name
+SHOW="$(cd "$(dirname "$0")" && pwd)"
+VAULT_NAME="Demo"
+RUN="$SHOW/run"
+mkdir -p "$RUN"
 
 step() { printf '\n▸ %s\n' "$*"; }
 
-step "demo content back to the committed state"
-bash "$HERE/setup.sh" >/dev/null 2>&1 || bash "$HERE/setup.sh"
+close_editor_windows() {
+  hyprctl clients -j | jq -r '.[] | select(.class == "code" or .class == "obsidian" or .class == "md.obsidian.Obsidian" or (.class | test("^jetbrains-idea"))) | .address' |
+    while read -r address; do
+      [ -n "$address" ] || continue
+      hyprctl eval "return hl.dispatch(hl.dsp.window.close({window='address:$address'}))" >/dev/null
+    done
+  for _ in {1..60}; do
+    if hyprctl clients -j | jq -e '[.[] | select(.class == "code" or .class == "obsidian" or .class == "md.obsidian.Obsidian" or (.class | test("^jetbrains-idea")))] | length == 0' >/dev/null; then
+      sleep 2
+      break
+    fi
+    sleep 0.5
+  done
+  if hyprctl clients -j | jq -e '[.[] | select(.class == "code" or .class == "obsidian" or .class == "md.obsidian.Obsidian" or (.class | test("^jetbrains-idea")))] | length > 0' >/dev/null; then
+    echo "Editors have not closed; resolve any save prompts before preparing again." >&2
+    return 1
+  fi
+  # IntelliJ lingers windowless and reuses the stale instance on relaunch (seen as a
+  # Welcome screen plus a "Cannot Execute Command" dialog). Wait for it to quit so the
+  # relaunch below is fresh; SIGTERM only the exact launcher cmdline, never child processes.
+  for _ in {1..20}; do
+    pgrep -f '^/usr/share/idea/bin/idea( |$)' >/dev/null || return 0
+    sleep 0.5
+  done
+  pkill -TERM -f '^/usr/share/idea/bin/idea( |$)' 2>/dev/null || true
+  sleep 2
+  pgrep -f '^/usr/share/idea/bin/idea( |$)' >/dev/null || return 0
+  echo "IntelliJ did not quit; resolve it before preparing again." >&2
+  return 1
+}
+
+maximize_window() {
+  # Two phases: the window appears in seconds but the right project/title can lag
+  # far behind (IntelliJ reuses its window on the previous project first). Place the
+  # window immediately, then wait for the expected title.
+  local pattern="$1" workspace="$2" project="$3"
+  local address=""
+  for _ in {1..240}; do
+    address="$(hyprctl clients -j | jq -r --arg pattern "$pattern" \
+      '[.[] | select((.class | test($pattern)) and .mapped and (.floating == false))] | sort_by(.title == "") | .[0].address // empty')"
+    if [ -n "$address" ]; then
+      hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='$workspace', window='address:$address'})); hl.dispatch(hl.dsp.window.fullscreen({mode='maximized', action='set', window='address:$address'}))" || return 1
+      break
+    fi
+    sleep 0.25
+  done
+  [ -n "$address" ] || { echo "Could not find $project window; check $RUN launch logs." >&2; return 1; }
+  # Phase 2: IDEs may open transient frames first and the project in a new window, so
+  # track by class+title instead of address and re-assert placement while waiting.
+  for _ in {1..240}; do
+    while read -r address; do
+      [ -n "$address" ] || continue
+      hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='$workspace', window='address:$address'})); hl.dispatch(hl.dsp.window.fullscreen({mode='maximized', action='set', window='address:$address'}))" >/dev/null
+    done < <(hyprctl clients -j | jq -r --arg pattern "$pattern" \
+      '[.[] | select((.class | test($pattern)) and .mapped and (.floating == false)) | .address] | .[]')
+    if hyprctl clients -j | jq -e --arg pattern "$pattern" --arg workspace "$workspace" --arg project "$project" \
+      'any(.[]; ((.class | test($pattern)) and (.title | contains($project)) and .fullscreen == 1 and .workspace.id == ($workspace | tonumber)))' >/dev/null; then
+      echo "  maximized: $project on workspace $workspace (HUD space retained)"
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "Window placed but '$project' never appeared in its title; check $RUN launch logs." >&2
+  return 1
+}
 
 step "quitting the editors"
-for app in "Visual Studio Code" "IntelliJ IDEA" "Obsidian"; do
-  osascript -e "tell application \"$app\" to quit" >/dev/null 2>&1 || true
-done
-# the demo Ghostty instance (separate process, launched with our config file)
-pkill -f 'ghostty-demo.conf' 2>/dev/null || true
-sleep 3
+close_editor_windows || exit 1
 
-step "forgetting per-project UI state (open tabs, panels, tool windows, view mode)"
-# VS Code keeps restored editors and panel layout per workspace under workspaceStorage.
-CODE_STORAGE="$HOME/Library/Application Support/Code/User/workspaceStorage"
-if [ -d "$CODE_STORAGE" ]; then
-  grep -l "demo-go.code-workspace" "$CODE_STORAGE"/*/workspace.json 2>/dev/null | while read -r f; do
-    rm -rf "$(dirname "$f")" && echo "  vscode: cleared $(basename "$(dirname "$f")")"
-  done
-fi
-# IntelliJ keeps open editors and tool windows in .idea/workspace.xml.
-rm -f "$HERE/demo-java/.idea/workspace.xml" 2>/dev/null && echo "  intellij: cleared .idea/workspace.xml"
-# Obsidian keeps the open tabs and their view mode (editing/reading) in workspace.json.
-rm -f "$HERE/Demo/.obsidian/workspace.json" 2>/dev/null && echo "  obsidian: cleared Demo/.obsidian/workspace.json"
+step "demo content back to the committed state"
+bash "$SHOW/setup.sh" || exit 1
 
-step "reopening on the demo projects"
-open -a "Visual Studio Code" "$HERE/demo-go.code-workspace"
-open -a "IntelliJ IDEA" "$HERE/demo-java"
-open "obsidian://open?vault=$VAULT_NAME&file=Tasks"
-sleep 8
-# VS Code: the file the script uses, on line 1
-code -r --goto "$HERE/demo-go/internal/modes/modes.go:1:1" >/dev/null 2>&1 || true
+step "forgetting per-project UI state"
+# Preserve VS Code workspace storage: it can contain recovery state for unsaved tabs.
+rm -f "$SHOW/demo-java/.idea/workspace.xml" 2>/dev/null && echo "  intellij: cleared .idea/workspace.xml"
+rm -f "$SHOW/Demo/.obsidian/workspace.json" 2>/dev/null && echo "  obsidian: cleared Demo/.obsidian/workspace.json"
 
-step "placing the windows on the recording display"
-if "$HS" -c 'return 1' >/dev/null 2>&1; then
-  n=0
-  for _ in 1 2 3 4; do
-    n="$("$HS" -c "return dofile('$HERE/hud/place.lua').all()" 2>/dev/null || echo 0)"
-    [ "${n:-0}" -ge 3 ] && break
-    sleep 3
-  done
-  echo "  placed $n window(s)"
-else
-  echo "  hs CLI not available; place the windows by hand"
-fi
+step "reopening each editor maximized beside the HUD"
+hyprctl dispatch 'hl.dsp.focus({workspace="5"})' || exit 1
+nohup code --new-window "$SHOW/demo-go.code-workspace" --goto "$SHOW/demo-go/internal/modes/modes.go:1:1" >"$RUN/code.log" 2>&1 &
+maximize_window '^code$' 5 'demo-go' || exit 1
+IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intellij-idea-community || true)"
+[ -n "$IDEA" ] && {
+  hyprctl dispatch 'hl.dsp.focus({workspace="6"})' || exit 1
+  nohup "$IDEA" "$SHOW/demo-java" >"$RUN/idea.log" 2>&1 &
+  maximize_window '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java' || exit 1
+} || echo "  intellij launcher not found; open showcase/demo-java by hand"
+hyprctl dispatch 'hl.dsp.focus({workspace="7"})' || exit 1
+# --in-process-gpu: this NVIDIA box kills Electron's separate GPU process
+# ("GPU process isn't usable. Goodbye."). Command line only; user flags untouched.
+nohup obsidian --in-process-gpu "obsidian://open?vault=$VAULT_NAME&file=Tasks" >"$RUN/obsidian.log" 2>&1 &
+maximize_window '^(obsidian|md\.obsidian\.Obsidian)$' 7 ' - Demo - ' || exit 1
 
 cat <<EOF
 
-Ready. IntelliJ may still be indexing for a moment. Then:
-  bash showcase/hud/start.sh        # HUD + typed-keys strip (also quits KeyCastr)
-  bash showcase/rehearse.sh all     # or a single segment 3–8
+Ready once IntelliJ has indexed. Then:
+  bash showcase/hud.sh                # the layer HUD (zmk-layer-hud, reads the keyboard)
+  python3 showcase/rehearse.py all    # or a single segment 3-8
 EOF

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Transparent Wayland showcase surfaces: layer HUD with typed-keys below it.
+"""The rehearsal's copy of the layer HUD: zmk-layer-hud's own pages in transparent Wayland
+(layer-shell) surfaces, fed by rehearsal-feed.py instead of that project's hudfeed.py.
+
+A take uses zmk-layer-hud's own host (`bash showcase/hud.sh`), which draws only what the
+keyboard reports. A rehearsal types with ydotool, which never reaches the keyboard, so it needs
+a feed that adds those keys to the layers the keyboard really is on -- see rehearsal-feed.py.
+That project's Linux host spawns hudfeed.py itself and dies with it, and one variable sets both
+the feed's port and the pages' ?ws= URL, so the rehearsal brings its own window host rather than
+reaching into it. This file is a copy of the panel zmk-layer-hud was ported from; keep the
+surfaces in step with `$ZMK_LAYER_HUD/host/linux/panel.py` if that one changes.
+
+Pages: $ZMK_LAYER_HUD/hud. Port: $ZMKHUD_PORT, default 8767 -- not the 8766 a real HUD uses,
+so both can run at once.
 
 The right rail reserves space beside tiled editors; the typed-keys strip is an
 overlay stacked under the HUD and reserves nothing, leaving the bottom of the
@@ -24,8 +36,11 @@ gi.require_version("WebKit2", "4.1")
 gi.require_version("GtkLayerShell", "0.1")
 from gi.repository import Gdk, GLib, Gtk, GtkLayerShell, WebKit2
 
-SHOW = Path(__file__).resolve().parent.parent
+SHOW = Path(__file__).resolve().parent
 RUN = SHOW / "run"
+HUD = Path(os.environ.get("ZMK_LAYER_HUD", Path.home() / "projects/zmk-layer-hud")).expanduser()
+PAGES = HUD / "hud"
+PORT = os.environ.get("ZMKHUD_PORT", "8767")
 HUD_W, HUD_H = 598, 392
 KEYS_W, KEYS_H = 598, 96
 KEYS_GAP = 8
@@ -54,8 +69,7 @@ def surface(monitor, page, namespace, width, height):
     view = WebKit2.WebView.new_with_user_content_manager(manager)
     view.set_background_color(Gdk.RGBA(0, 0, 0, 0))
     view.set_size_request(width, height)
-    view.load_uri((SHOW / "hud" / page).as_uri() +
-                  f"?ws=ws://127.0.0.1:{os.environ.get('ZMKHUD_PORT', '8766')}")
+    view.load_uri((PAGES / page).as_uri() + f"?ws=ws://127.0.0.1:{PORT}")
     window.add(view)
     WINDOWS.append(window)
     return window
@@ -64,6 +78,8 @@ def surface(monitor, page, namespace, width, height):
 def main():
     if not GtkLayerShell.is_supported():
         sys.exit("A Wayland compositor with layer-shell support is required")
+    if not (PAGES / "index.html").is_file():
+        sys.exit(f"No zmk-layer-hud pages at {PAGES}: clone it or set ZMK_LAYER_HUD")
     monitors = json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
     info = next((m for m in monitors if not m["name"].startswith("eDP")), monitors[0])
     display = Gdk.Display.get_default()
@@ -131,8 +147,16 @@ def main():
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, sig, quit_host)
-    with (RUN / "keyfeed.log").open("w") as output:
-        feed = subprocess.Popen([sys.executable, "-u", str(SHOW / "linux" / "keyfeed.py")],
+    # The feed needs zmk-layer-hud's venv (hidapi, keymap-drawer); the GTK bindings here come
+    # from the system python, exactly as that project's own host splits them.
+    RUN.mkdir(exist_ok=True)
+    with (RUN / "rehearsal-feed.log").open("w") as output:
+        feed_python = os.environ.get("ZMKHUD_PYTHON") or str(HUD / ".venv/bin/python3")
+        if not os.access(feed_python, os.X_OK):
+            feed_python = sys.executable
+        # Pass the port on, so the pages and the feed cannot disagree about it.
+        feed = subprocess.Popen([feed_python, "-u", str(SHOW / "rehearsal-feed.py")],
+                                env={**os.environ, "ZMKHUD_PORT": PORT},
                                 stdout=output, stderr=output, start_new_session=True)
     def watch_feed():
         if feed.poll() is not None:
@@ -145,7 +169,7 @@ def main():
     finally:
         for window in WINDOWS:
             window.destroy()
-        # Include journalctl, including after the page's close request exits keyfeed.
+        # The whole group, including after the page's close request exits the feed.
         try:
             os.killpg(feed.pid, signal.SIGTERM)
         except ProcessLookupError:
