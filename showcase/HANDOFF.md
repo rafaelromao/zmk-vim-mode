@@ -225,7 +225,7 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 | `hud.sh` | **ran 2026-09-17 on Omarchy Quattro** (see HUD setup notes below); take HUD verified: banner follows `zmk-vim-mode set`, physical Diamond presses arrive with positions |
 | `rehearsal-panel.py` + `rehearsal-feed.py` | written 2026-09-16, **not yet run**. The panel is the old `linux/panel.py` (verified 2026-09-15 with the old pages) repointed at zmk-layer-hud's pages on port 8767; the feed is new |
 | `prepare.sh` (was `linux/prepare.sh`) | ran on the previous box; editors maximized on workspaces 5/6/7. Full editor startup/stability still unverified |
-| `rehearse.py` (was `linux/rehearse.py`) | segment 3: 4 PASS / 0 FAIL; segment 8: 4 PASS / 0 FAIL; segment 4: 26 PASS / 1 FAIL (the leader-pending RAW check, since shortened, needs a hands-off re-run). **Segments 5, 6, 7 fully green 2026-09-17: 20/0, 19/0, 15/0** (see findings below) |
+| `rehearse.py` (was `linux/rehearse.py`) | **all segments green 2026-09-17: 3→4/4, 4→27/27 (leader check resolved), 5→20/20, 6→19/19, 7→15/15, 8→4/4 — 89/89 total** (findings below) |
 | `setup.sh` | git-based content reset; works |
 | `SCRIPT.md` | beat 8 re-staged for the new HUD 2026-09-16; not re-timed on camera |
 
