@@ -1,24 +1,34 @@
 #!/bin/bash
 # Start / stop the layer HUD for a take. The HUD is its own project (rafaelromao/zmk-layer-hud):
-# it reads the keyboard's own HID reports, so the layers and the lit keys are what the Diamond
-# really did. This script only finds that checkout, checks the obvious things and hands over.
+# the keyboard reports its own layers and key positions on its signal channel (CDC-ACM over USB,
+# GATT over BLE) and the host reads what is typed from the keyboard's HID reports, so the banner
+# and the lit keys are what the Diamond really did. This script only finds that checkout, checks
+# the obvious things and hands over.
 #
-#   bash showcase/hud.sh            start
+#   bash showcase/hud.sh            start, reserving the right rail (takes)
+#   bash showcase/hud.sh --overlay  start as an overlay (no reservation)
 #   bash showcase/hud.sh stop       (or the ✕ on the panel)
 #   bash showcase/hud.sh log        tail the panel and feed logs
 #
 # Checkout: $ZMK_LAYER_HUD, default ~/projects/zmk-layer-hud. Config: $ZMKHUD_CONFIG, default
 # ~/.config/zmk-layer-hud/config.yaml. One-time setup is in that repo's README: the ZMK module
-# on the keyboard (`positions;` + CONFIG_ZMK_HID_KEYBOARD_REPORT_SIZE=12), the venv, the udev
-# rule for hidraw. Rehearsals do not use this: showcase/rehearse.py runs its own HUD, because
-# synthesized keys never reach the keyboard.
+# on the keyboard (`positions;`, built with the layer-hud-usb-uart snippet), the venv
+# (`make venv`), the udev rule for the tty + hidraw. Rehearsals do not use this:
+# showcase/rehearse.py runs its own HUD, because synthesized keys never reach the keyboard.
 set -euo pipefail
 
 HUD="${ZMK_LAYER_HUD:-$HOME/projects/zmk-layer-hud}"
 CONFIG="${ZMKHUD_CONFIG:-$HOME/.config/zmk-layer-hud/config.yaml}"
-CMD="${1:-start}"
-
-case "$CMD" in start|stop|log) ;; *) echo "usage: $0 [start|stop|log]" >&2; exit 2 ;; esac
+CMD="start"
+RESERVE="--reserve"
+for arg in "$@"; do
+  case "$arg" in
+    start|stop|log) CMD="$arg" ;;
+    --reserve) RESERVE="--reserve" ;;
+    --overlay) RESERVE="" ;;
+    *) echo "usage: $0 [start|stop|log] [--reserve|--overlay]" >&2; exit 2 ;;
+  esac
+done
 
 if [ "$(uname -s)" != Linux ]; then
   echo "This kit records on Omarchy; the HUD host here is Linux-only." >&2
@@ -74,4 +84,7 @@ MSG
 fi
 
 # That host validates the config and the keymap-drawer YAML itself, with a readable error.
-exec bash "$HOST" "$CMD"
+# Takes reserve the right rail (editors tile beside the HUD); the upstream default is an
+# overlay, which would leave editors under the board on camera.
+# shellcheck disable=SC2086
+exec bash "$HOST" "$CMD" $RESERVE

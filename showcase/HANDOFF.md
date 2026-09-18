@@ -217,6 +217,54 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   must NOT be used — it eats the `>` prefix and drops to file-search). `seg5` close-toggle is the
   current frontier: open-toggle proven twice, close-toggle not yet green in a full run.
 
+### HUD refactor + full simulation, 2026-09-18 (all on Omarchy Quattro, hands-off)
+
+- zmk-layer-hud's refactor is absorbed. The signal channel is now serial/BLE
+  (`/dev/ttyACM1` for the Diamond), typed keys come from `/dev/hidrawN` read
+  directly — hidapi is macOS-only, so the old `ZMKHUD_PYTHON=/usr/bin/python3`
+  workaround is obsolete and unset; the venv is the feed interpreter again. The
+  HUD is also overlay-by-default now (`--reserve` tiles windows beside it).
+- Kit changes, uncommitted: `hud.sh` passes `--reserve` by default (`--overlay`
+  opts out); `rehearsal-panel.py` picked up upstream's `#keys {display:none}`
+  for `index.html`; `rehearsal-feed.py`/panel comments updated; `evdev`
+  installed into the HUD venv (the feed needs evdev + pyserial + websockets +
+  keymap-drawer in one interpreter).
+- **IntelliJ cold start is broken, worked around.** A true cold `idea <path>`
+  (no instance running) deterministically opens demo-java, disposes it ~1s in
+  (`being disposed` right after a successful JPS apply; `IdeStarter - No
+  project was found to open the file in`), and shows Cannot Execute Command —
+  dismissing it exits the whole IDE. Same WARN twice on 09-16, so not new; the
+  09-17 green runs only worked because a stale instance lingered and the
+  relaunch went over its socket, which is reliable. `prepare.sh` now launches
+  bare `idea`, waits for a window plus 25 s settle (an early socket open
+  replays the dispose: `frame helper is not found`), then sends the path.
+- **Full simulation green: 89/89, exit 0** (`prepare` for VS Code + Obsidian,
+  IntelliJ staged by the same two-step by hand after two prepare runs died on
+  the cold start; seg3→4/4, 4→27/27, 5→20/20, 6→19/19, 7→15/15, 8→4/4).
+  Rehearsal feed/panel verified against the new wire format. IntelliJ paint
+  held for the whole run; one untitled empty frame lingers beside demo-java
+  and is harmless (the runner filters untitled windows).
+- **The empty frame, solved.** It is a dead Wayland surface, not a window: no
+  title, `acceptsInput: false` (focus requests fail), ignores client close,
+  empty xdg hints, and the IDE logs exactly one project frame — a leaked
+  surface from the Welcome path, most likely the abandoned pre-content main
+  frame. Evidence: it appears at bare-launch startup alongside Welcome, before
+  any socket open; a bare launch that session-restores demo-java (no Welcome)
+  produces no frame at all. It cannot steal input and is invisible under the
+  maximized project (seg6 went 19/19 with it present). Fix: `prepare.sh` parks
+  untitled jetbrains frames on workspace 9 (compositor-side move needs no
+  client cooperation) after maximizing demo-java; verified live, IDE
+  unaffected, ws6 left with only the project window.
+- **Paint death recurred.** ~40 min after its 19:58 start the project window
+  went blank-but-titled (toolbar renders, content does not) — the known
+  Skiko/GL take-blocker. Restart fixed it; session restore reopened demo-java
+  with no Welcome, no socket race and no zombie. Screenshot-verify before
+  every take; launch-only software-render mitigations still untried (owner's
+  call, do not touch vmoptions).
+- **Stale sticky override seen 20:28** (`set legacy`, sticky) — after the
+  rehearsal cleared its own. Left alone (may be deliberate); clear before
+  recording or the daemon stays forced.
+
 ### Where each piece stands
 
 | Piece | Status |

@@ -100,8 +100,34 @@ maximize_window '^code$' 5 'demo-go' || exit 1
 IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intellij-idea-community || true)"
 [ -n "$IDEA" ] && {
   hyprctl dispatch 'hl.dsp.focus({workspace="6"})' || exit 1
-  nohup "$IDEA" "$SHOW/demo-java" >"$RUN/idea.log" 2>&1 &
+  # A cold `idea <path>` races the platform's async project open: the project is
+  # disposed ~1s in ("Cannot Execute Command / No project was found to open the
+  # file in", IdeStarter WARN in idea.log), while opening the same path into a
+  # running instance over its socket works. So start bare, wait for Welcome,
+  # then send the path.
+  nohup "$IDEA" >"$RUN/idea.log" 2>&1 &
+  for _ in {1..120}; do
+    hyprctl clients -j | jq -e '[.[] | select(.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$"))] | length > 0' >/dev/null && break
+    sleep 0.5
+  done
+  # The Welcome window exists long before the instance accepts socket opens: an
+  # early `idea <path>` replays the cold-start dispose ("frame helper is not
+  # found", project disposed right after indexing). Let it settle first.
+  sleep 25
+  nohup "$IDEA" "$SHOW/demo-java" >>"$RUN/idea.log" 2>&1 &
   maximize_window '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java' || exit 1
+  # The Welcome path leaves a dead titleless surface beside the project window:
+  # unfocusable, ignores close, invisible under the maximized project (the IDE
+  # logs a single project frame, so this is a leaked surface, not a window).
+  # Park it on workspace 9 so it can never wander on camera. Best effort only.
+  parked=0
+  while read -r frame; do
+    [ -n "$frame" ] || continue
+    if hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='9', window='address:$frame'}))" >/dev/null 2>&1; then
+      parked=$((parked + 1))
+    fi
+  done < <(hyprctl clients -j | jq -r '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and .title == "") | .address] | .[]')
+  [ "$parked" -gt 0 ] && echo "  intellij: parked $parked untitled frame(s) on workspace 9"
 } || echo "  intellij launcher not found; open showcase/demo-java by hand"
 hyprctl dispatch 'hl.dsp.focus({workspace="7"})' || exit 1
 # --in-process-gpu: this NVIDIA box kills Electron's separate GPU process

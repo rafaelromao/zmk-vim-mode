@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""The rehearsal's feed for zmk-layer-hud's pages: the keyboard's own reports, plus the keys
-ydotool injects.
+"""The rehearsal's feed for zmk-layer-hud's pages: the keyboard's own signal channel, plus
+the keys ydotool injects.
 
     python3 showcase/rehearsal-feed.py [--no-keyboard] [--device ydotool] [--debug]
 
@@ -16,8 +16,9 @@ Everything about the protocol, the keymap and the layers comes from zmk-layer-hu
 ($ZMK_LAYER_HUD, default ~/projects/zmk-layer-hud); this file only adds the evdev half. Port:
 $ZMKHUD_PORT, default 8767, so a real HUD on 8766 is undisturbed.
 
-Needs: that project's venv (hidapi, keymap-drawer, websockets) and python-evdev, plus read
-access to the injected device (the `input` group).
+Needs: that project's venv (pyserial, keymap-drawer, websockets, bleak) and python-evdev,
+plus read access to the injected device (the `input` group). The venv needs no hidapi on
+Linux: the feed reads the keyboard's signal tty plus /dev/hidrawN directly.
 """
 
 import argparse

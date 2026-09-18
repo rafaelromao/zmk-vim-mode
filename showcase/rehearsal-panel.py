@@ -59,11 +59,16 @@ def surface(monitor, page, namespace, width, height):
     GtkLayerShell.set_layer(window, GtkLayerShell.Layer.TOP)
     GtkLayerShell.set_keyboard_mode(window, GtkLayerShell.KeyboardMode.NONE)
 
+    sheet = ("html, body, #keys { background: transparent !important; }"
+             "html, body { overflow: hidden !important; }"
+             "#hud, #keys .chip { border-color: transparent !important; }")
+    # The strip is a surface of its own here (keys.html), so index.html's own #keys would draw
+    # every chip a second time, in a second place, most of it clipped by this surface's height.
+    if page == "index.html":
+        sheet += "#keys { display: none !important; }"
     manager = WebKit2.UserContentManager()
     manager.add_style_sheet(WebKit2.UserStyleSheet.new(
-        "html, body, #keys { background: transparent !important; }"
-        "html, body { overflow: hidden !important; }"
-        "#hud, #keys .chip { border-color: transparent !important; }",
+        sheet,
         WebKit2.UserContentInjectedFrames.ALL_FRAMES,
         WebKit2.UserStyleLevel.USER, None, None))
     view = WebKit2.WebView.new_with_user_content_manager(manager)
@@ -147,8 +152,11 @@ def main():
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, sig, quit_host)
-    # The feed needs zmk-layer-hud's venv (hidapi, keymap-drawer); the GTK bindings here come
-    # from the system python, exactly as that project's own host splits them.
+    # The feed needs zmk-layer-hud's venv (pyserial, keymap-drawer, websockets, bleak);
+    # the GTK bindings here come from the system python, exactly as that project's own
+    # host splits them. No ZMKHUD_PYTHON override is needed on Linux: the venv reads the
+    # signal tty and /dev/hidrawN directly (that project's pre-refactor hidapi workaround
+    # is obsolete).
     RUN.mkdir(exist_ok=True)
     with (RUN / "rehearsal-feed.log").open("w") as output:
         feed_python = os.environ.get("ZMKHUD_PYTHON") or str(HUD / ".venv/bin/python3")
