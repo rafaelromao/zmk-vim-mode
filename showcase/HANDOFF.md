@@ -8,11 +8,12 @@ for the video itself.
 
 ## What the deliverable is
 
-A 6–8 minute English voice-over video, *"Rafael Romão's keymap and supporting tools"*: the
+A ~5 minute English voice-over video, *"Rafael Romão's keymap and supporting tools"*: the
 Diamond (24 keys, `1333+2`), the Magic Romak layout, and zmk-vim-mode keeping the keyboard's
 layers in sync with the editor's vim state in Neovim, VS Code, IntelliJ IDEA and Obsidian.
-The script (`SCRIPT.md`) has ten beats with timings, narration (952 words), the on-screen
-actions and the daemon `status` reason each take must show.
+The script (`SCRIPT.md`, second version, 2026-09-19) has ten beats with timings, narration
+(694 words, ~5:00), the on-screen actions and the daemon reason each take must show; `YOUTUBE.md`
+has the packaging.
 
 The recording is done by the user, on the Diamond, on whichever machine records best. The
 kit's job is to make every take predictable: a layer HUD on screen, clean demo content, a
@@ -21,6 +22,43 @@ the expected state at every step before anyone presses record. The HUD itself is
 of the kit: it is [zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud).
 
 ## State at handoff
+
+### First assembly reviewed, second script, 2026-09-19
+
+The user shared `showcase-takes.mp4` (6:10, 30 fps, TTS scratch) for review as the first attempt
+at the video. The automation held: banner, plugins, strip, reasons. As a video it needed a hook,
+a third more size, one tour instead of four, and the dead air out. `SCRIPT.md` was rewritten (ten
+beats, 694 words, ~5:00), `YOUTUBE.md` added, and `TAKE-2-PLAN.md` holds the frame-by-frame
+review and the production plan. Decisions and facts for whoever records next:
+
+- **Screen recording plus narration only** — the user's decision. No camera, no animation, no
+  music. The narration names the board in the cold open; `Diamond.jpeg` appears once.
+- **Fully automated, like the first assembly** (the user's requirement): every beat 0–9 is a
+  segment of `rehearse.py` and `record.py all` records the whole video. Beats 3–8 keep their
+  segment numbers; **`seg0`, `seg1`, `seg2`, `seg9` are new and have not run on the box**: they
+  print text cards from `env/cards/` with the demo shell's `show <card>`, open the keyboards
+  repo's PNGs maximized in `imv` (`view_image()`; `ZMK_IMAGE_VIEWER`/`_CLASS`, `KEYBOARDS_REPO`
+  override the defaults), and run the real `doctor` through a shell function that masks `$HOME`
+  as `~`. `seg3` now shows the channel and pipeline cards before its two-pane live part.
+  `record.py` accepts 0–9 and records a beat without narration (1) silently. The action tables
+  are what the segments type; each beat has a *Cut* line because the segments run longer than
+  the words on purpose.
+- **Three string edits in existing segments, not run on the box yet either**: `seg3` greps with
+  `-e decision -e led` (the assembly showed `bash: led: command not found` — ydotool dropped the
+  quotes), `seg7` types ` publish the video` instead of ` (rehearsal)` (it was on camera), `seg8`
+  types `zmk-vim-mode set raw` instead of `sh()` (the terminal stayed empty during beat 8).
+  Run `python3 showcase/rehearse.py all` once before recording; expect the new segments to need
+  a first pass (imv class, image paths, card widths at the recording font).
+- **Legibility**: HUD board ~14 % of the frame width, legends ~7 px at 1440p. `obs-scene.md`
+  makes the 1.333 Hyprland scale and `ZMK_RECORD_FPS=60` the default and raises `hud.press_ms`
+  to 500 for takes. Waybar hidden (its clock exposed the concat: 11:40 → 11:57).
+- **Mode line**: a pinned terminal in the rail running `watch -n 0.2 -t 'zmk-vim-mode status |
+  head -1'` puts the daemon's reason on camera and settles RAW vs OFF; it replaces the waybar
+  module and beat 8's terminal-only staging.
+- **Content**: `Demo/Tasks.md` lost its `# Tasks` H1 (Obsidian showed *Tasks* twice);
+  `env/cards/links.txt` is the end card.
+- The VS Code comment typed twice in the assembly came from a line that already carried it —
+  `prepare.sh` before every run, as the routine says.
 
 ### HUD replaced, kit is Linux only — 2026-09-16
 
@@ -334,7 +372,7 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 | `prepare.sh` (was `linux/prepare.sh`) | ran on the previous box; editors maximized on workspaces 5/6/7. Full editor startup/stability still unverified |
 | `rehearse.py` (was `linux/rehearse.py`) | **all segments green 2026-09-17: 3→4/4, 4→27/27 (leader check resolved), 5→20/20, 6→19/19, 7→15/15, 8→4/4 — 89/89 total** (findings below) |
 | `setup.sh` | git-based content reset; works |
-| `SCRIPT.md` | beat 8 re-staged for the new HUD 2026-09-16; not re-timed on camera |
+| `SCRIPT.md` | second script, 2026-09-19 (see above); beats 3–8 aligned with the segments; not yet recorded |
 
 Open issues the user reported that are not resolved:
 

@@ -1,16 +1,44 @@
-# Rafael Romão's keymap and supporting tools — video script
+# The keyboard that knows your vim mode — video script
 
-**Format:** screen recording with English voice-over, 7:00 target (6–8 min).
-**Resolution:** recorded at 2560×1440, delivered at 1920×1080 (see `env/obs-scene.md`).
-**On screen throughout the demos:** the editor, and the layer HUD on the right rail — the
-Diamond's active layer with keys and combos lighting up, the typed-keys strip below it. The HUD
-([zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud)) reads the keyboard's own HID
-reports, so what lights is what the keyboard did.
+**Format:** screen recording plus English narration, nothing else — no camera, no animation, no
+music. ~5:00 (4:30–5:15). **Every beat is recorded hands-off** by `record.py`; the narration is
+read after the picture is cut, and the automated takes carry a TTS scratch track only for
+judging pace.
+**Resolution:** the recording monitor at a logical 1920×1080 (Hyprland scale 1.333 on 2560×1440),
+delivered at 1920×1080 **60 fps** (`ZMK_RECORD_FPS=60` for `record.py`; see `env/obs-scene.md`).
+**On screen throughout the demos:** the editor on the left; on the right rail the layer HUD
+([zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud)) with the Diamond's active layer and
+lit keys, the typed-keys strip below it, and the **mode line** — one large terminal line with the
+daemon's decision (`decision : raw (code 6) — nvim client`). The HUD shows the keyboard's layers;
+the mode line shows the daemon's reason; together they tell RAW from OFF on camera.
+**Non-demo shots are screen recordings too, driven the same way:** the diagrams are the PNGs
+from the keyboards repo opened maximized in the image viewer (`imv` on Omarchy; `ZMK_IMAGE_VIEWER`
+overrides it); the title, the "how it works" material, the devicetree node and the end card are
+text cards in `env/cards/` printed in the demo terminal with `show <card>`. The physical keyboard
+is never on camera, so the narration names the board and the HUD stands in for it.
 **Narration pace:** ~140 words per minute; each beat lists its word count.
 
 The keymap on screen is the one in [rafaelromao/keyboards](https://github.com/rafaelromao/keyboards);
 the tool is [rafaelromao/zmk-vim-mode](https://github.com/rafaelromao/zmk-vim-mode); the layout is
-[Romak](https://rafaelromao.github.io/romak).
+[Romak](https://rafaelromao.github.io/romak). `YOUTUBE.md` has the title, thumbnail, description
+and where to post; `TAKE-2-PLAN.md` is the review of the first assembly and the production plan.
+
+## One process, ten beats
+
+`python3 showcase/record.py all` (or one beat) drives `rehearse.py`'s segment of the same
+number for every beat 0–9, with the rehearsal HUD, and lands `run/take<N>.mp4`. The action
+tables below are what the segments type, so the take shows exactly this. The demo segments run
+longer than the narration on purpose (they exercise every state the rehearsal checks): the
+*Cut* line under each beat says which stretch to keep. Before the run: monitor scaled, waybar
+hidden, the mode line placed, the take HUD stopped (`bash showcase/hud.sh stop`),
+`bash showcase/prepare.sh` done. `ZMK_RECORD_FPS=60` for the deliverable.
+
+**Typing in every take:** ~70 words per minute — about one character every 0.17 s —
+so each key lights on its own and no two fall inside the 30 ms combo window.
+Digit strings come off the NUM layer and arrow keys off the nav layer, held for
+the whole sequence; neither is ever a combo. (Digits on the vim layer itself —
+`0`, `$` in the tours — are single keys and need no hold.) `rehearse.py` types at
+this pace.
 
 ---
 
@@ -27,255 +55,252 @@ are commands, and installs with one command.
 
 ## Beats
 
-**Typing in every take:** ~70 words per minute — about one character every 0.17 s —
-so each key lights on its own and no two fall inside the 30 ms combo window.
-Digit strings come off the NUM layer and arrow keys off the nav layer, held for
-the whole sequence; neither is ever a combo. (Digits on the vim layer itself —
-`0`, `$` in the tours — are single keys and need no hold.)
+### 0 · Cold open — 0:00–0:18 (57 words) · `record.py 0`
 
-### 0 · Cold open — 0:00–0:25 (58 words)
+**Screen (`seg0`).** `nvim internal/modes/modes.go` in the demo shell, `:21` (the comment on the
+three indicator bits), `A` → INSERT, the HUD reads *Vim insert*; type ` no OS ever sets these`,
+pause, `Esc`. Then `j j k`, `l l h`, at the take pace; `u`, `:qa!`, `exit`. No title first: the
+flip is the opening shot.
 
-**Screen.** Ghostty, Neovim with `internal/modes/modes.go` open, INSERT mode, cursor in a
-comment. The HUD banner reads *Vim insert* over Alpha 1's legends. Type a few words, then
-`Esc`, then `h j k l` slowly, twice.
+**Cut.** From the first typed letter to the last `h`; drop the file opening and the exit.
 
-**Expect.** Banner *Vim insert* → *Vim normal* on `Esc`; on the vim layer the right home row
-lights index→pinky in order. Before `Esc`, while INSERT, tap `h` `j` `k` `l` once too: `h` lights the
-magic key, `j` lights the `h,` combo, `k` lights the `mg` combo, `l` lights the top row.
+**Expect.** HUD *Vim insert* → *Vim normal* on `Esc`; on the vim layer the right home row
+lights index → pinky. Mode line `normal (code 1) — nvim client`.
 
 **Narration.**
-> This is a twenty-four-key keyboard running a layout called Romak. Watch where vim's h, j, k
-> and l live while I'm typing: h is a magic key, j and k are two-key combos, l is up on the top
-> row. Now I press Escape. The keyboard changed layers with the editor. h j k l are on the home
-> row. Nothing in vim was remapped.
+> Watch the panel on the right: that's my keyboard, twenty-four keys, drawn live from its own
+> reports, on a layout called Romak. I press Escape — and the keyboard switches layers, because
+> the editor just told it vim is in normal mode. h, j, k, l are under my right hand now. Nothing
+> in vim was remapped.
 
-### 1 · Title — 0:25–0:45 (46 words)
+### 1 · Title — 0:18–0:25 (0 words) · `record.py 1`
 
-**Screen.** Title card: *Rafael Romão's keymap and supporting tools*. Cut to `Diamond.jpeg`,
-then `overview.png` (from the keyboards repo), then the three logos/names: Diamond · Magic
-Romak · zmk-vim-mode.
+**Screen (`seg1`).** `show title` in the demo terminal (the card in `env/cards/title.txt`),
+4 s; then `Diamond.jpeg` from the keyboards repo maximized in the image viewer, 3 s. Silent:
+`record.py` records this beat without a scratch track.
 
-**Narration.**
-> I'm Rafael Romão. This is my keyboard, the Diamond; my layout, Magic Romak; and
-> zmk-vim-mode, the tool that keeps the keyboard's layers in sync with the editor's vim state.
-> Today it follows Neovim, VS Code, IntelliJ IDEA and Obsidian. Let me show you why it exists.
+### 2 · The problem — 0:25–1:05 (91 words) · `record.py 2`
 
-### 2 · The problem — 0:45–1:40 (128 words)
+**Screen (`seg2`).** `alpha1.png` maximized in the image viewer for 20 s, then `vim.png` for
+20 s. The narration names the keys (`h|v` the magic key, the `h,` and `mg` combos, `l` on the top
+row; then the `h j k l` home row and the left-hand operators); the diagram is legible full-frame.
 
-**Screen.** `alpha1.png` full frame; highlight `h|v`, the `h,`/`mg` combos and `l`. Then
-`vim.png`: highlight the right home row `h j k l`, the left-hand operators, the `x d y p v`
-combos. Short cut to the old approach: a `.dtsi` excerpt with `&none` positions (optional).
+**Cut.** Switch images where the narration turns to "A vim layer removes the compromise".
 
 **Narration.**
-> Every alternative layout does this to vim. Romak puts h on a magic key that types v after a
-> vowel, j and k are combos, l is a top-row reach. Colemak, Dvorak and Gallium each scatter
-> them differently. The usual fixes are all bad: remap vim, and you fight every plugin, every
-> tutorial and every machine you ssh into. Learn the scattered positions, and your best layout
-> is worst at the thing you do most.
->
-> A vim layer removes the compromise. In normal mode the keyboard isn't typing letters, it's
-> issuing commands, so that layer can be a different map: motions on the home row, operators
-> under the other hand, dd and yy as single keys. The catch is knowing *when* you're in normal
-> mode. My keyboard used to guess by watching keys, and a wrong guess drops keystrokes.
+> Every alternative layout breaks vim's motions. On Romak, h is a magic key, j and k are
+> two-key combos, l is a top-row reach. Colemak, Dvorak, Gallium — each scatters them
+> differently. The usual fixes are bad. Remap vim, and you fight every plugin, tutorial and
+> remote machine. Learn the scattered positions, and your best layout is worst at what you do
+> most. A vim layer removes the compromise: in normal mode the keyboard isn't typing letters,
+> it's issuing commands. The catch was always knowing *when*. Guessing from keystrokes drops
+> keys.
 
-### 3 · How it works — 1:40–2:30 (122 words)
+### 3 · How it works — 1:05–1:55 (118 words) · `record.py 3`
 
-**Screen.** README diagram of the HID report descriptor (`05 08 19 01 29 05…`), then the
-code table (0 off, 1 normal, 2 insert, 3 visual, 4 legacy, 5 cmdline, 6 raw, 7 legacy silent).
-Terminal: `zmk-vim-mode status`; then `zmk-vim-mode set insert`, `set normal`, `set off`,
-`set off` again (back to auto) — the banner follows each one (*Vim insert*, *Vim normal*,
-*Alpha 1*); the daemon log's `led write … code=N` lines scroll in a second pane
-(`journalctl --user -u zmk-vim-mode -f -o cat | grep -E 'decision|led'`). `set off` and
-`set raw` both leave the banner on *Alpha 1*: that second pane is what tells them apart.
+**Screen (`seg3`).** In the demo terminal, `show channel` (the descriptor bytes and the
+eight-code table, `env/cards/channel.txt`) for 12 s, `show pipeline` (the end-to-end diagram)
+for 10 s. Then two demo terminals tiled: the right one runs the log tail, the left one types
+`zmk-vim-mode status`, then `set insert`, `set normal`, `set off`, `set off` again (back to
+auto).
 
-**Expect.** `status`: `decision : normal (code 1) — nvim client`, the Diamond listed
-`writable`. Each `set` produces one `led write` line per device.
+```bash
+journalctl --user -u zmk-vim-mode -f -o cat | grep -e decision -e led
+```
+
+**Expect.** Banner *Vim normal* → *Vim insert* → *Alpha 1*; the mode line shows the override
+after each `set` and drops it after the second `set off`; one `led write` line per device in
+the tail. `set off` and `set raw` both leave the banner on *Alpha 1*: the mode line tells them
+apart.
+
+**Cut.** Keep the two cards under the first six sentences, the `set` sequence under "I can set
+it by hand"; drop the `status` dump and the tail's start-up.
 
 **Narration.**
-> The editor knows its mode, so the editor should say it. Three parts: a Neovim plugin, a
+> The editor knows its mode, so the editor should say it. Three parts: an editor plugin, a
 > host daemon, and a ZMK module. The channel is one every keyboard already has: the LED
-> report the OS uses for Caps Lock and Num Lock. Five indicator bits; three of them — Compose,
-> Kana and Scroll Lock — no operating system ever sets. Read as a number, that's eight codes,
-> over USB or Bluetooth, with stock ZMK and no pairing.
->
-> The daemon decides the code from the focused window and from the plugins reporting in,
-> writes it to every endpoint the keyboard exposes, and the firmware flips a layer bitmask.
-> The keyboard still infers locally between keystrokes, so it never waits on the host; the
-> host corrects it within a millisecond.
+> report the OS uses for Caps Lock and Num Lock. Five bits — and three of them, Compose, Kana
+> and Scroll Lock, no operating system ever sets. Read together, that's eight codes, over USB
+> or Bluetooth, stock ZMK, no pairing. The daemon writes the code; the firmware flips a layer
+> bitmask. I can set it by hand from a terminal and the board follows. And this panel is not a
+> mock-up: it reads the keyboard's own reports, so what lights is what the keyboard did.
 
-### 4 · Neovim — 2:30–3:40 (150 words)
+### 4 · Neovim — 1:55–2:55 (139 words) · `record.py 4`
 
-**Screen.** Ghostty (demo shell) in `showcase/demo-go`. Actions, each with the HUD/`status` expectation:
+**Screen.** Ghostty (demo shell) in `showcase/demo-go`. The HUD spells the daemon's modes from
+the keyboard's layers: NORMAL → *Vim normal*, INSERT → *Vim insert*, VISUAL → *Vim visual · Vim
+normal*, CMDLINE → *Vim cmdline*; **RAW and OFF both read *Alpha 1***.
 
-The *HUD banner* column uses the daemon's mode names; the banner spells them from the
-keyboard's layers: NORMAL → *Vim normal*, INSERT → *Vim insert*, VISUAL → *Vim visual · Vim
-normal*, CMDLINE → *Vim cmdline*. **RAW and OFF both read *Alpha 1*** — `raw` selects no vim
-layer — so only `status` tells those two apart.
-
-| Action | HUD banner | `status` reason |
+| Action (what `seg4` types) | HUD banner | mode line |
 |---|---|---|
-| `nvim` → LazyVim dashboard | RAW | `nvim client` (mode raw) |
-| `f` → pick `modes.go`, Enter | NORMAL | `nvim client` |
-| **the tour**, slowly: `j j j k`, `l l l h h`, `w w e b b`, `0 $ 0`, `i` `Esc`, `a` `Esc` — every one on the right home row or its neighbours | NORMAL, INSERT, NORMAL | the HUD lights `h j k l` index→pinky, from the keyboard's own key positions |
-| `/Compose` Enter (CMDLINE on the way), `A`, type ` // bit 0 of the code`, `Esc`, `u` | CMDLINE → NORMAL → INSERT → NORMAL | |
-| `v`, `j`, `j`, `y`, `Esc` | VISUAL → NORMAL | |
-| `:` then `%s/leds/report/g` Enter | CMDLINE → NORMAL | |
-| `<space>` (leader) | RAW for ~0.3 s, until which-key opens, then NORMAL | `nvim client` (mode raw, briefly) |
-| `ff` → picker opens, type `readme` (r would be *replace* on the vim layer), `Esc` `Esc` | INSERT (the picker's input) → NORMAL | |
-| `<space>e` → explorer, `j` `j` `k` move in the tree, `<space>e` back | RAW → NORMAL | |
-| `:terminal` then `i`, type `go test ./...`, Enter, `Ctrl-\ Ctrl-n`, `:bd!` | RAW → NORMAL | |
-| `<space>l` → Lazy, `q` | RAW → NORMAL | |
+| `nvim` → LazyVim dashboard | *Alpha 1* | `raw (code 6) — nvim client` |
+| `f` → `modes.go`, Enter | *Vim normal* | `normal (code 1) — nvim client` |
+| **the tour**: `j j j k`, `l l l h h`, `w w e b b`, `0 $ 0`, `i` `Esc`, `a` `Esc`, `gg` | *Vim normal* ↔ *Vim insert* | |
+| `/Compose` Enter, `A`, type ` // bit 0 of the code`, `Esc`, `u` | *Vim normal* → *Vim insert* → *Vim normal* | `insert` → `normal` |
+| `v`, `j`, `j`, `y` | *Vim visual · Vim normal* → *Vim normal* | `visual` → `normal` |
+| `:` then `Esc` | *Vim cmdline* → *Vim normal* | `cmdline` → `normal` |
+| `<space>` (leader), `Esc` | *Alpha 1* for ~0.3 s | `raw` briefly |
+| `<space>ff`, type `readme`, `Esc` `Esc` | *Vim insert* → *Vim normal* | `insert` → `normal` |
+| `<space>e` → explorer, `j` `j` `k`, `<space>e` back | *Alpha 1* → *Vim normal* | `raw` → `normal` |
+| `:terminal`, `i`, `go test ./...` Enter, `Ctrl-\ Ctrl-n`, `:bd!` | *Alpha 1* → *Vim normal* | `raw` → `normal` |
+| `<space>l` → Lazy, `q` | *Alpha 1* → *Vim normal* | `raw` → `normal` |
+| `:qa!`, `exit` | *Alpha 1* | `off` |
+
+**Cut.** Keep everything from `nvim` to `q` out of Lazy; drop `:qa!`/`exit`. Trim the tour to
+the first eight keys if the words run out.
 
 **Narration.**
 > Neovim first, because the plugin reports the real mode from inside the editor. The
-> dashboard: every letter here is a command, so the keyboard reports *raw* and shows my plain
-> layout. Open a file: normal. i: insert — Romak is back, untouched. Escape: normal again.
-> Visual, yank, escape. Colon opens the command line on its own layer.
->
-> Now the part no window-title trick could do. Space is my leader: the moment I press it the
-> keyboard goes raw, because the next letter is a menu shortcut. A picker is a text field: insert. The file explorer:
-> raw — a, d and r reach the tree, not vim. The terminal: raw, so Escape belongs to the shell.
-> Lazy: raw. Back in the file: normal. The keyboard tracks what the editor is actually
-> expecting, not what window is in front.
+> dashboard: every letter here is a command, so the keyboard drops to raw — plain Romak. Open
+> a file: normal. i: insert, and Romak is back, untouched. Escape. v, select, yank: visual has
+> its own layer. Colon opens the command line on another. Now the part no window-title trick
+> can do. Space is my leader — the instant I press it the keyboard goes raw, because the next
+> letter is a menu shortcut. The picker is a text field: insert. The file explorer: raw, so a,
+> d and r reach the tree instead of vim. The terminal: raw, so Escape belongs to the shell.
+> Lazy: raw. Back in the file: normal. The keyboard tracks what the editor is expecting, not
+> which window is in front.
 
-### 5 · VS Code — 3:40–4:35 (118 words)
+### 5 · VS Code — 2:55–3:15 (47 words) · `record.py 5`
 
-**Screen.** `code showcase/demo-go.code-workspace`, open `modes.go`. Title bar reads
-`modes.go — demo-go [Text Editor]`.
+**Screen.** `demo-go.code-workspace`, `modes.go`; title bar `modes.go — demo-go [Text Editor]`.
 
-| Action | HUD banner | `status` reason |
+| Action (what `seg5` types) | HUD banner | mode line |
 |---|---|---|
-| click into the editor, `Esc`, then the same tour (`hjkl`, `web`, `i`/`a`) | NORMAL | `client vscode` |
-| `/Kana` Enter, `A`, type ` // bit 1 of the code`, `Esc`; `v`, `Esc`; `u` at the end | INSERT/VISUAL/NORMAL | |
-| `` Ctrl+` `` → terminal, type `go run ./cmd/vimmode`, Enter | RAW | `tool window focused: Terminal` |
-| `` Ctrl+` `` → back to the editor | NORMAL | `client vscode` |
-| `F1` → command palette, type `keyboard` (k would be *up*), `Esc` | RAW → NORMAL | `tool window focused: widget outside any view` |
-| `Ctrl+Shift+E` → Explorer sidebar, hold the nav layer for `↓` `↓` (letters create files in this Explorer setup), `Ctrl+Shift+E` again → back to the editor | RAW → NORMAL | `tool window focused: Folders` |
+| `Ctrl+P` `modes.go` Enter, `Esc`, the tour | *Vim normal* ↔ *Vim insert* | `client vscode` |
+| `/Kana` Enter, `A`, type ` // bit 1 of the code`, `Esc`; `v`, `Esc` | *Vim insert* / *Vim visual · Vim normal* → *Vim normal* | |
+| palette *View: Toggle Terminal*, type `go run ./cmd/vimmode` Enter | *Alpha 1* | `tool window focused: Terminal` |
+| palette *View: Toggle Terminal* → back | *Vim normal* | `client vscode` |
+| `F1`, type `keyboard`, `Esc` | *Alpha 1* → *Vim normal* | `tool window focused: widget outside any view` |
+| `Ctrl+Shift+E` → Explorer, hold the nav layer for `↓` `↓`, `Ctrl+Shift+E` back, `u` | *Alpha 1* → *Vim normal* | `tool window focused: Folders` |
+
+**Cut.** Keep four keys of the tour, the terminal toggle both ways, the palette. Drop the
+search-and-comment and the Explorer unless the words allow.
 
 **Narration.**
-> VS Code runs a real Neovim inside it, through vscode-neovim, and that Neovim loads the same
-> plugin. So the modes are exact, not approximated. Where VS Code differs is everything around
-> the editor. The terminal is a tool window, and no extension API fires when focus moves there;
-> the daemon reads it from the window title, which now carries the focused view. Raw. Back in
-> the editor: normal. The command palette is a quick input, and a small companion extension
-> reports it: raw while it's open, mode back the instant it closes. The sidebar: raw. Four
-> layers of detection, ranked by the daemon, and the keyboard just sees a code.
+> The same trick, three more editors. VS Code runs a real Neovim inside it through
+> vscode-neovim, so the modes are exact. Everything around the editor comes from the window
+> title and a tiny companion extension: the terminal, raw; back in the file, normal; the
+> command palette, raw.
 
-### 6 · IntelliJ IDEA — 4:35–5:25 (110 words)
+### 6 · IntelliJ IDEA — 3:15–3:35 (45 words) · `record.py 6`
 
-**Screen.** IntelliJ, `demo-java`, `ModeTable.java` open, IdeaVim on.
+**Screen.** `demo-java`, `ModeTable.java`, IdeaVim on. No `Esc` in normal mode (IdeaVim beeps).
 
-| Action | HUD banner | `status` reason |
+| Action (what `seg6` types) | HUD banner | mode line |
 |---|---|---|
-| open `ModeTable.java` (`Ctrl+Shift+N`) — already normal mode, no `Esc` (IdeaVim beeps on `Esc` in normal mode; `set visualbell` in `~/.ideavimrc` silences it), then the tour (`hjkl`, `web`, `i`/`a`) | NORMAL | `client intellij` |
-| `/COMPOSE` Enter, `A`, type ` // Compose is bit 0`, `Esc`; `v` `e` `y` `Esc`; `:` `w` Enter | INSERT/VISUAL → NORMAL; `:` shows **RAW** (IdeaVim's ex line is a separate component, so the plugin reports focus left the editor) | `intellij client raw` while the ex line is open |
-| Meh+B → Project tool window (the MEHS layer's *project* key), type `readme` in the speed search, `Esc` `Esc` | RAW → NORMAL | `intellij client raw` |
-| `Esc` → back to the editor | NORMAL | |
-| `Alt+F12` → terminal, type `ls`, Enter; `Esc`/`Alt+F12` back | RAW → NORMAL | |
-| Meh+G (`Ctrl+Alt+Shift+G`) → *Reformat Code* | *Mehs* | MEHS is a real layer, so the banner names it and the pressed key lights |
+| `Ctrl+Shift+N` `ModeTable` Enter, the tour | *Vim normal* ↔ *Vim insert* | `client intellij` |
+| `/COMPOSE` Enter, `Esc`, `A`, type ` // Compose is bit 0`, `Esc`; `v`, `Esc` | *Vim insert* / *Vim visual · Vim normal* → *Vim normal* | |
+| `:` then `Esc` | *Alpha 1* → *Vim normal* | `intellij client raw` (IdeaVim's ex line is a separate component) |
+| Meh+B → project tool window, type `readme`, `Esc` ×3 | *Alpha 1* → *Vim normal* | `intellij client raw` → `client intellij` |
+| `Alt+F12` → terminal, `ls` Enter, `Alt+F12` back, `u` | *Alpha 1* → *Vim normal* | `raw` → `normal` |
+
+**Cut.** Keep four keys of the tour, `i`/`Esc`, the project tree, the terminal.
 
 **Narration.**
-> IntelliJ has IdeaVim, and IdeaVim has a mode listener, so this plugin subscribes to it and
-> reports the same four modes. Insert, visual, the command line — same layers as Neovim.
->
-> The project tree: raw. IntelliJ's terminal and consoles are technically editors, so the
-> plugin tells them apart by their kind and reports raw there too. Without the plugin IntelliJ
-> still works — the daemon falls back to legacy mode and the keyboard infers by itself, the way
-> it did for years. And this is the MEHS layer: my IDE actions are Meh and Hyper chords the
-> firmware emits and a keymap in the repo binds. Format code, one key.
+> IntelliJ: IdeaVim has a mode listener, so the plugin subscribes to it — insert, visual, the
+> same layers. The project tree: raw. The terminal: raw. And without the plugin, the keyboard
+> still infers the mode by itself between keystrokes, the way it did for years.
 
-### 7 · Obsidian — 5:25–6:10 (100 words)
+### 7 · Obsidian — 3:35–3:58 (56 words) · `record.py 7`
 
-**Screen.** Obsidian, the *Demo* vault (`showcase/Demo`), note *Tasks*.
+**Screen.** Obsidian, the *Demo* vault, note *Tasks*.
 
-| Action | HUD banner | `status` reason |
+| Action (what `seg7` types) | HUD banner | mode line |
 |---|---|---|
-| click into the note, `Esc`, then the tour (`hjkl`, `web`, `i`/`a`) | NORMAL | `client obsidian` |
-| `j` to a task, `i`, type, `Esc` | INSERT → NORMAL | |
-| `o` then the `- [ ]` macro key, type `Record the wrap-up`, `Esc` | INSERT → NORMAL | |
-| `:` → `w` Enter | CMDLINE → NORMAL | |
-| `Ctrl+E` → reading view | RAW | `client obsidian` (mode raw) |
-| `Ctrl+E` back; click the note title | NORMAL → RAW | |
-| `Ctrl+Shift+F` → search pane, type `layer`, then click back into the note body | RAW → NORMAL | `obsidian client raw` while searching |
+| `Esc`, the tour | *Vim normal* ↔ *Vim insert* | `client obsidian` |
+| `j j`, `A`, type ` — publish the video`, `Esc`, `u` | *Vim insert* → *Vim normal* | `insert` → `normal` |
+| `:` then `Esc` | *Vim cmdline* → *Vim normal* | `cmdline` → `normal` |
+| `Ctrl+E` → reading view, `Ctrl+E` back | *Alpha 1* → *Vim normal* | `raw` → `normal` |
+| `Ctrl+Shift+F` → search, type `layer`, `Esc`, click back into the note | *Alpha 1* → *Vim normal* | `obsidian client raw` → `normal` |
+
+**Cut.** Keep `A`/type/`Esc`, reading view both ways, search and the click back.
 
 **Narration.**
-> Obsidian's editor is CodeMirror with a vim extension, and its own plugin listens to it:
-> normal, insert, the colon dialog as the command line. My macros layer has a key for a new
-> task, so a checklist item is one press. Reading view has no vim, so the keyboard reports raw
-> and Romak is back. The note title, the sidebar, search: raw. Focus returns to the text:
-> normal. Four editors, four different plumbing jobs, one daemon, and the keyboard never has to
-> guess which one it's talking to.
+> Obsidian: CodeMirror's vim, and its own plugin listens to it — normal, insert, the colon
+> dialog as the command line. Reading view has no vim, so the board is plain Romak again;
+> search, raw; back in the text, normal. Four editors, four different plumbing jobs, one
+> daemon — and the keyboard only ever sees a code.
 
-### 8 · Everywhere else — 6:10–6:35 (58 words)
+### 8 · Everywhere else — 3:58–4:23 (54 words) · `record.py 8`
 
-**Screen.** This beat is carried by the terminal, not the banner: OFF and RAW both leave the
-HUD on *Alpha 1*, and the board showing plain Romak is the point the narration makes. Switch to
-the plain Ghostty shell (no Neovim running) and run `zmk-vim-mode status` on camera —
-`off (code 0) — terminal without nvim client`; any non-editor app gives OFF too
-(`non-editor app <window class>`). Then `zmk-vim-mode set raw` and `status` again —
-`raw (code 6)` with the `override` line; `set raw` once more and `status` a third time — the
-override is gone. `zmk-vim-mode devices` shows the Diamond on USB.
+**Screen.** The plain demo shell; mode line `off (code 0) — terminal without nvim client`.
+`seg8` types `zmk-vim-mode set raw` → mode line `raw (code 6)` with the override; `set raw`
+again → back to `off`; then `exit`. The banner reads *Alpha 1* throughout: this beat is carried
+by the mode line.
+
+**Cut.** Keep both `set raw` lines and the mode line flipping.
 
 **Narration.**
-> Anywhere else the vim layers are simply off. For the cases nothing can detect — vim over
-> ssh, a screen-sharing app — set is the escape hatch, and repeating it returns to automatic.
-> The keyboard listens on USB and Bluetooth at once, so the same code reaches it whichever
-> host it's paired to.
+> Anywhere else, the vim layers are simply off. For what nothing can detect — vim over SSH, a
+> screen-share — set is the escape hatch, and repeating it returns to automatic. The keyboard
+> listens on USB and Bluetooth at the same time, so the same code reaches it whichever host it
+> is paired to.
 
-### 9 · Install and wrap-up — 6:35–7:00 (62 words)
+### 9 · Install and wrap-up — 4:23–4:58 (87 words) · `record.py 9`
 
-**Screen.** Pre-rendered terminal (not live; `doctor` prints home paths): `make install`
-summary lines, then `zmk-vim-mode doctor` with every check green. End card with the three
-links.
+**Screen (`seg9`).** In the demo terminal: `doctor` (the demo shell's function — the real
+`zmk-vim-mode doctor` with home paths shown as `~`), 8 s; `show node` (the `vim_sync { … }`
+devicetree node, `env/cards/node.txt`), 6 s; `show links` (the end card: zmk-vim-mode ·
+zmk-layer-hud · keyboards · Romak), 8 s.
+
+**Cut.** Doctor under the first sentence, the node under the second, the links to the end.
 
 **Narration.**
 > One command installs the daemon, the service, the Neovim spec and the editor extensions, and
-> doctor tells you what's left — here, a udev rule. The keymap, the layout and the tool
-> are all on my GitHub. If you type on an alternative layout and live in vim, this is the
-> compromise you no longer have to make.
+> doctor tells you what's left. The keyboard side is four layers and one devicetree node — they
+> can start empty. Everything is on GitHub: the tool, the keymap, the layout, and the layer HUD,
+> which works with any ZMK board and doesn't need vim at all. If you type on an alternative
+> layout and live in vim, this is the compromise you no longer have to make. Tell me your layout
+> below.
 
 ---
 
 ## Shot list
 
-| # | Shot | Source | Notes |
+Every shot is a screen recording of the recording monitor, HUD rail included, produced by
+`record.py` from the segment of the same number.
+
+| # | Shot | Source | Beat |
 |---|---|---|---|
-| A | Diamond photo | `keyboards/docs/img/builds/Diamond.jpeg` | title beat |
-| B | Layer diagrams | `keyboards/docs/img/diagrams/{overview,alpha1,vim,numbers,symbols}.png` | beats 1–2; zoom on regions |
-| C | HID descriptor + code table | README.md of zmk-vim-mode (render as text cards) | beat 3 |
-| D | Terminal: `status`, `set`, log tail | live, demo shell | beat 3 |
-| E | Neovim segment | live | beat 4 |
-| F | VS Code segment | live | beat 5 |
-| G | IntelliJ segment | live | beat 6 |
-| H | Obsidian segment | live | beat 7 |
-| I | Browser + `set` | live | beat 8 |
-| J | `make install` / `doctor` | pre-rendered or blurred paths | beat 9 |
-| K | B-roll: hands on the Diamond | phone camera, top-down, 30 s | cut under beats 0, 2 and 4 |
-| L | End card | title + three URLs | beat 9 |
+| A | Cold open in Neovim | `seg0` | 0 |
+| B | Title card, Diamond photo | `env/cards/title.txt`; `keyboards/docs/img/builds/Diamond.jpeg` in the image viewer | 1 |
+| C | Layer diagrams | `keyboards/docs/img/diagrams/{alpha1,vim}.png` in the image viewer | 2 |
+| D | Channel and pipeline cards, then the live `set` sequence | `env/cards/{channel,pipeline}.txt`; two demo terminals | 3 |
+| E | Editor demos | `seg4`–`seg7` | 4–7 |
+| F | Everywhere else | `seg8` | 8 |
+| G | Doctor (paths masked), the node card, the links card | the demo shell's `doctor`; `env/cards/{node,links}.txt` | 9 |
+
+## Pre-flight, every run
+
+`bash showcase/prepare.sh` run · monitor scaled · waybar hidden · mode line placed · take HUD
+stopped (`bash showcase/hud.sh stop`; the rehearsal brings its own) · no daemon override
+(`zmk-vim-mode status` shows none) · `git status` clean in the demo dirs · the keyboards repo at
+`~/projects/keyboards` (or `KEYBOARDS_REPO`) · `imv` present (or `ZMK_IMAGE_VIEWER`). After the
+run, scrub each take: HUD drawing the board throughout, no error line in any terminal, the
+mode line matching the tables.
 
 ## Pass/fail per take
 
-Run `zmk-vim-mode status` at the end of each segment; the *reason* column above is the
-expected value. The HUD cannot confirm it — it shows the keyboard's layers, not the daemon's
-reasoning — so `status` is the only judge. A take with a different reason is a setup problem
-(plugin not loaded, title marker missing, the unit without `--atspi`), not a script problem —
-see the editor READMEs' troubleshooting tables.
+The mode line (or `zmk-vim-mode status`) must show the reason in the tables above; the HUD
+shows the keyboard's layers, not the daemon's reasoning. `rehearse.py` checks the same reasons
+and reports to `run/rehearsal.log`; a take with a failed check is a setup problem (plugin not
+loaded, title marker missing, the unit without `--atspi`), not a script problem.
 
 ## Words → time
 
 | Beat | Words | Time |
 |---|---|---|
-| 0 | 58 | 0:25 |
-| 1 | 46 | 0:20 |
-| 2 | 128 | 0:55 |
-| 3 | 122 | 0:50 |
-| 4 | 150 | 1:10 |
-| 5 | 118 | 0:55 |
-| 6 | 110 | 0:50 |
-| 7 | 100 | 0:45 |
-| 8 | 58 | 0:25 |
-| 9 | 62 | 0:25 |
-| **total** | **952** | **7:00** |
+| 0 | 57 | 0:18 |
+| 1 | 0 | 0:07 |
+| 2 | 91 | 0:40 |
+| 3 | 118 | 0:50 |
+| 4 | 139 | 1:00 |
+| 5 | 47 | 0:20 |
+| 6 | 45 | 0:20 |
+| 7 | 56 | 0:23 |
+| 8 | 54 | 0:25 |
+| 9 | 87 | 0:35 |
+| **total** | **694** | **4:58** |
 
-Narration is slower than the actions in beats 4–7; pause the voice, let the HUD flip, then
-continue. Cut the actions, not the words.
+The automated segments run longer than their words by design (they exercise every state the
+rehearsal checks); the *Cut* lines say what to keep. Cut the actions, not the words.

@@ -1,0 +1,8 @@
+
+
+
+      The keyboard that knows your vim mode
+
+
+      Rafael Romão
+      Diamond  ·  Magic Romak  ·  zmk-vim-mode

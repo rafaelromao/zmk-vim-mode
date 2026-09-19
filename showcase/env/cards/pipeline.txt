@@ -1,0 +1,18 @@
+Pressing i in Neovim:
+
+  nvim ModeChanged ──► plugin ──► unix socket ──► daemon
+                                                   │ decides code 2 (insert)
+                                                   ▼
+                               write [0x01, 0x10] to /dev/hidrawN
+                                                   │  report id, LED byte
+                      kernel ──► USB SET_REPORT  /  BLE GATT write
+                                                   ▼
+                      ZMK zmk_hid_indicators_process_report()
+                                                   ▼
+                        event: zmk_hid_indicators_changed
+                                                   ▼
+                        this module: decode 0x10 → code 2
+                                                   ▼
+              deactivate the managed layers, activate VIM_INSERT
+
+The firmware tests three bits and flips a layer bitmask. No scanning, no typing.

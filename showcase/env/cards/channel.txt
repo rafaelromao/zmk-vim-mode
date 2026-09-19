@@ -1,0 +1,21 @@
+The LED output report — the host's byte for the Caps Lock and Num Lock lamps:
+
+  05 08  19 01  29 05  75 01  95 05  91 02
+  │      │      │      │      │      └─ output: data, variable, absolute
+  │      │      │      │      └──────── five of them
+  │      │      │      └─────────────── one bit each
+  │      │      └────────────────────── usage max = Kana      (0x05)
+  │      └───────────────────────────── usage min = Num Lock  (0x01)
+  └──────────────────────────────────── usage page = LED
+
+Three of the five bits no OS ever sets. Read as one number: eight codes.
+
+  code  state           Scroll  Kana  Compose  byte   keyboard
+     0  off                ·      ·      ·     0x00   no vim layers
+     1  normal             ·      ·      ●     0x08   VIM_NORMAL
+     2  insert             ·      ●      ·     0x10   VIM_INSERT
+     3  visual             ·      ●      ●     0x18   VIM_NORMAL + VIM_VISUAL
+     4  legacy             ●      ·      ·     0x04   keyboard infers the mode
+     5  cmdline            ●      ·      ●     0x0c   VIM_CMDLINE
+     6  raw                ●      ●      ·     0x14   no vim layers, keys pass
+     7  legacy silent      ●      ●      ●     0x1c   as 4, no Esc re-injected

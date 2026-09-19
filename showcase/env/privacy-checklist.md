@@ -14,6 +14,14 @@ Anything not on this list that shows a name, an address or an employer stops the
 - [ ] Karabiner has no counterpart here, but check no other tool is grabbing the Diamond: the HUD
       cannot read a device another process has seized (`bash showcase/hud.sh log` says so)
 
+## Take hygiene (not privacy, but the first take lost clips to each of these)
+
+- [ ] HUD drawing the board — not *waiting for the keymap…*
+- [ ] Typed-keys strip empty; no `(rehearsal)` chip (the rehearsal HUD is not running)
+- [ ] Mode line visible and showing the beat's expected reason
+- [ ] No error line in any terminal on screen (pre-type the `journalctl … | grep` pipe before the take)
+- [ ] Monitor scale set, waybar hidden, `hud.press_ms` raised for the take
+
 ## Terminal
 
 - [ ] The demo terminal is Bash with `env/demo.bashrc` (see `env/ghostty-demo.conf`): prompt shows

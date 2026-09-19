@@ -11,17 +11,20 @@ its runner and its recording notes — was removed when the HUD moved out; `git 
 
 | Path | What |
 |---|---|
-| `SCRIPT.md` | the video script: beats, timings, narration, expected `status` per take, shot list |
+| `SCRIPT.md` | the video script: beats, timings, narration, expected mode-line reason per take, shot list, pre-flight |
+| `YOUTUBE.md` | title, thumbnail, description, chapters, where to post, the Short |
 | `HANDOFF.md` | state, decisions and lessons for the next agent |
+| `TAKE-2-PLAN.md` | review of the first take (2026-09-19) and the production plan for the second |
 | `hud.sh` | start/stop the layer HUD for a take, from its own checkout (`$ZMK_LAYER_HUD`, default `~/projects/zmk-layer-hud`) |
 | `prepare.sh` | quit, clean and reopen the editors on the demo content, maximized on their workspaces |
 | `rehearse.py` | run one segment (or all) with synthesized keystrokes, report to `run/rehearsal.log` |
+| `record.py` | screen-record every beat (0–9) hands-off, one segment each, with a TTS scratch narration → `run/take<N>.mp4` |
 | `rehearsal-panel.py`, `rehearsal-feed.py` | the rehearsal's own copy of the HUD — see *Rehearsals* below |
 | `setup.sh` | reset the demo content to the committed state, print the one-time GUI steps |
 | `Demo/` | the Obsidian vault used on camera (open it as a vault; its runtime state is ignored) |
 | `demo-go/`, `demo-go.code-workspace` | Go module for Neovim and VS Code |
 | `demo-java/` | plain Java project for IntelliJ IDEA |
-| `env/` | `ghostty-demo.conf` and `demo.bashrc` (demo terminal), `obs-scene.md`, `privacy-checklist.md` |
+| `env/` | `ghostty-demo.conf` and `demo.bashrc` (demo terminal), `obs-scene.md`, `privacy-checklist.md`, `cards/` (title, channel, pipeline, node, links — printed with `show <card>`) |
 | `run/` | gitignored runtime files |
 
 ## Prerequisites
@@ -62,7 +65,7 @@ quit; open `demo-java` in IntelliJ once and accept a JDK; trust the VS Code work
 ```bash
 bash showcase/prepare.sh            # clean editor state (also resets the demo content)
 bash showcase/hud.sh                # the layer HUD on the recording monitor
-python3 showcase/rehearse.py all    # or one segment 3–8; --verbose logs every keystroke
+python3 showcase/rehearse.py all    # or one segment 0–9; --verbose logs every keystroke
 bash showcase/hud.sh stop           # or the ✕ on the panel
 ```
 
@@ -90,12 +93,13 @@ below it, so visual mode reads *Vim visual · Vim normal*.
 
 Two things it does **not** show, both worth knowing before a take:
 
-- **No daemon reason on screen.** The daemon is not a source any more. `zmk-vim-mode status` is
-  the only place the reason appears.
+- **No daemon reason in the HUD.** The daemon is not a source any more. For the takes, the
+  *mode line* — a pinned terminal in the rail running `watch -n 0.2 -t 'zmk-vim-mode status |
+  head -1'` (`env/obs-scene.md`) — puts the reason on camera beside the board.
 - **RAW and OFF look the same.** `raw` (code 6) selects no vim layer, so it reads *Alpha 1*, just
   like code 0 — and codes 4 and 7 (legacy) read *Vim normal*, just like code 1 (see
   `keyboards/src/features/vim.dtsi`). Beat 8 of `SCRIPT.md` is about exactly that distinction, so
-  it is carried by `status` in the demo terminal, not by the banner.
+  it is carried by the mode line, not by the banner.
 
 The layout, the ZMK position of each drawer key, the layer table and the combo coverage all live
 in `~/.config/zmk-layer-hud/config.yaml` (`positions:`, `layers.map`, `combos:`); that project's

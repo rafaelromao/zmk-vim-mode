@@ -1,5 +1,3 @@
-# Tasks
-
 - [x] Flash the Diamond with the vim-mode module
 - [x] Install the Obsidian plugin
 - [ ] Record the Neovim segment

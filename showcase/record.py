@@ -2,7 +2,7 @@
 """Automated takes for the showcase video: screen-record rehearsal segments with
 a TTS scratch narration track.
 
-    python3 showcase/record.py [3|4|5|6|7|8|all] [--no-tts]
+    python3 showcase/record.py [0-9|all] [--no-tts]
 
 One take per beat lands in showcase/run/take<N>.mp4 (gitignored): the segment's
 screen output on HDMI-A-1 at 30 fps (rehearsal HUD included, exactly as the
@@ -40,7 +40,7 @@ REHEARSE = os.path.join(SHOW, "rehearse.py")
 SCRIPT = os.path.join(SHOW, "SCRIPT.md")
 MONITOR = os.environ.get("ZMK_RECORD_MONITOR", "HDMI-A-1")
 FPS = os.environ.get("ZMK_RECORD_FPS", "30")
-BEATS = ["3", "4", "5", "6", "7", "8"]
+BEATS = [str(n) for n in range(10)]   # every beat of SCRIPT.md is a segment of rehearse.py
 # TTS at ~140 words per minute, the script's assumed narration pace.
 LENGTH_SCALE = os.environ.get("ZMK_TTS_LENGTH_SCALE", "1.3")
 
@@ -62,7 +62,7 @@ def narration(beat):
             elif in_beat and line.startswith(">"):
                 text.append(line[1:].strip())
     if not text:
-        fail(f"no narration found for beat {beat} in SCRIPT.md")
+        return ""   # a silent beat (the title card): recorded without a scratch track
     out = " ".join(text)
     out = out.replace("—", ", ").replace("–", ", ").replace("  ", " ")
     out = re.sub(r"\bssh\b", "S S H", out)
@@ -169,9 +169,10 @@ def take(seg, with_tts):
     for f in (raw, out):
         if os.path.exists(f):
             os.remove(f)
-    if with_tts:
+    text = narration(seg) if with_tts else ""
+    if text:
         print(f"take {seg}: rendering narration", flush=True)
-        render_tts(narration(seg), wav)
+        render_tts(text, wav)
     else:
         wav = None
     print(f"take {seg}: recording", flush=True)
@@ -227,7 +228,7 @@ def feed_python():
 if __name__ == "__main__":
     if "--help" in sys.argv or "-h" in sys.argv:
         print(__doc__.strip().split("\n\n")[0])
-        print("usage: python3 showcase/record.py [3|4|5|6|7|8|all] [--no-tts]")
+        print("usage: python3 showcase/record.py [0-9|all] [--no-tts]")
         sys.exit(0)
     unknown = [a for a in sys.argv[1:] if a.startswith("--") and a != "--no-tts"]
     if unknown:

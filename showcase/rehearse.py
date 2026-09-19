@@ -47,6 +47,11 @@ report = open(os.path.join(RUN, "rehearsal.log"), "w")
 results = {"pass": 0, "fail": 0}
 target_address = None
 DEMO_CLASS = "com.mitchellh.ghostty"
+# Beats 1 and 2 show images from the keyboards repo in an image viewer (Omarchy ships imv;
+# override both if yours differs — the class is what wait_window() matches).
+KEYBOARDS = os.environ.get("KEYBOARDS_REPO", os.path.expanduser("~/projects/keyboards"))
+IMAGE_VIEWER = os.environ.get("ZMK_IMAGE_VIEWER", "imv")
+IMAGE_VIEWER_CLASS = os.environ.get("ZMK_IMAGE_VIEWER_CLASS", "imv")
 version = json.loads(subprocess.check_output(["hyprctl", "version", "-j"], text=True))
 LUA = tuple(int(n) for n in version["version"].split(".")[:2]) >= (0, 55)
 
@@ -323,6 +328,69 @@ def open_demo_ghostty(maximize=True):
     return proc
 
 
+def view_image(path, hold):
+    """Open one image maximized on the demo workspace, hold it, close it."""
+    if not os.path.isfile(path):
+        log(f"missing image {path}"); results["fail"] += 1; return
+    proc = subprocess.Popen([IMAGE_VIEWER, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    win = wait_window(IMAGE_VIEWER_CLASS, timeout=20.0, pid=proc.pid)
+    place(win["address"], 8)
+    time.sleep(hold)
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+    time.sleep(0.5)
+
+
+def seg0():
+    """Cold open: Esc flips the board, hjkl on the home row. Beat 0 of SCRIPT.md."""
+    log("--- segment 0: cold open")
+    open_demo_ghostty()
+    keys("nvim internal/modes/modes.go\n", 3.0); expect("normal", "nvim client")
+    keys(":21\n", 0.8)                       # the comment about the three indicator bits
+    keys("A", 0.6); expect("insert")
+    keys(" no OS ever sets these", 1.0)
+    esc(1.0); expect("normal")
+    for k in "jjk":
+        keys(k, 0.5)
+    for k in "llh":
+        keys(k, 0.5)
+    expect("normal")
+    keys("u", 0.5)
+    keys(":qa!\n", 1.5)
+    keys("exit\n", 0.8)
+
+
+def seg1():
+    """Title card in the demo terminal, then the Diamond photo. Beat 1 (no narration)."""
+    log("--- segment 1: title")
+    term = open_demo_ghostty()
+    keys("show title\n", 4.0); expect("off")
+    view_image(os.path.join(KEYBOARDS, "docs/img/builds/Diamond.jpeg"), 3.0)
+    focus(re.escape(DEMO_CLASS), 0.5, pid=term.pid)
+    keys("exit\n", 0.8)
+
+
+def seg2():
+    """The problem: the alpha layer, then the vim layer. Beat 2."""
+    log("--- segment 2: the problem")
+    view_image(os.path.join(KEYBOARDS, "docs/img/diagrams/alpha1.png"), 20.0)
+    view_image(os.path.join(KEYBOARDS, "docs/img/diagrams/vim.png"), 20.0)
+    expect("off")
+
+
+def seg9():
+    """Install and wrap-up: doctor (paths masked), the devicetree node, the links. Beat 9."""
+    log("--- segment 9: install and wrap-up")
+    open_demo_ghostty()
+    keys("doctor\n", 8.0); expect("off")
+    keys("show node\n", 6.0)
+    keys("show links\n", 8.0)
+    keys("exit\n", 0.8)
+
+
 def vim_tour():
     for k in "jjjklllhh":
         keys(k, 0.35)
@@ -345,7 +413,7 @@ def seg3():
     time.sleep(0.5)
     tail_pane = open_demo_ghostty(maximize=False)
     focus(re.escape(DEMO_CLASS), 1.0, pid=tail_pane.pid, maximize=False)
-    keys("journalctl --user -u zmk-vim-mode -f -o cat | grep -E 'decision|led'\n", 1.5)
+    keys("journalctl --user -u zmk-vim-mode -f -o cat | grep -e decision -e led\n", 1.5)  # no quotes: ydotool dropped them, the shell saw `| led`
     focus(re.escape(DEMO_CLASS), 1.0, pid=cmd_pane.pid, maximize=False)
     keys("zmk-vim-mode status\n", 3.0)
     keys("zmk-vim-mode set insert\n", 1.5); expect("insert")
@@ -466,7 +534,7 @@ def seg7():
     wait_editor("obsidian")
     vim_tour()
     keys("jj", 0.3); keys("A", 0.5); expect("insert")
-    keys(" (rehearsal)", 0.4)
+    keys(" publish the video", 0.4)   # on camera in the take; `u` undoes it
     esc(0.5); expect("normal")
     keys("u", 0.4)
     keys(":", 0.6); expect("cmdline")
@@ -492,8 +560,8 @@ def seg8():
     log("--- segment 8: everywhere else")
     open_demo_ghostty()
     expect("off", "terminal without nvim client")
-    sh(f"{BINARY} set raw", 0.5); expect("raw")
-    sh(f"{BINARY} set raw", 0.5)
+    keys("zmk-vim-mode set raw\n", 1.5); expect("raw")   # typed, not sh(): beat 8 is carried by what is on camera
+    keys("zmk-vim-mode set raw\n", 1.5)
     st = status()
     ok = st.get("override") is None
     results["pass" if ok else "fail"] += 1
@@ -502,7 +570,8 @@ def seg8():
     keys("exit\n", 0.8)
 
 
-SEGMENTS = {"3": seg3, "4": seg4, "5": seg5, "6": seg6, "7": seg7, "8": seg8}
+SEGMENTS = {"0": seg0, "1": seg1, "2": seg2, "3": seg3, "4": seg4, "5": seg5,
+            "6": seg6, "7": seg7, "8": seg8, "9": seg9}
 
 if __name__ == "__main__":
     ensure_ydotoold()
