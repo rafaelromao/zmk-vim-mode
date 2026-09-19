@@ -12,8 +12,9 @@ layers the keyboard really is on, which follow `zmk-vim-mode set …` because th
 the mode to the keyboard -- and adds the injected keys read off ydotool's virtual device. The
 pages then light them against the real layer stack, exactly as they light real typing.
 Arrow keys and digits are drawn as held layers (the nav/numbers drawers), never
-as combos — the way the takes type them. The keyboard's 2 s heartbeat re-asserts
-its own layers anyway; a release also puts them back at once.
+as combos — the way the takes type them. The release puts the keyboard's own
+layers back at once (a same-valued heartbeat re-asserts nothing, so the
+restore is the correction, not a speedup).
 
 Everything about the protocol, the keymap and the layers comes from zmk-layer-hud
 ($ZMK_LAYER_HUD, default ~/projects/zmk-layer-hud); this file only adds the evdev half. Port:
@@ -139,10 +140,10 @@ class InjectedKeys:
         return [{"kind": "layers", "ids": ids}] if ids else []
 
     def restore_layers(self):
-        """The keyboard's own layers again, after an emulated hold (the 2 s
-        heartbeat would do the same, this is just immediate)."""
+        """The keyboard's own layers again, after an emulated hold. [] is a
+        real state (base layer only), not a missing one — only None skips."""
         ids = self.true_layers()
-        return [{"kind": "layers", "ids": list(ids)}] if ids else []
+        return [{"kind": "layers", "ids": list(ids)}] if ids is not None else []
 
     def find(self):
         for path in evdev.list_devices():
@@ -214,10 +215,21 @@ async def main(args):
         # keyboard is actually on — the daemon moves those, so the banner stays ground truth.
         feed = hudfeed.Feed(emit, log=hub.log, config=args.config).start()
 
+    def true_layers():
+        # The live layer stack sits on each reader stream's decoder (readers
+        # themselves expose none); first stream that ever reported wins, None
+        # while none has. Reading is exact, so a restore can never stick a
+        # wrong picture (a same-valued heartbeat re-asserts nothing).
+        reader = getattr(feed, "reader", None)
+        for stream in getattr(reader, "_streams", None) or ():
+            ids = getattr(getattr(stream, "decoder", None), "layers", None)
+            if ids is not None:
+                return list(ids)
+        return None
+
     injected = InjectedKeys(emit, hub.log, args.device,
                             keymap=lambda: hub.cache.get("keymap"),
-                            true_layers=lambda: getattr(getattr(feed, "reader", None),
-                                                        "layers", None))
+                            true_layers=true_layers)
     asyncio.ensure_future(injected.run())
 
     try:

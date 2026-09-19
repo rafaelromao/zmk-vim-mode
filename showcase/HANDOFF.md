@@ -298,6 +298,27 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   only and skips windows already placed — a settled layout sees zero
   dispatches. Parking untitled frames on ws9 stays as the containment.
 - **Full green 07:30: 89/89** with all of the above.
+- **Automated takes (`showcase/record.py`, committed).** Per-beat screen
+  recording of the rehearsal (gpu-screen-recorder, CPU fallback — NVENC is too
+  old here) with a piper TTS scratch narration parsed out of `SCRIPT.md`;
+  takes land in `run/take<N>.mp4`. The driver holds `omarchy toggle idle
+  stay-awake` for the run (shell logs prove zero idle cycles mid-take),
+  preflights the feed interpreter, and cleans stray rehearsal HUDs (a killed
+  driver orphans them, since rehearse.py never runs its cleanup).
+- **Stuck banner, root-caused and fixed.** The restore read
+  `feed.reader.layers`, which does not exist — the live stack is on each
+  reader stream's decoder (`reader._streams[].decoder.layers`) — so restores
+  never fired, and same-valued heartbeats deliberately re-assert nothing. Now
+  reads the decoder chain (`[]` vs `None` handled) with a message-level unit
+  test. Verified in-video: banners match their moment, nothing sticks.
+- **The "missing HUD" frames were post-cleanup tails**, not mid-take death:
+  the panel lives through every take (liveness-sampled), and rail-less frames
+  are rehearse's own stop_hud plus the mux freeze (tails cut 60 s → 5 s).
+- **Screensaver behavior mapped.** It dismisses on any keystroke (uinput
+  counts), so it cannot survive a take; the one seen fired after a run during
+  idle verification. stay-awake is honored (zero cycles in shell logs
+  mid-run). Screensaver overlay explains "workspaces messed on return":
+  fullscreen saver drops tiling/reservations.
 
 ### Where each piece stands
 
