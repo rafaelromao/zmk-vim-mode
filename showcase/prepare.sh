@@ -110,6 +110,8 @@ IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intel
     hyprctl clients -j | jq -e '[.[] | select(.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$"))] | length > 0' >/dev/null && break
     sleep 0.5
   done
+  hyprctl clients -j | jq -e '[.[] | select(.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$"))] | length > 0' >/dev/null \
+    || { echo "IntelliJ showed no window within a minute; check $RUN/idea.log." >&2; exit 1; }
   # The Welcome window exists long before the instance accepts socket opens: an
   # early `idea <path>` replays the cold-start dispose ("frame helper is not
   # found", project disposed right after indexing). Let it settle first.
@@ -128,12 +130,39 @@ IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intel
     fi
   done < <(hyprctl clients -j | jq -r '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and .title == "") | .address] | .[]')
   [ "$parked" -gt 0 ] && echo "  intellij: parked $parked untitled frame(s) on workspace 9"
+  true
 } || echo "  intellij launcher not found; open showcase/demo-java by hand"
 hyprctl dispatch 'hl.dsp.focus({workspace="7"})' || exit 1
 # --in-process-gpu: this NVIDIA box kills Electron's separate GPU process
 # ("GPU process isn't usable. Goodbye."). Command line only; user flags untouched.
 nohup obsidian --in-process-gpu "obsidian://open?vault=$VAULT_NAME&file=Tasks" >"$RUN/obsidian.log" 2>&1 &
 maximize_window '^(obsidian|md\.obsidian\.Obsidian)$' 7 ' - Demo - ' || exit 1
+
+step "daemon state"
+if command -v zmk-vim-mode >/dev/null 2>&1; then
+  if [ "$(zmk-vim-mode status --json 2>/dev/null | jq -r '.override == null')" != "true" ]; then
+    echo "  WARNING: a mode override is active; clear it before recording or the daemon stays forced" >&2
+  else
+    echo "  daemon in auto mode"
+  fi
+fi
+
+step "workspace layout (one editor per workspace, maximized)"
+layout_ok=1
+check_ws() {  # $1 = class pattern, $2 = workspace, $3 = title fragment
+  n=$(hyprctl clients -j | jq --arg p "$1" --argjson w "$2" --arg t "$3" \
+    '[.[] | select((.class | test($p)) and .workspace.id == $w and (.title | contains($t)) and .fullscreen == 1)] | length')
+  if [ "$n" -ge 1 ]; then
+    echo "  ok: $3 maximized on workspace $2"
+  else
+    echo "  LAYOUT PROBLEM: $3 not maximized on workspace $2" >&2
+    layout_ok=0
+  fi
+}
+check_ws '^code$' 5 'demo-go'
+check_ws '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java'
+check_ws '^(obsidian|md\.obsidian\.Obsidian)$' 7 ' - Demo - '
+[ "$layout_ok" = 1 ] || exit 1
 
 cat <<EOF
 

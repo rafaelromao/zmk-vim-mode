@@ -11,6 +11,9 @@ runs zmk-layer-hud's own reader -- the keymap and its live reload, the device na
 layers the keyboard really is on, which follow `zmk-vim-mode set …` because the daemon writes
 the mode to the keyboard -- and adds the injected keys read off ydotool's virtual device. The
 pages then light them against the real layer stack, exactly as they light real typing.
+Arrow keys and digits are drawn as held layers (the nav/numbers drawers), never
+as combos — the way the takes type them. The keyboard's 2 s heartbeat re-asserts
+its own layers anyway; a release also puts them back at once.
 
 Everything about the protocol, the keymap and the layers comes from zmk-layer-hud
 ($ZMK_LAYER_HUD, default ~/projects/zmk-layer-hud); this file only adds the evdev half. Port:
@@ -72,14 +75,27 @@ MODS = {
     E.KEY_RIGHTCTRL: "ctrl", E.KEY_LEFTALT: "alt", E.KEY_RIGHTALT: "alt",
     E.KEY_LEFTMETA: "cmd", E.KEY_RIGHTMETA: "cmd",
 }
+# Keys a human never combos: arrows and digits come off held layers, so the
+# rehearsal holds them too — the banner reads the layer, exactly as on camera.
+NAV_CODES = {E.KEY_UP, E.KEY_DOWN, E.KEY_LEFT, E.KEY_RIGHT,
+             E.KEY_HOME, E.KEY_END, E.KEY_PAGEUP, E.KEY_PAGEDOWN}
+DIGIT_CODES = {E.KEY_0, E.KEY_1, E.KEY_2, E.KEY_3, E.KEY_4,
+               E.KEY_5, E.KEY_6, E.KEY_7, E.KEY_8, E.KEY_9}
+NAV_DRAWERS = {"nav"}
+DIGIT_DRAWERS = {"numbers"}
 
 
 class InjectedKeys:
     """Reads one evdev device and emits zmk-layer-hud key messages for what it types."""
 
-    def __init__(self, emit, log, match=DEVICE):
+    def __init__(self, emit, log, match=DEVICE, keymap=None, true_layers=None):
         self.emit, self.log, self.match = emit, log, match
         self.held = {"cmd": 0, "ctrl": 0, "alt": 0, "shift": 0}
+        # The keymap message (for drawer -> ZMK layer ids) and the keyboard's
+        # own current layer ids (to put back after an emulated hold). Both are
+        # best effort: without them the keys still light, just with no banner.
+        self.keymap = keymap or (lambda: None)
+        self.true_layers = true_layers or (lambda: None)
 
     def flags(self):
         return {k: v > 0 for k, v in self.held.items()} | {"fn": False}
@@ -99,6 +115,34 @@ class InjectedKeys:
                                    E.KEY.get(code, str(code)).replace("KEY_", "").lower())
         return {"kind": "key", "type": "keyDown" if value else "keyUp", "name": name,
                 "chars": chars, "code": code, "flags": flags, "repeat": value == 2}
+
+    def drawer_ids(self, drawers):
+        """ZMK layer ids drawn with one of these drawers, from the keymap message."""
+        km = self.keymap() or {}
+        ids = set()
+        for lid, info in (km.get("zmk_layers") or {}).items():
+            if isinstance(info, dict) and info.get("drawer") in drawers:
+                try:
+                    ids.add(int(info.get("id", lid)))
+                except (TypeError, ValueError):
+                    pass
+        return sorted(ids)
+
+    def hold_layers(self, code):
+        """The layers message a held layer would have produced for this key."""
+        if code in NAV_CODES:
+            ids = self.drawer_ids(NAV_DRAWERS)
+        elif code in DIGIT_CODES and self.held.get("shift", 0) == 0:
+            ids = self.drawer_ids(DIGIT_DRAWERS)
+        else:
+            return []
+        return [{"kind": "layers", "ids": ids}] if ids else []
+
+    def restore_layers(self):
+        """The keyboard's own layers again, after an emulated hold (the 2 s
+        heartbeat would do the same, this is just immediate)."""
+        ids = self.true_layers()
+        return [{"kind": "layers", "ids": list(ids)}] if ids else []
 
     def find(self):
         for path in evdev.list_devices():
@@ -129,7 +173,13 @@ class InjectedKeys:
             try:
                 async for ev in dev.async_read_loop():
                     if ev.type == E.EV_KEY:
+                        if ev.value == 1:
+                            for m in self.hold_layers(ev.code):
+                                self.emit(m)
                         self.emit(self.message(ev.code, ev.value))
+                        if ev.value == 0 and (ev.code in NAV_CODES or ev.code in DIGIT_CODES):
+                            for m in self.restore_layers():
+                                self.emit(m)
             except OSError as e:
                 self.log(f"rehearsal-feed: {dev.path} gone ({e})")
             finally:
@@ -156,14 +206,19 @@ async def main(args):
     def emit(msg):
         loop.call_soon_threadsafe(lambda: asyncio.ensure_future(hub.send(msg)))
 
+    feed = None
     if args.no_keyboard:
         hub.log("rehearsal-feed: no keyboard reader; the pages infer layers from the keys")
     else:
         # The real thing: keymap (with its live reload), device name, and the layers the
         # keyboard is actually on — the daemon moves those, so the banner stays ground truth.
-        hudfeed.Feed(emit, log=hub.log, config=args.config).start()
+        feed = hudfeed.Feed(emit, log=hub.log, config=args.config).start()
 
-    asyncio.ensure_future(InjectedKeys(emit, hub.log, args.device).run())
+    injected = InjectedKeys(emit, hub.log, args.device,
+                            keymap=lambda: hub.cache.get("keymap"),
+                            true_layers=lambda: getattr(getattr(feed, "reader", None),
+                                                        "layers", None))
+    asyncio.ensure_future(injected.run())
 
     try:
         import websockets

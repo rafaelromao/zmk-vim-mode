@@ -27,6 +27,12 @@ are commands, and installs with one command.
 
 ## Beats
 
+**Typing in every take:** ~70 words per minute — about one character every 0.17 s —
+so each key lights on its own and no two fall inside the 30 ms combo window.
+Digit strings come off the NUM layer and arrow keys off the nav layer, held for
+the whole sequence; neither is ever a combo. (Digits on the vim layer itself —
+`0`, `$` in the tours — are single keys and need no hold.)
+
 ### 0 · Cold open — 0:00–0:25 (58 words)
 
 **Screen.** Ghostty, Neovim with `internal/modes/modes.go` open, INSERT mode, cursor in a
@@ -144,7 +150,7 @@ layer — so only `status` tells those two apart.
 | `` Ctrl+` `` → terminal, type `go run ./cmd/vimmode`, Enter | RAW | `tool window focused: Terminal` |
 | `` Ctrl+` `` → back to the editor | NORMAL | `client vscode` |
 | `F1` → command palette, type `keyboard` (k would be *up*), `Esc` | RAW → NORMAL | `tool window focused: widget outside any view` |
-| `Ctrl+Shift+E` → Explorer sidebar, `↓` `↓` (letters create files in this Explorer setup), `Ctrl+Shift+E` again → back to the editor | RAW → NORMAL | `tool window focused: Folders` |
+| `Ctrl+Shift+E` → Explorer sidebar, hold the nav layer for `↓` `↓` (letters create files in this Explorer setup), `Ctrl+Shift+E` again → back to the editor | RAW → NORMAL | `tool window focused: Folders` |
 
 **Narration.**
 > VS Code runs a real Neovim inside it, through vscode-neovim, and that Neovim loads the same

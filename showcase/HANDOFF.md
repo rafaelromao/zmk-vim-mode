@@ -264,6 +264,28 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 - **Stale sticky override seen 20:28** (`set legacy`, sticky) — after the
   rehearsal cleared its own. Left alone (may be deliberate); clear before
   recording or the daemon stays forced.
+- **Take technique corrections (user): layers, not combos, for nav/numbers;
+  70 wpm typing.** `rehearse.py keys()` now types character-by-character at
+  ~0.17 s (70 wpm), so no two keys land in the 30 ms combo window; the feed
+  holds the nav layer for arrows and NUM for unshifted digits, restoring the
+  keyboard's true layers on release (heartbeat would heal it anyway).
+  `SCRIPT.md` directs the same for the takes. All leader gaps stay under the
+  ~350 ms timeout — audited, then proven by the green run below.
+- **Full green again 22:29: 89/89** with pace + layer holds, on a twice
+  verified layout (each editor screenshotted on its workspace).
+- Iteration notes (all environmental, none pace-related): a seg5 focus gate
+  tripped once while the box was in use (green on retry); IntelliJ was quit by
+  hand mid-evening (clean shutdown in idea.log) and seg6 correctly refused;
+  Obsidian died once within a minute of prepare's launch (transient, manual
+  relaunch held).
+- **Blank IntelliJ = configure during init, and it heals.** A frame
+  moved/maximized while still initializing never paints; the same frame moved
+  after the editor reports ready paints fine, and a ws6→9→6 + re-maximize
+  shuffle RESTARTED paint on a stuck frame (so it is a stuck surface, not
+  death). Rules: never place the window before `normal / client intellij`,
+  screenshot-verify after every placement, shuffle-heal before JVM restart.
+  `prepare.sh` gained a workspace-layout guard (each demo window maximized on
+  5/6/7) plus a fail-loud bare-launch wait and a daemon-override check.
 
 ### Where each piece stands
 

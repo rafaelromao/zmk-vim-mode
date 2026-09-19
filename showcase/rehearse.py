@@ -36,7 +36,10 @@ SHOW = os.path.dirname(os.path.abspath(__file__))
 RUN = os.path.join(SHOW, "run")
 BINARY = os.path.expanduser("~/.local/bin/zmk-vim-mode")
 VAULT = "Demo"
-CHAR_GAP = 0.16
+# Take pace: ~70 words per minute, about one character every 0.17 s. The rehearsal
+# keeps it, so every key lights on its own and no two land inside the keyboard's
+# 30 ms combo window (a burst would read as combos on the HUD).
+TYPE_GAP = 60.0 / 70 / 5
 VERBOSE = "--verbose" in sys.argv or os.environ.get("VERBOSE") == "1"
 
 os.makedirs(RUN, exist_ok=True)
@@ -142,28 +145,19 @@ def send(*args):
 
 
 def keys(text, wait=0.6):
-    """Type text; "\\n" is a Return key. Plain runs go out as one `ydotool type`
-    call, at the pace the script asks for on camera; rehearsal-feed.py reads them off
-    ydotool's virtual device so the HUD shows them like Diamond keystrokes."""
-    run = ""
-    def flush():
-        nonlocal run
-        if run:
-            if VERBOSE:
-                log("  · type " + run)
-            send("type", run)
-            time.sleep(CHAR_GAP)
-            run = ""
+    """Type text at take pace (70 wpm, one character per TYPE_GAP); "\\n" is a
+    Return key. Single `ydotool type` calls per character, at the pace the script
+    asks for on camera; rehearsal-feed.py reads them off ydotool's virtual device
+    so the HUD shows them like Diamond keystrokes."""
+    if VERBOSE:
+        log("  · type " + text.replace("\n", "⏎"))
     for ch in text:
         if ch == "\n":
-            flush()
-            if VERBOSE:
-                log("  · type ⏎")
             send("key", "28:1", "28:0")
             time.sleep(0.35)
         else:
-            run += ch
-    flush()
+            send("type", ch)
+            time.sleep(TYPE_GAP)
     time.sleep(wait)
 
 
@@ -362,7 +356,8 @@ def seg4():
     keys("jj", 0.3); keys("y", 0.5); expect("normal")
     keys(":", 0.5); expect("cmdline")
     esc(0.5); expect("normal")
-    # keys() adds CHAR_GAP even after the last character; stay below timeoutlen.
+    # keys() paces one character per TYPE_GAP; a single space plus the 0.05 s
+    # wait stays below timeoutlen (~350 ms), so the leader is still pending.
     keys(" ", 0.05); expect("raw", "nvim client")
     esc(0.5); expect("normal")
     keys(" ff", 1.2); expect("insert")
