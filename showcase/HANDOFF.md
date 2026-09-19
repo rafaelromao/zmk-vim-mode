@@ -319,6 +319,10 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   idle verification. stay-awake is honored (zero cycles in shell logs
   mid-run). Screensaver overlay explains "workspaces messed on return":
   fullscreen saver drops tiling/reservations.
+- **Automated recording done: `showcase-takes.mp4` (6:10).** Takes 3–8 with
+  TTS scratch (ryan male voice), joined by concat. Beat 3's old take showed
+  an idle IDE (seg3 typed nothing visible), so seg3 now opens two tiled panes
+  and types status/sets/log-tail on camera; take 3 re-recorded (1:16).
 
 ### Where each piece stands
 

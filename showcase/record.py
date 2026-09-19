@@ -78,7 +78,7 @@ def tts_bin():
 
 def voice():
     cand = os.environ.get("ZMK_TTS_VOICE",
-                           os.path.expanduser("~/.cache/zmk-showcase/voices/en_US-lessac-medium.onnx"))
+                           os.path.expanduser("~/.cache/zmk-showcase/voices/en_US-ryan-medium.onnx"))
     if os.path.isfile(cand):
         return cand
     fail(f"no voice at {cand} (see this script's docstring)")
@@ -196,16 +196,32 @@ def take(seg, with_tts):
 
 def feed_python():
     """The interpreter rehearsal-panel.py will run the feed with (same rule).
-    Fail fast when its deps are missing instead of recording HUD-less takes."""
+    Heals a rebuilt venv (evdev is a showcase need the HUD's Makefile does not
+    know about) and fails fast only when that is impossible."""
     import pathlib
     hud = pathlib.Path(os.environ.get("ZMK_LAYER_HUD",
                                        os.path.expanduser("~/projects/zmk-layer-hud")))
     cand = os.environ.get("ZMKHUD_PYTHON") or str(hud / ".venv/bin/python3")
     if not (cand and os.access(cand, os.X_OK)):
         return None
-    r = subprocess.run([cand, "-c", "import evdev, serial, websockets"],
-                       capture_output=True)
-    return cand if r.returncode == 0 else None
+
+    def deps_ok():
+        return subprocess.run(
+            [cand, "-c", "import evdev, serial, websockets"],
+            capture_output=True).returncode == 0
+
+    if not deps_ok():
+        # A rebuild wipes it; a corrupt one (dist-info without files) fools a
+        # plain install into a no-op — escalate to --force-reinstall then.
+        pip = os.path.join(os.path.dirname(cand), "pip")
+        print("record: feed venv lost a dep (rebuilt?); reinstalling evdev", flush=True)
+        subprocess.run([pip, "install", "--quiet", "evdev"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not deps_ok():
+            subprocess.run([pip, "install", "--quiet",
+                            "--force-reinstall", "--no-cache-dir", "evdev"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return cand if deps_ok() else None
 
 
 if __name__ == "__main__":

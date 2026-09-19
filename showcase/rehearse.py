@@ -123,7 +123,12 @@ def stop_hud(proc):
         pass
 
 
-# Linux evdev keycodes for the non-printable keys the segments need.
+# Linux evdev keycodes for the non-printable keys the segments need, plus every
+# letter (Ctrl+C and friends go through key() as numeric codes).
+_KEY_LETTERS = {"q": 16, "w": 17, "e": 18, "r": 19, "t": 20, "y": 21, "u": 22,
+                "i": 23, "o": 24, "p": 25, "a": 30, "s": 31, "d": 32, "f": 33,
+                "g": 34, "h": 35, "j": 36, "k": 37, "l": 38, "z": 44, "x": 45,
+                "c": 46, "v": 47, "b": 48, "n": 49, "m": 50}
 KEYCODES = {
     "Escape": 1, "Return": 28, "Tab": 15, "space": 57, "BackSpace": 14,
     "grave": 41, "backslash": 43,
@@ -132,6 +137,7 @@ KEYCODES = {
     "Home": 102, "End": 107, "PageUp": 104, "PageDown": 109,
     "ctrl": 29, "shift": 42, "alt": 56, "super": 125,
     "b": 48, "e": 18, "f": 33, "n": 49, "p": 25,
+    **_KEY_LETTERS,
 }
 MODS = {"ctrl", "shift", "alt", "super"}
 
@@ -197,7 +203,7 @@ def palette(command, wait=2.0):
     key([], "Return", wait)
 
 
-def focus(cls, wait=2.0, pid=None):
+def focus(cls, wait=2.0, pid=None, maximize=True):
     global target_address
     if VERBOSE:
         log("  · focus " + cls)
@@ -211,8 +217,9 @@ def focus(cls, wait=2.0, pid=None):
     if len(matches) != 1:
         raise RuntimeError(f"Expected one {cls!r} window, found {len(matches)}; refusing to type")
     address = matches[0]["address"]
-    if LUA:
+    if LUA and maximize:
         # Maximized fills the work area, which excludes the HUD's reserved right rail.
+        # Unmaximized windows tile instead: segment 3 uses that for its two panes.
         subprocess.run(["hyprctl", "dispatch",
                         f'hl.dsp.window.fullscreen({{mode="maximized", action="set", window="address:{address}"}})'],
                        capture_output=True, check=True)
@@ -301,7 +308,7 @@ def expect(mode, reason=None):
         raise RuntimeError("Rehearsal stopped at the first unexpected state; see rehearsal.log")
 
 
-def open_demo_ghostty():
+def open_demo_ghostty(maximize=True):
     if LUA:
         subprocess.run(["hyprctl", "dispatch", 'hl.dsp.focus({workspace="8"})'], check=True)
     conf = os.path.join(SHOW, "env", "ghostty-demo.conf")
@@ -312,7 +319,8 @@ def open_demo_ghostty():
                                  os.path.join(SHOW, "env", "demo.bashrc"), "-i"],
                                 stdout=output, stderr=output)
     time.sleep(3)
-    focus(re.escape(DEMO_CLASS), 1.5, pid=proc.pid)
+    focus(re.escape(DEMO_CLASS), 1.5, pid=proc.pid, maximize=maximize)
+    return proc
 
 
 def vim_tour():
@@ -330,14 +338,26 @@ def vim_tour():
 
 def seg3():
     log("--- segment 3: how it works (set overrides)")
-    sh(f"{BINARY} set insert", 0.5); expect("insert")
-    sh(f"{BINARY} set normal", 0.5); expect("normal")
-    sh(f"{BINARY} set off", 0.5); expect("off")
-    sh(f"{BINARY} set off", 0.5)
+    # Two tiled panes on workspace 8, as beat 3 shows them: the commands on the
+    # left, the daemon log tail on the right. Everything is typed on camera at
+    # take pace; the expects read the daemon like every other segment.
+    cmd_pane = open_demo_ghostty(maximize=False)
+    time.sleep(0.5)
+    tail_pane = open_demo_ghostty(maximize=False)
+    focus(re.escape(DEMO_CLASS), 1.0, pid=tail_pane.pid, maximize=False)
+    keys("journalctl --user -u zmk-vim-mode -f -o cat | grep -E 'decision|led'\n", 1.5)
+    focus(re.escape(DEMO_CLASS), 1.0, pid=cmd_pane.pid, maximize=False)
+    keys("zmk-vim-mode status\n", 3.0)
+    keys("zmk-vim-mode set insert\n", 1.5); expect("insert")
+    keys("zmk-vim-mode set normal\n", 1.5); expect("normal")
+    keys("zmk-vim-mode set off\n", 1.5); expect("off")
+    keys("zmk-vim-mode set off\n", 1.5)
     st = status()
     ok = st.get("override") is None
     results["pass" if ok else "fail"] += 1
     log(("PASS" if ok else "FAIL") + "  override cleared")
+    focus(re.escape(DEMO_CLASS), 1.0, pid=tail_pane.pid, maximize=False)
+    key(["ctrl"], "c", 0.8)
 
 
 def seg4():
