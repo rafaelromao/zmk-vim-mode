@@ -12,8 +12,8 @@
 #
 # Checkout: $ZMK_LAYER_HUD, default ~/projects/zmk-layer-hud. Config: $ZMKHUD_CONFIG, default
 # ~/.config/zmk-layer-hud/config.yaml. One-time setup is in that repo's README: the ZMK module
-# on the keyboard (`positions;`, built with the layer-hud-usb-uart snippet), the venv
-# (`make venv`), the udev rule for the tty + hidraw. Rehearsals do not use this:
+# on the keyboard (`positions;`, built with the layer-hud-usb-uart snippet), the venv and the
+# udev rule for the tty + hidraw -- `zmk-layer-hud setup` does all three. Rehearsals do not use this:
 # showcase/rehearse.py runs its own HUD, because synthesized keys never reach the keyboard.
 set -euo pipefail
 
@@ -50,11 +50,14 @@ fi
 HOST="$HUD/host/linux/hud.sh"
 [ -f "$HOST" ] || { echo "$HOST is missing; update the checkout at $HUD" >&2; exit 1; }
 
-# `log` has no verb in the Linux host: tail the same two files from here.
+# The logs left the checkout when that project grew a single command: they are under
+# $ZMKHUD_STATE now (default ~/.local/state/zmk-layer-hud), so that `zmk-layer-hud update` can
+# replace the tree without taking them with it. `zmk-layer-hud log` is this same tail.
+STATE="${ZMKHUD_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/zmk-layer-hud}"
 if [ "$CMD" = log ]; then
   logs=()
-  for f in "$HUD/run/panel.log" "$HUD/run/hudfeed.log"; do [ -f "$f" ] && logs+=("$f"); done
-  [ "${#logs[@]}" -gt 0 ] || { echo "no logs in $HUD/run yet; start the HUD first" >&2; exit 1; }
+  for f in "$STATE/panel.log" "$STATE/hudfeed.log"; do [ -f "$f" ] && logs+=("$f"); done
+  [ "${#logs[@]}" -gt 0 ] || { echo "no logs in $STATE yet; start the HUD first" >&2; exit 1; }
   exec tail -n 40 -f "${logs[@]}"
 fi
 
@@ -72,12 +75,12 @@ MSG
   fi
   if [ -z "${ZMKHUD_PYTHON:-}" ] && [ ! -x "$HUD/.venv/bin/python3" ]; then
     cat >&2 <<MSG
-No virtualenv in $HUD. In that repo, once:
+No virtualenv in $HUD. Once:
 
-    sudo pacman -S python-gobject webkit2gtk-4.1 gtk-layer-shell
-    make venv && .venv/bin/pip install websockets
-    sudo cp contrib/udev/60-zmk-layer-hud.rules /etc/udev/rules.d/ &&
-      sudo udevadm control --reload-rules && sudo udevadm trigger
+    $HUD/bin/zmk-layer-hud setup
+
+which installs the system packages, builds the venv and offers the udev rule, printing every
+privileged step and asking before it runs.
 MSG
     exit 1
   fi

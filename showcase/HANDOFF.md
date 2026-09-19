@@ -23,6 +23,23 @@ of the kit: it is [zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud).
 
 ## State at handoff
 
+### zmk-layer-hud has one command now — 2026-09-19
+
+- That project's four front doors (`./start.sh`, `./zmk-layer-hud`, `make install`, direct
+  `host/*.py`) collapsed into one `zmk-layer-hud` on PATH, installable with
+  `curl -fsSL .../install.sh | sh` and no clone. `start.sh` is gone.
+- **What that changes here.** The logs moved out of the checkout to
+  `$ZMKHUD_STATE`, default `~/.local/state/zmk-layer-hud`, because `zmk-layer-hud update`
+  replaces the tree wholesale and cannot take the logs with it. `showcase/hud.sh log` read
+  `$HUD/run/*.log` and was fixed in the same change; nothing else in the kit touched that path.
+- `host/linux/hud.sh` is unchanged and still where start/stop live, so `showcase/hud.sh` keeps
+  working as it did. It could now call `zmk-layer-hud start --reserve` instead and stop needing
+  to know the checkout's internals — left alone here because it is working and untested on the box.
+- Setup on a new machine is `zmk-layer-hud setup` (packages, venv, config, udev rule), which
+  prints every privileged step and asks first. `zmk-layer-hud doctor` is the new first thing to
+  run when the HUD does not come up.
+- Open question 5 below (a `--no-feed` flag so `rehearsal-panel.py` can go) is untouched by this.
+
 ### First assembly reviewed, second script, 2026-09-19
 
 The user shared `showcase-takes.mp4` (6:10, 30 fps, TTS scratch) for review as the first attempt
@@ -439,7 +456,7 @@ the kit adds on top:
 
 | Concern | How |
 |---|---|
-| Layer HUD | `bash showcase/hud.sh` → `$ZMK_LAYER_HUD/host/linux/hud.sh`: layer-shell surfaces (`zmkhud-layer`, `zmkhud-keys`, `zmkhud-reserved`), raw HID from the keyboard, no key-event or daemon feed at all |
+| Layer HUD | `bash showcase/hud.sh` → `$ZMK_LAYER_HUD/host/linux/hud.sh` (what `zmk-layer-hud start --reserve` also reaches): layer-shell surfaces (`zmkhud-layer`, `zmkhud-keys`, `zmkhud-reserved`), raw HID from the keyboard, no key-event or daemon feed at all |
 | Rehearsal HUD | `rehearsal-panel.py` + `rehearsal-feed.py` on port 8767 (see the 2026-09-16 notes) |
 | Typing in rehearsals | `ydotool` via `/dev/uinput` (`wtype`'s virtual-keyboard events are dropped by VS Code); chords from the `CHORDS` table |
 | Focus / placement | `hyprctl` Lua dispatchers (0.55+), addresses verified before every keystroke, **maximized** windows on workspaces 5–8 |
@@ -452,7 +469,8 @@ the kit adds on top:
 Things to verify first on the box, in this order:
 
 1. `zmk-vim-mode status` / `doctor` green; the Diamond `writable` over USB or BLE.
-2. In `$ZMK_LAYER_HUD`: `.venv/bin/python3 host/keymap.py` converts the configured YAML.
+2. `zmk-layer-hud keymap` converts the configured YAML; `zmk-layer-hud doctor` checks the rest
+   (interpreter, packages, GTK bindings, udev rule, and what the feed last opened).
 3. `bash showcase/hud.sh`, then type on the Diamond → the exact keys light; then
    `zmk-vim-mode set normal` → banner *Vim normal*. `bash showcase/hud.sh log` if not. Likely
    first problems: hidraw permissions (the udev rule), or the firmware not announcing (9-byte

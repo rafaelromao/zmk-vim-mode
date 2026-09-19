@@ -38,13 +38,10 @@ The HUD host, once:
 
 ```bash
 git clone https://github.com/rafaelromao/zmk-layer-hud ~/projects/zmk-layer-hud
-cd ~/projects/zmk-layer-hud
-sudo pacman -S python-gobject webkit2gtk-4.1 gtk-layer-shell python-evdev
-make venv && .venv/bin/pip install websockets
-sudo cp contrib/udev/60-zmk-layer-hud.rules /etc/udev/rules.d/ &&
-  sudo udevadm control --reload-rules && sudo udevadm trigger
-mkdir -p ~/.config/zmk-layer-hud && cp config/diamond.yaml ~/.config/zmk-layer-hud/config.yaml
-.venv/bin/python3 host/keymap.py        # must convert with no error
+~/projects/zmk-layer-hud/bin/zmk-layer-hud setup --link
+sudo pacman -S python-evdev             # the rehearsal only, see below
+zmk-layer-hud config link ~/projects/zmk-layer-hud/config/diamond.yaml
+zmk-layer-hud keymap                    # must convert with no error
 ```
 
 `config/diamond.yaml` points at `~/projects/keyboards`; check those paths after copying it.
