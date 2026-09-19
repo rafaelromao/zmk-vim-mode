@@ -51,11 +51,15 @@ maximize_window() {
   # Two phases: the window appears in seconds but the right project/title can lag
   # far behind (IntelliJ reuses its window on the previous project first). Place the
   # window immediately, then wait for the expected title.
+  # Only titled windows are ever touched: untitled ones are startup debris (an
+  # IntelliJ zombie frame) or live dialogs, and yanking them every half second
+  # is what makes windows visibly bounce. Windows already where they belong are
+  # left alone for the same reason; the park step after IntelliJ deals with leftovers.
   local pattern="$1" workspace="$2" project="$3"
   local address=""
   for _ in {1..240}; do
     address="$(hyprctl clients -j | jq -r --arg pattern "$pattern" \
-      '[.[] | select((.class | test($pattern)) and .mapped and (.floating == false))] | sort_by(.title == "") | .[0].address // empty')"
+      '[.[] | select((.class | test($pattern)) and .mapped and (.floating == false) and .title != "")] | .[0].address // empty')"
     if [ -n "$address" ]; then
       hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='$workspace', window='address:$address'})); hl.dispatch(hl.dsp.window.fullscreen({mode='maximized', action='set', window='address:$address'}))" || return 1
       break
@@ -65,13 +69,19 @@ maximize_window() {
   [ -n "$address" ] || { echo "Could not find $project window; check $RUN launch logs." >&2; return 1; }
   # Phase 2: IDEs may open transient frames first and the project in a new window, so
   # track by class+title instead of address and re-assert placement while waiting.
+  local clients=""
   for _ in {1..240}; do
+    clients="$(hyprctl clients -j)"
     while read -r address; do
       [ -n "$address" ] || continue
+      if [ "$(echo "$clients" | jq -r --arg a "$address" --arg workspace "$workspace" \
+        '[.[] | select(.address == $a and .workspace.id == ($workspace | tonumber) and .fullscreen == 1)] | length')" -ge 1 ]; then
+        continue
+      fi
       hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='$workspace', window='address:$address'})); hl.dispatch(hl.dsp.window.fullscreen({mode='maximized', action='set', window='address:$address'}))" >/dev/null
-    done < <(hyprctl clients -j | jq -r --arg pattern "$pattern" \
-      '[.[] | select((.class | test($pattern)) and .mapped and (.floating == false)) | .address] | .[]')
-    if hyprctl clients -j | jq -e --arg pattern "$pattern" --arg workspace "$workspace" --arg project "$project" \
+    done < <(echo "$clients" | jq -r --arg pattern "$pattern" \
+      '[.[] | select((.class | test($pattern)) and .mapped and (.floating == false) and .title != "") | .address] | .[]')
+    if echo "$clients" | jq -e --arg pattern "$pattern" --arg workspace "$workspace" --arg project "$project" \
       'any(.[]; ((.class | test($pattern)) and (.title | contains($project)) and .fullscreen == 1 and .workspace.id == ($workspace | tonumber)))' >/dev/null; then
       echo "  maximized: $project on workspace $workspace (HUD space retained)"
       return 0

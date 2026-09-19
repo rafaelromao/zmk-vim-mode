@@ -286,6 +286,18 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   screenshot-verify after every placement, shuffle-heal before JVM restart.
   `prepare.sh` gained a workspace-layout guard (each demo window maximized on
   5/6/7) plus a fail-loud bare-launch wait and a daemon-override check.
+- **Empty window: researched, contained, bounce fixed.** Web search (Hyprland
+  issues, JetBrains blog/YouTrack) finds no such defect with a fix: it is not
+  the `winN` tooltip focus-loop (those have titles and steal focus) and not the
+  splash. Ours is titleless, input-dead, geometry-static — a leaked startup
+  surface, intermittent per launch. No static Hyprland rule can remove it: a
+  newborn project window is also titleless at map time, so a rule would exile
+  real windows. The "bouncing continuously" was our own placer:
+  `maximize_window` re-asserted move+maximize on every class-matching window,
+  titled or not, every 0.5 s for up to 2 min. It now touches titled windows
+  only and skips windows already placed — a settled layout sees zero
+  dispatches. Parking untitled frames on ws9 stays as the containment.
+- **Full green 07:30: 89/89** with all of the above.
 
 ### Where each piece stands
 
