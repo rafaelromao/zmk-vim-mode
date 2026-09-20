@@ -34,6 +34,11 @@ editors/intellij/.intellijPlatform/
 toked-optimizer/
 token-optimizer/
 
+# onnxruntime drops this in the cwd the first time the kokoro voice runs (it fails to
+# persist its telemetry device id and writes a file named after the literal path
+# `:memory:`). `dub.py render` produces it; nothing reads it.
+:memory:.ses
+
 # Showcase video: runtime files and editor state inside the demo content
 # run/* rather than run/ so the exceptions below can be reached at all: git does not
 # descend into a directory ignored with a trailing slash.
