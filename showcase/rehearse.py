@@ -74,7 +74,10 @@ def status():
 def sh(cmd, wait=0.6):
     if VERBOSE:
         log("  · $ " + cmd)
-    subprocess.run(cmd, shell=True)
+    # Never wait out a dead app: Obsidian's xdg-open handoff to a windowless
+    # instance once stalled a whole recording 34 minutes in do_wait. Fail loud
+    # instead; the driver keeps the raw capture and moves to the next beat.
+    subprocess.run(cmd, shell=True, timeout=120)
     time.sleep(wait)
 
 
@@ -138,6 +141,8 @@ KEYCODES = {
     "Escape": 1, "Return": 28, "Tab": 15, "space": 57, "BackSpace": 14,
     "grave": 41, "backslash": 43,
     "F1": 59, "F12": 88,
+    "1": 2, "2": 3, "3": 4, "4": 5, "5": 6,
+    "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
     "Up": 103, "Down": 108, "Left": 105, "Right": 106,
     "Home": 102, "End": 107, "PageUp": 104, "PageDown": 109,
     "ctrl": 29, "shift": 42, "alt": 56, "super": 125,
@@ -224,7 +229,6 @@ def focus(cls, wait=2.0, pid=None, maximize=True):
     address = matches[0]["address"]
     if LUA and maximize:
         # Maximized fills the work area, which excludes the HUD's reserved right rail.
-        # Unmaximized windows tile instead: segment 3 uses that for its two panes.
         subprocess.run(["hyprctl", "dispatch",
                         f'hl.dsp.window.fullscreen({{mode="maximized", action="set", window="address:{address}"}})'],
                        capture_output=True, check=True)
@@ -406,15 +410,15 @@ def vim_tour():
 
 def seg3():
     log("--- segment 3: how it works (set overrides)")
-    # Two tiled panes on workspace 8, as beat 3 shows them: the commands on the
-    # left, the daemon log tail on the right. Everything is typed on camera at
-    # take pace; the expects read the daemon like every other segment.
-    cmd_pane = open_demo_ghostty(maximize=False)
-    time.sleep(0.5)
-    tail_pane = open_demo_ghostty(maximize=False)
-    focus(re.escape(DEMO_CLASS), 1.0, pid=tail_pane.pid, maximize=False)
+    # One maximized Ghostty with two tabs on workspace 8, as beat 3 shows
+    # them: tab 1 runs the commands, tab 2 tails the daemon log. Tabs, not
+    # two tiled windows, so the terminal keeps full width at the recording
+    # scale. Everything is typed on camera at take pace; the expects read the
+    # daemon like every other segment.
+    open_demo_ghostty(maximize=True)        # the one window; tabs never change its address
+    key(["ctrl", "shift"], "t", 1.0)      # tab 2 appears, focused
     keys("journalctl --user -u zmk-vim-mode -f -o cat | grep -e decision -e led\n", 1.5)  # no quotes: ydotool dropped them, the shell saw `| led`
-    focus(re.escape(DEMO_CLASS), 1.0, pid=cmd_pane.pid, maximize=False)
+    key(["alt"], "1", 1.0)                # back to tab 1 for the commands
     keys("zmk-vim-mode status\n", 3.0)
     keys("zmk-vim-mode set insert\n", 1.5); expect("insert")
     keys("zmk-vim-mode set normal\n", 1.5); expect("normal")
@@ -424,7 +428,7 @@ def seg3():
     ok = st.get("override") is None
     results["pass" if ok else "fail"] += 1
     log(("PASS" if ok else "FAIL") + "  override cleared")
-    focus(re.escape(DEMO_CLASS), 1.0, pid=tail_pane.pid, maximize=False)
+    key(["alt"], "2", 1.0)                # tab 2 again to stop the tail
     key(["ctrl"], "c", 0.8)
 
 

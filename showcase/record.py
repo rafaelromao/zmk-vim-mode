@@ -162,6 +162,17 @@ def mux(raw, wav, out):
     os.remove(raw)
 
 
+# Beats with no editor state on screen (title card, layer diagrams, install and
+# wrap-up): the mode line would only read "off — terminal without nvim client",
+# noise over cards and photos, so it leaves the frame for these takes.
+HIDE_MODELINE = {"1", "2", "9"}
+
+
+def modeline(action):
+    subprocess.run(["bash", os.path.join(SHOW, "modeline.sh"), action],
+                   capture_output=True)
+
+
 def take(seg, with_tts):
     raw = os.path.join(RUN, f"take{seg}-raw.mp4")
     out = os.path.join(RUN, f"take{seg}.mp4")
@@ -176,6 +187,9 @@ def take(seg, with_tts):
     else:
         wav = None
     print(f"take {seg}: recording", flush=True)
+    hid_modeline = seg in HIDE_MODELINE
+    if hid_modeline:
+        modeline("stop")
     rec = start_recorder(raw)
     try:
         time.sleep(1)
@@ -183,6 +197,8 @@ def take(seg, with_tts):
         time.sleep(1)
     finally:
         stop_recorder(rec)
+        if hid_modeline:
+            modeline("start")
     if rc != 0:
         print(f"take {seg}: segment failed (rc={rc}); raw kept at {raw}", flush=True)
         return False

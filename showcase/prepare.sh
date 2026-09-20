@@ -98,10 +98,50 @@ close_editor_windows || exit 1
 step "demo content back to the committed state"
 bash "$SHOW/setup.sh" || exit 1
 
+step "hiding the codex and weather bar widgets for the recording"
+# The takes show the menu bar, so the agent-usage pill (romao.agents: Codex, Claude,
+# Fireworks) and the weather pill (romao.weather) leave it for the session: they clutter
+# the frame and change between takes. Stripped from ~/.config/omarchy/shell.json (the
+# pre-strip config is kept at run/shell.json.with-widgets) and the shell restarted to
+# pick it up — quickshell runs with its file watcher off, so no restart means no change.
+# `omarchy plugin disable` cannot do this: it needs omarchy-shell IPC, which reports
+# "not running" on this box. Idempotent: a config already stripped is left alone and
+# the shell is not restarted. Restore after recording:
+#   cp showcase/run/shell.json.with-widgets ~/.config/omarchy/shell.json && omarchy-restart-shell
+bar_state="$(RUN="$RUN" python3 - <<'EOF'
+import json, os, shutil
+cfg = os.path.expanduser("~/.config/omarchy/shell.json")
+d = json.load(open(cfg))
+ids = ("romao.agents", "romao.weather")
+if any(it.get("id") in ids for items in d["bar"]["layout"].values() for it in items):
+    shutil.copy2(cfg, os.path.join(os.environ["RUN"], "shell.json.with-widgets"))
+    for section, items in d["bar"]["layout"].items():
+        d["bar"]["layout"][section] = [it for it in items if it.get("id") not in ids]
+    json.dump(d, open(cfg, "w"), indent=2, ensure_ascii=False)
+    print("STRIPPED")
+else:
+    print("ALREADY_CLEAN")
+EOF
+)"
+if [ "$bar_state" = STRIPPED ]; then
+  omarchy-restart-shell >/dev/null 2>&1 || { echo "shell restart failed; the bar may still show the widgets" >&2; exit 1; }
+  sleep 3
+  echo "  bar widgets stripped (romao.agents, romao.weather); shell restarted"
+else
+  echo "  bar already clean"
+fi
+
 step "forgetting per-project UI state"
 # Preserve VS Code workspace storage: it can contain recovery state for unsaved tabs.
 rm -f "$SHOW/demo-java/.idea/workspace.xml" 2>/dev/null && echo "  intellij: cleared .idea/workspace.xml"
 rm -f "$SHOW/Demo/.obsidian/workspace.json" 2>/dev/null && echo "  obsidian: cleared Demo/.obsidian/workspace.json"
+# VS Code's hot exit restores dirty demo buffers (e.g. seg5's `// bit 1 of the code`
+# comment) even though the files on disk are pristine — the take then shows doubled
+# text. Each backup carries its file URI on the first line, so only demo ones go.
+# The editors are already closed above, so no backup is being written right now.
+if grep -rl "showcase/demo-" "$HOME/.config/Code/Backups/"*/file/ 2>/dev/null | xargs -r rm -f; then
+  echo "  vscode: cleared demo hot-exit backups"
+fi
 
 step "reopening each editor maximized beside the HUD"
 hyprctl dispatch 'hl.dsp.focus({workspace="5"})' || exit 1

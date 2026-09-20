@@ -4,7 +4,7 @@
 music. ~5:00 (4:30–5:15). **Every beat is recorded hands-off** by `record.py`; the narration is
 read after the picture is cut, and the automated takes carry a TTS scratch track only for
 judging pace.
-**Resolution:** the recording monitor at a logical 1920×1080 (Hyprland scale 1.333 on 2560×1440),
+**Resolution:** the recording monitor at scale 1.25 on 2560×1440 (logical 2048×1152),
 delivered at 1920×1080 **60 fps** (`ZMK_RECORD_FPS=60` for `record.py`; see `env/obs-scene.md`).
 **On screen throughout the demos:** the editor on the left; on the right rail the layer HUD
 ([zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud)) with the Diamond's active layer and
@@ -100,9 +100,9 @@ row; then the `h j k l` home row and the left-hand operators); the diagram is le
 
 **Screen (`seg3`).** In the demo terminal, `show channel` (the descriptor bytes and the
 eight-code table, `env/cards/channel.txt`) for 12 s, `show pipeline` (the end-to-end diagram)
-for 10 s. Then two demo terminals tiled: the right one runs the log tail, the left one types
-`zmk-vim-mode status`, then `set insert`, `set normal`, `set off`, `set off` again (back to
-auto).
+for 10 s. Then one maximized demo terminal with two tabs: tab 2 runs the log tail, tab 1
+types `zmk-vim-mode status`, then `set insert`, `set normal`, `set off`, `set off` again
+(back to auto).
 
 ```bash
 journalctl --user -u zmk-vim-mode -f -o cat | grep -e decision -e led
@@ -265,14 +265,15 @@ Every shot is a screen recording of the recording monitor, HUD rail included, pr
 | A | Cold open in Neovim | `seg0` | 0 |
 | B | Title card, Diamond photo | `env/cards/title.txt`; `keyboards/docs/img/builds/Diamond.jpeg` in the image viewer | 1 |
 | C | Layer diagrams | `keyboards/docs/img/diagrams/{alpha1,vim}.png` in the image viewer | 2 |
-| D | Channel and pipeline cards, then the live `set` sequence | `env/cards/{channel,pipeline}.txt`; two demo terminals | 3 |
+| D | Channel and pipeline cards, then the live `set` sequence | `env/cards/{channel,pipeline}.txt`; one demo terminal with two tabs | 3 |
 | E | Editor demos | `seg4`–`seg7` | 4–7 |
 | F | Everywhere else | `seg8` | 8 |
 | G | Doctor (paths masked), the node card, the links card | the demo shell's `doctor`; `env/cards/{node,links}.txt` | 9 |
 
 ## Pre-flight, every run
 
-`bash showcase/prepare.sh` run · monitor scaled · waybar hidden · mode line placed · take HUD
+`bash showcase/prepare.sh` run (it strips the codex/weather bar widgets too) · monitor
+scaled · mode line placed · take HUD
 stopped (`bash showcase/hud.sh stop`; the rehearsal brings its own) · no daemon override
 (`zmk-vim-mode status` shows none) · `git status` clean in the demo dirs · the keyboards repo at
 `~/projects/keyboards` (or `KEYBOARDS_REPO`) · `imv` present (or `ZMK_IMAGE_VIEWER`). After the

@@ -17,12 +17,13 @@ use the first monitor whose name does not start with `eDP`.
 
 ## Canvas and output
 
-**Set the recording monitor to a logical 1920×1080 for the session.** A fractional Hyprland scale
-enlarges every app and the HUD at once; the first take (2026-09-19) recorded at native 1440p and
+**Set the recording monitor to scale 1.25 for the session.** A fractional Hyprland scale
+enlarges every app and the HUD at once (on 2560×1440 that is a logical 2048×1152); the
+first take (2026-09-19) recorded at native 1440p and
 the HUD's key legends were ~7 px tall:
 
 ```bash
-hyprctl keyword monitor <NAME>,2560x1440,auto,1.333333
+hyprctl eval 'return hl.monitor({output="<NAME>", mode="2560x1440@59.95", position="0x0", scale=1.25})'
 ```
 
 `hyprctl reload` puts your config back afterwards. Start the HUD *after* setting the scale and
@@ -77,19 +78,22 @@ For the take, raise `hud.press_ms` from 320 to 500 in `~/.config/zmk-layer-hud/c
   script injects. Characters run together into one chip, chords and special keys get their own.
 - **Mode line**: the daemon's decision, large, in the empty part of the rail below the strip. The
   HUD shows layers, so RAW and OFF both read *Alpha 1*; this line is what tells them apart on
-  camera. A floating Ghostty with the demo config at ~28 pt, pinned on the recording workspace
-  (`hyprctl dispatch pin`), running:
-
-  ```bash
-  watch -n 0.2 -t 'zmk-vim-mode status | head -1'
-  ```
+  camera. `bash showcase/modeline.sh start` puts it there (pinned floating Ghostty running
+  `watch -n 0.2 -t 'zmk-vim-mode status | head -1'`); `stop` closes it. `record.py` stops it
+  for beats 1, 2 and 9 — cards, diagrams and doctor carry no daemon state — and restarts it
+  after those takes.
 
   Output: `decision : raw (code 6) — nvim client`. It is a floating window, so the rail's
   reservation does not move it; place it once and it stays.
 - **Editors** are maximized on their workspaces by `prepare.sh` — never fullscreen, which hides
   layer-shell surfaces and ignores their reservations.
-- **Waybar hidden** for every take (`pkill -SIGUSR1 waybar` toggles it; use Omarchy's own toggle
-  if it has one). It carries a clock that betrays the cuts and a CPU temperature nobody needs.
+- **Bar widgets stripped** for every take (`prepare.sh` does it: the agent-usage pill
+  `romao.agents` and the weather pill `romao.weather` leave `~/.config/omarchy/shell.json`,
+  pre-strip config kept at `showcase/run/shell.json.with-widgets`, shell restarted). They
+  clutter the frame and change between takes. Restore after recording:
+  `cp showcase/run/shell.json.with-widgets ~/.config/omarchy/shell.json &&
+  omarchy-restart-shell`. The clock stays: it is part of the frame, keep takes short
+  rather than hiding it.
 
 ## Text sizes (everything ≥ 18 pt, on top of the monitor scale)
 
@@ -111,8 +115,9 @@ keyboards repo (`KEYBOARDS_REPO`, default `~/projects/keyboards`) and an image v
 the deliverable:
 
 - `ZMK_RECORD_FPS=60 python3 showcase/record.py all` — the default is 30.
-- Scale the monitor, hide waybar and place the mode line **before** starting; the driver does
-  none of that, and the rehearsal HUD reserves its rail against whatever geometry it finds.
+- Scale the monitor and run `bash showcase/prepare.sh` (it strips the codex/weather bar
+  widgets) **before** starting; the driver does none of that, and the rehearsal HUD
+  reserves its rail against whatever geometry it finds. Place the mode line after prepare.
 - Stop the take HUD first (`bash showcase/hud.sh stop`): the rehearsal brings its own panel.
 - The TTS track is for judging pace only; the video is dubbed with the human read (below).
 - Each take ends with the rehearsal's own clean-up (rail-less frames, an empty panel): cut that
@@ -121,8 +126,8 @@ the deliverable:
 
 ## Recording routine by hand (fallback, one beat at a time)
 
-1. Scale the monitor (above), hide waybar, `bash showcase/prepare.sh`: pristine sources,
-   editors reopened clean and placed.
+1. Scale the monitor (above), then `bash showcase/prepare.sh`: pristine sources,
+   codex/weather widgets stripped from the bar, editors reopened clean and placed.
 2. Privacy checklist (`privacy-checklist.md`), then `bash showcase/hud.sh`, then the mode line.
 3. Check the HUD is live **before** the first take: type on the Diamond and watch the exact keys
    light. A HUD stuck on *waiting for the keymap…* or *waiting for the keyboard's layers…* means
