@@ -1,0 +1,62 @@
+{
+  "0": {
+    "action": 5.3,
+    "video": 47.65,
+    "narration": 24.52,
+    "offset": 0.0
+  },
+  "1": {
+    "action": 5.15,
+    "video": 49.5,
+    "narration": 18.495,
+    "offset": 47.65
+  },
+  "2": {
+    "action": 5.2,
+    "video": 57.8,
+    "narration": 46.335,
+    "offset": 97.15
+  },
+  "3": {
+    "action": 5.3,
+    "video": 78.583,
+    "narration": 52.628,
+    "offset": 154.95
+  },
+  "4": {
+    "action": 3.9,
+    "video": 87.45,
+    "narration": 65.782,
+    "offset": 233.533
+  },
+  "5": {
+    "action": 3.833,
+    "video": 76.1,
+    "narration": 23.719,
+    "offset": 320.983
+  },
+  "6": {
+    "action": 3.867,
+    "video": 60.05,
+    "narration": 22.14,
+    "offset": 397.083
+  },
+  "7": {
+    "action": 3.883,
+    "video": 48.9,
+    "narration": 27.62,
+    "offset": 457.133
+  },
+  "8": {
+    "action": 3.883,
+    "video": 52.133,
+    "narration": 23.255,
+    "offset": 506.033
+  },
+  "9": {
+    "action": 3.933,
+    "video": 50.317,
+    "narration": 37.291,
+    "offset": 558.166
+  }
+}
