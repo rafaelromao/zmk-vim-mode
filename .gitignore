@@ -46,7 +46,10 @@ token-optimizer/
 !/showcase/run/take*.wav
 !/showcase/run/showcase-takes.mp4
 !/showcase/run/showcase-dubbed.mp4
+!/showcase/run/showcase-tight.mp4
 !/showcase/run/anchors.json
+!/showcase/run/cuts.json
+!/showcase/run/chapters.json
 /showcase/demo-java/.idea/
 /showcase/demo-java/out/
 /showcase/demo-go/vimmode

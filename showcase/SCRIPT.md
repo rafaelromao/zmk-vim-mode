@@ -1,7 +1,7 @@
 # The keyboard that knows your vim mode — video script
 
 **Format:** screen recording plus English narration, nothing else — no camera, no animation, no
-music. 10:08 as assembled. **Every beat is recorded hands-off** by `record.py`; the narration is
+music. 8:22 once `dub.py tighten` has cut the dead air (10:08 before it). **Every beat is recorded hands-off** by `record.py`; the narration is
 written against the cut picture and dubbed by `dub.py`, which places each cued line at its
 own moment inside the take.
 **Resolution:** the recording monitor at scale 1.25 on 2560×1440 (logical 2048×1152),
@@ -57,7 +57,7 @@ are commands, and installs with one command.
 
 ## Beats
 
-### 0 · Cold open — 0:00–0:47 (80 words) · `record.py 0`
+### 0 · Cold open — 0:00–0:36 (80 words) · `record.py 0`
 
 **Screen (`seg0`).** `nvim internal/modes/modes.go` in the demo shell, `:21` (the comment on the
 three indicator bits), `A` → INSERT, the HUD reads *Vim insert*; type ` no OS ever sets these`,
@@ -78,7 +78,7 @@ lights index → pinky.
 > [+26.5] Escape. The layers change, and h, j, k and l are under my right hand.
 > [+33.7] Nothing in vim was remapped. The keyboard followed the editor.
 
-### 1 · Title and intro — 0:47–1:37 (84 words) · `record.py 1`
+### 1 · Title and intro — 0:36–1:18 (84 words) · `record.py 1`
 
 **Screen (`seg1`).** `show title` in the demo terminal (the card in `env/cards/title.txt`),
 4 s; `show intro` (the card in `env/cards/intro.txt`), 14 s; then `Diamond.jpeg` from the
@@ -95,7 +95,7 @@ keyboards repo maximized in the image viewer, 3 s.
 > keyboard changes layers to match.
 > [+33.0] This is the board. The tour, the trick, and the install.
 
-### 2 · The problem — 1:37–2:34 (104 words) · `record.py 2`
+### 2 · The problem — 1:18–2:09 (125 words) · `record.py 2`
 
 **Screen (`seg2`).** `alpha1.png` maximized in the image viewer for 20 s, then `vim.png` for
 20 s. The narration names the keys (`h|v` the magic key, the `h,` and `mg` combos, `l` on the top
@@ -105,15 +105,16 @@ row; then the `h j k l` home row and the left-hand operators); the diagram is le
 
 **Narration.**
 > [+0.0] Every alternative layout breaks vim's motions.
-> [+5.4] This is Romak's base layer. On it, h is a magic key, j and k are two-key combos, and
-> l is a reach to the top row. Colemak, Dvorak, Gallium: every one of them scatters those four
-> keys somehow, and none of them put them back.
-> [+26.5] A vim layer removes the compromise. In normal mode the keyboard isn't typing letters
+> [+5.4] This is Romak's base layer. On it, h is a magic key, l is a reach to the top row, and
+> j and k aren't on this layer at all: each one is either a combo, or a hop to the second alpha
+> layer. That's harder than some other alternative layouts make it. Colemak, Dvorak and Gallium
+> all scatter those four keys; Romak just scatters them further.
+> [+28.6] A vim layer removes the compromise. In normal mode the keyboard isn't typing letters
 > at all, it's issuing commands, and they sit where they belong. The usual fixes are worse:
 > remap vim and you fight every plugin and every remote machine.
 > [+46.8] The catch was always knowing when. Guessing from keystrokes drops keys.
 
-### 3 · How it works — 2:34–3:53 (148 words) · `record.py 3`
+### 3 · How it works — 2:09–3:12 (148 words) · `record.py 3`
 
 **Screen (`seg3`).** In the demo terminal, `show channel` (the descriptor bytes and the
 eight-code table, `env/cards/channel.txt`) for 12 s, `show pipeline` (the end-to-end diagram)
@@ -146,7 +147,7 @@ it by hand"; drop the `status` dump and the tail's start-up.
 > flips a layer bitmask, and that's the whole protocol.
 > [+62.5] And the panel is not a mock-up. It reads the keyboard's own reports.
 
-### 4 · Neovim — 3:53–5:20 (140 words) · `record.py 4`
+### 4 · Neovim — 3:12–4:23 (140 words) · `record.py 4`
 
 **Screen.** Ghostty (demo shell) in `showcase/demo-go`. The HUD spells the daemon's modes from
 the keyboard's layers: NORMAL → *Vim normal*, INSERT → *Vim insert*, VISUAL → *Vim visual · Vim
@@ -185,7 +186,7 @@ the first eight keys if the words run out.
 > [+67.9] Back in the file, normal again.
 > [+74.4] The terminal is raw, so Escape belongs to the shell.
 
-### 5 · VS Code — 5:20–6:37 (140 words) · `record.py 5`
+### 5 · VS Code — 4:23–5:31 (140 words) · `record.py 5`
 
 **Screen.** `demo-go.code-workspace`, `modes.go`; title bar `modes.go — demo-go [Text Editor]`.
 
@@ -217,7 +218,7 @@ search-and-comment and the Explorer unless the words allow.
 > a motion.
 > [+67.5] And on Linux the accessibility bus catches whatever you open with the mouse.
 
-### 6 · IntelliJ IDEA — 6:37–7:37 (107 words) · `record.py 6`
+### 6 · IntelliJ IDEA — 5:31–6:19 (107 words) · `record.py 6`
 
 **Screen.** `demo-java`, `ModeTable.java`, IdeaVim on. No `Esc` in normal mode (IdeaVim beeps).
 
@@ -244,7 +245,7 @@ search-and-comment and the Explorer unless the words allow.
 > [+49.0] And the terminal, though that one takes work: in IntelliJ the consoles are editors
 > too, told apart by kind.
 
-### 7 · Obsidian — 7:37–8:26 (88 words) · `record.py 7`
+### 7 · Obsidian — 6:19–6:57 (88 words) · `record.py 7`
 
 **Screen.** Obsidian, the *Demo* vault, note *Tasks*.
 
@@ -268,7 +269,7 @@ search-and-comment and the Explorer unless the words allow.
 > [+38.5] Four editors, four different plumbing jobs, one daemon, and a keyboard that only ever
 > sees a number.
 
-### 8 · Everywhere else — 8:26–9:18 (115 words) · `record.py 8`
+### 8 · Everywhere else — 6:57–7:44 (115 words) · `record.py 8`
 
 **Screen.** The plain demo shell. `seg8` types `zmk-vim-mode set raw` → `status | head -1`
 reads `raw (code 6)` with the override; `set raw` again → back to `off`, and a second
@@ -287,7 +288,7 @@ throughout: this beat is carried by the typed `status` lines.
 > to, and switching hosts changes nothing.
 > [+43.0] No pairing step, and no per-host setup.
 
-### 9 · Install and wrap-up — 9:18–10:08 (93 words) · `record.py 9`
+### 9 · Install and wrap-up — 7:44–8:22 (93 words) · `record.py 9`
 
 **Screen (`seg9`).** In the demo terminal: `doctor` (the demo shell's function — the real
 `zmk-vim-mode doctor` with home paths shown as `~`), 8 s; `show node` (the `vim_sync { … }`
@@ -349,17 +350,17 @@ loaded, title marker missing, the unit without `--atspi`), not a script problem.
 
 | Beat | Words | Starts | Runs |
 |---|---|---|---|
-| 0 | 80 | 0:00 | 48s |
-| 1 | 84 | 0:47 | 50s |
-| 2 | 104 | 1:37 | 58s |
-| 3 | 148 | 2:34 | 79s |
-| 4 | 140 | 3:53 | 87s |
-| 5 | 140 | 5:20 | 76s |
-| 6 | 107 | 6:37 | 60s |
-| 7 | 88 | 7:37 | 49s |
-| 8 | 115 | 8:26 | 52s |
-| 9 | 93 | 9:18 | 50s |
-| **total** | **1099** | | **10:08** |
+| 0 | 80 | 0:00 | 36s |
+| 1 | 84 | 0:36 | 42s |
+| 2 | 125 | 1:18 | 51s |
+| 3 | 148 | 2:09 | 62s |
+| 4 | 140 | 3:12 | 71s |
+| 5 | 140 | 4:23 | 68s |
+| 6 | 107 | 5:31 | 48s |
+| 7 | 88 | 6:19 | 38s |
+| 8 | 115 | 6:57 | 46s |
+| 9 | 93 | 7:44 | 39s |
+| **total** | **1120** | | **8:22** |
 
 The automated segments run longer than their words by design (they exercise every state the
 rehearsal checks); the *Cut* lines say what to keep. Cut the actions, not the words.

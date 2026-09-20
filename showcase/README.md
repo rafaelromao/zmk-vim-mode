@@ -88,6 +88,8 @@ python3 showcase/dub.py hud       # what layer the HUD shows, when
 python3 showcase/dub.py fit       # does the narration fit the picture? (no TTS needed)
 python3 showcase/dub.py render    # render every cued line
 python3 showcase/dub.py master    # lay the bed, normalise, mux onto the assembly
+python3 showcase/dub.py pauses    # find the stretches that are both silent and frozen
+python3 showcase/dub.py tighten   # cut those out, re-place the narration
 python3 showcase/dub.py check     # sync, density and loudness of the result
 ```
 
@@ -125,9 +127,23 @@ python3.12 -m venv ~/.cache/zmk-showcase/tts-kokoro
 `ZMK_DUB_VOICE` picks the voice (default `am_michael`), `ZMK_DUB_SPEED` its pace,
 `ZMK_DUB_LEAD` how far ahead of its action a line starts (default 0.3 s).
 
+**Cutting the dead air.** The segments run longer than their words on purpose, so the
+assembly carries a lot of silence — 608 s of picture under 415 s of narration. `dub.py
+tighten` removes the worst of it, but silence on its own is not the test: a pause while
+the segment is typing is the demo, not dead air. A stretch is only cut when nothing is
+being said *and* the picture is not moving, and each candidate is then re-checked by
+comparing the frame at its start with the frame at its end — if they differ, something
+happened in there and the cut is dropped. That check is what saves the Diamond photo at
+the end of beat 1, which is silent and nearly still but not still enough.
+
+`ZMK_DUB_STILL` (0.6) is how frozen counts as frozen, `ZMK_DUB_MINGAP` (1.2 s) how long a
+pause has to be before it is worth cutting, and `ZMK_DUB_KEEPGAP` (0.4 s) how much of it
+survives so the cut does not feel abrupt.
+
 **Delivery.** The bed is normalised to −16 LUFS with a −1.5 dBTP ceiling and delivered at
-48 kHz stereo, per `env/obs-scene.md`. The picture is muxed `-c:v copy` and never
-re-encoded; `dub.py check` reports the sync error per beat.
+48 kHz stereo, per `env/obs-scene.md`. `master` muxes the picture `-c:v copy` and never
+re-encodes it; `tighten` has to re-encode, because the cuts are not on keyframes.
+`dub.py check` reports the sync error per beat.
 
 
 ## How the HUD works

@@ -11,6 +11,8 @@ while the takes are recorded on the Linux box.
     dub.py master           lay the bed, normalise it, mux onto showcase-takes.mp4
     dub.py hud [N...]       what layer the HUD shows, when — the timeline cues go against
     dub.py fit              does the narration fit the picture? (works without TTS)
+    dub.py pauses           find the stretches that are both silent and frozen
+    dub.py tighten          cut those out, re-place the narration → showcase-tight.mp4
     dub.py check            report sync, loudness and speech density of the output
 
 Why a single bed instead of ten padded clips: every cue is placed at its absolute
@@ -365,6 +367,167 @@ def check(path=OUT):
             print("  " + line.strip())
 
 
+# ---------------------------------------------------------------- tighten
+
+TIGHT = os.path.join(RUN, "showcase-tight.mp4")
+CUTS = os.path.join(RUN, "cuts.json")
+
+STILL = float(os.environ.get("ZMK_DUB_STILL", "0.6"))    # mean |Δgrey| below this = frozen
+MINGAP = float(os.environ.get("ZMK_DUB_MINGAP", "1.2"))  # shorter than this is rhythm
+KEEPGAP = float(os.environ.get("ZMK_DUB_KEEPGAP", "0.4"))  # leave this much of each pause
+PAD_AFTER, PAD_BEFORE = 0.35, 0.25                       # breathing room around a line
+
+
+def speech_spans():
+    """[(start, end)] of every rendered line, in assembly time."""
+    a, out = anchors(), []
+    for b in BEATS:
+        base = a[b]["offset"] + a[b]["action"] - LEAD
+        for i, (cue, _) in enumerate(narration.cues(b)):
+            w = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
+            if os.path.isfile(w):
+                at = max(0.0, base + (cue or 0.0))
+                out.append((at, at + duration(w)))
+    return sorted(out)
+
+
+def motion(beat, fps=8.0, w=48, h=36):
+    """Mean |Δgrey| between consecutive samples of the content pane."""
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", os.path.join(RUN, f"take{beat}.mp4"),
+         "-vf", f"crop=1790:1330:10:60,fps={fps:g},scale={w}:{h}",
+         "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout
+    sz, n = w * h, len(raw) // (w * h)
+    return fps, [sum(abs(raw[(i - 1) * sz + j] - raw[i * sz + j]) for j in range(sz)) / sz
+                 for i in range(1, n)]
+
+
+def frame_bytes(beat, t_local, w=64, h=36):
+    return subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", f"{t_local:.3f}",
+         "-i", os.path.join(RUN, f"take{beat}.mp4"), "-frames:v", "1",
+         "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True).stdout
+
+
+def find_pauses(verify=True):
+    """Ranges that are both silent and visually frozen — the ones safe to remove.
+
+    Silence alone is not enough: a pause while the segment is typing is the demo, not
+    dead air. A cut is only proposed where nothing is being said AND the picture is not
+    moving, and `verify` then re-checks each candidate by comparing the frame at its
+    start with the frame at its end — if they differ, something happened in there after
+    all and the cut is dropped.
+    """
+    a, spans, cuts = anchors(), speech_spans(), []
+
+    def talking(t):
+        return any(s - PAD_BEFORE <= t <= e + PAD_AFTER for s, e in spans)
+
+    for b in BEATS:
+        fps, m = motion(b)
+        off, vid = a[b]["offset"], a[b]["video"]
+        run = None
+        for i, val in enumerate(m):
+            t = (i + 1) / fps
+            dead = val < STILL and not talking(off + t)
+            if dead and run is None:
+                run = t
+            elif not dead and run is not None:
+                if t - run >= MINGAP:
+                    cuts.append((b, off + run + KEEPGAP / 2, off + t - KEEPGAP / 2))
+                run = None
+        if run is not None and vid - run >= MINGAP:
+            cuts.append((b, off + run + KEEPGAP / 2, off + vid - 0.05))
+
+    if verify:
+        kept = []
+        for b, s, e in cuts:
+            off = a[b]["offset"]
+            f0, f1 = frame_bytes(b, s - off), frame_bytes(b, e - off)
+            if not f0 or not f1 or len(f0) != len(f1):
+                continue
+            d = sum(abs(f0[i] - f1[i]) for i in range(len(f0))) / len(f0)
+            if d <= 3.0:
+                kept.append((b, s, e))
+            else:
+                print(f"  dropped beat {b} {s:.2f}→{e:.2f} ({e-s:.2f}s): "
+                      f"picture moves across it (diff {d:.1f})")
+        cuts = kept
+
+    json.dump([[b, round(s, 3), round(e, 3)] for b, s, e in cuts],
+              open(CUTS, "w"), indent=1)
+    return cuts
+
+
+def keep_ranges(cuts, total):
+    out, at = [], 0.0
+    for _, s, e in sorted(cuts, key=lambda c: c[1]):
+        if s > at:
+            out.append((at, s))
+        at = max(at, e)
+    if at < total:
+        out.append((at, total))
+    return out
+
+
+def shift_for(cuts):
+    """new_time(t) for a t that is not inside any cut."""
+    ordered = sorted(((s, e) for _, s, e in cuts))
+
+    def f(t):
+        removed = sum(min(e, t) - s for s, e in ordered if s < t)
+        return t - removed
+    return f
+
+
+def tighten():
+    cuts = find_pauses()
+    total = duration(ASSEMBLY)
+    keeps = keep_ranges(cuts, total)
+    removed = sum(e - s for _, s, e in cuts)
+    print(f"{len(cuts)} cuts, {removed:.1f}s removed, "
+          f"{total:.1f}s → {total - removed:.1f}s")
+
+    # one pass, frame accurate: keep only the wanted ranges and restamp
+    sel = "+".join(f"between(t,{s:.3f},{e:.3f})" for s, e in keeps)
+    ff(["-i", ASSEMBLY,
+        "-vf", f"select='{sel}',setpts=N/FRAME_RATE/TB",
+        "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "21",
+        "-pix_fmt", "yuv420p", os.path.join(RUN, "tight-video.mp4")])
+
+    # narration re-placed at its shifted position; cuts never overlap speech
+    shift = shift_for(cuts)
+    a, args, filters, labels, n = anchors(), [], [], [], 0
+    for b in BEATS:
+        base = a[b]["offset"] + a[b]["action"] - LEAD
+        for i, (cue, _) in enumerate(narration.cues(b)):
+            w = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
+            if not os.path.isfile(w):
+                fail(f"missing {w}; run `dub.py render` first")
+            at = shift(max(0.0, base + (cue or 0.0)))
+            args += ["-i", w]
+            filters.append(f"[{n}:a]aresample={RATE},aformat=channel_layouts=stereo,"
+                           f"adelay={int(round(at * 1000))}:all=1[d{n}]")
+            labels.append(f"[d{n}]")
+            n += 1
+    newlen = duration(os.path.join(RUN, "tight-video.mp4"))
+    chain = ";".join(filters)
+    chain += (f";{''.join(labels)}amix=inputs={n}:normalize=0:dropout_transition=0[m];"
+              f"[m]apad,atrim=0:{newlen}[out]")
+    ff([*args, "-filter_complex", chain, "-map", "[out]",
+        "-c:a", "pcm_s16le", "-ar", RATE, "-ac", CHANNELS, BED])
+
+    normed = os.path.join(RUN, "narration-normed.wav")
+    loudnorm(BED, normed)
+    ff(["-i", os.path.join(RUN, "tight-video.mp4"), "-i", normed,
+        "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k", "-ar", RATE, "-ac", CHANNELS,
+        "-movflags", "+faststart", "-shortest", TIGHT])
+    print(f"wrote {TIGHT} ({duration(TIGHT):.3f}s)")
+    return TIGHT
+
+
 # ---------------------------------------------------------------- fit
 
 WPM = float(os.environ.get("ZMK_DUB_WPM", "140"))
@@ -450,6 +613,11 @@ def main():
                 print(f"  {a_:6.2f} → {b_:6.2f}   cue +{a_ - an:6.2f} → +{b_ - an:6.2f}   {st}")
     elif cmd == "fit":
         fit(strict="--strict" in sys.argv)
+    elif cmd == "pauses":
+        for b, s_, e_ in find_pauses():
+            print(f"  beat {b}  {s_:8.2f} → {e_:8.2f}  {e_-s_:5.2f}s")
+    elif cmd == "tighten":
+        tighten()
     elif cmd == "check":
         check(sys.argv[2] if len(sys.argv) > 2 else OUT)
     else:
