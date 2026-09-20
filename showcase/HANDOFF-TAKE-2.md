@@ -141,21 +141,27 @@ raw); take 9's doctor reads `0 failed, 0 warnings, 16 checks` with `~` paths.
 - `prepare.sh` also clears VS Code demo hot-exit backups now (a restored dirty
   `modes.go` buffer put seg5's old comment back on camera with a clean disk).
 
-Done 2026-09-20 ~13:30: beats 1, 2, 9 retook with the mode line out
-(`take1/2/9.mp4` overwritten, rail frames verified empty); session reverted:
-`press_ms` back to 320 (zmk-layer-hud tree clean), bar widgets restored
-(`shell.json.with-widgets` copied back, shell restarted, frame-verified),
-mode line closed, strays swept, `run/check*.png` + failed `run/take7-raw.mp4`
-deleted. Scale left at 1.25 (the box default and the user's setting). Uncommitted
-in this tree: `rehearse.py` (tabbed seg3, digit keycodes, `sh()` timeout),
-`prepare.sh` (bar strip, hot-exit purge), `record.py` (mode-line hide beats),
-`SCRIPT.md` + `env/obs-scene.md` (1.25, tabs, widgets, modeline.sh),
-new `modeline.sh`, this handoff. Takes `run/take0–9.mp4` are the deliverable
-picture (with TTS scratch; human read + cut still to do), joined as
-`run/showcase-takes.mp4` (9:23, 1440p60 — concat filter with per-segment
-timestamp reset; the plain concat demuxer inflates to 82 min on these files).
-Take 1 was re-retaken parked on empty ws8: retake heads/tails show whatever the
-box was parked on, and the first retake caught this very session on camera.
+## Session 2026-09-20 (cont.) — full restart, all green (done)
+
+Restarted from prepare at 1.25x with the no-modeline/intro/ws8-parking script: all ten
+takes green in one run, exit 0 (0: 4/4, 1: 2/2, 2: 1/1, 3: 5/5, 4: 27/27, 5: 20/20,
+6: 19/19, 7: 15/15 with no stall, 8: 4/4, 9: 1/1). Reverted: `press_ms` 320, bar
+widgets restored and frame-verified, strays swept. Uncommitted: SCRIPT, YOUTUBE,
+obs-scene, record, rehearse, `env/cards/intro.txt`. Takes in `run/` (this run).
+
+- Beat 1 is the intro now: `show title` 4 s, `show intro` (`env/cards/intro.txt`) 14 s,
+  Diamond photo 3 s, with a 48-word narration (beat times shift +0:14 from beat 2 on;
+  total 742 words, 5:12; `YOUTUBE.md` chapters updated).
+- Beats 3 and 8 carry the reason in typed `status` lines (closing `status` in seg3,
+  `status | head -1` around each `set raw` in seg8) — no pinned panel in any take.
+  `record.py` stops the mode line on every take and parks on workspace 8 first, so take
+  heads show wallpaper/demo content, never workspaces 1–4. Take tables now say
+  "daemon reason"; `modeline.sh` stays for manual debugging only.
+- Take 7 failed the same windowless-Obsidian way (this time to the new `sh()` timeout,
+  loud after 120 s). seg7 no longer waits on `xdg-open` at all: fire-and-forget Popen
+  plus the existing `wait_window` gate. Relaunched healthy, retook 15/15.
+- The earlier quickshell crash note above still holds: if that dialog appears on a
+  bar restart, confirm the supervisor's relaunch and move on.
 
 ## Suggested skills
 

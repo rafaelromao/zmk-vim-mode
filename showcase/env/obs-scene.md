@@ -27,7 +27,8 @@ hyprctl eval 'return hl.monitor({output="<NAME>", mode="2560x1440@59.95", positi
 ```
 
 `hyprctl reload` puts your config back afterwards. Start the HUD *after* setting the scale and
-hiding waybar, so it reserves the rail against the final geometry.
+running `prepare.sh` (it strips the codex/weather widgets), so it reserves the rail against
+the final geometry.
 
 | Setting | Value |
 |---|---|
@@ -60,9 +61,7 @@ For the take, raise `hud.press_ms` from 320 to 500 in `~/.config/zmk-layer-hud/c
 │                                        ┆┌────────────────┐   │
 │                                        ┆│ typed keys  96 │   │
 │                                        ┆└────────────────┘   │
-│                                        ┆┌────────────────┐   │
-│                                        ┆│ mode line      │   │
-│                                        ┆└────────────────┘   │
+│                                        ┆                    │
 │                                        ┆ reserved rail ~617  │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -76,15 +75,10 @@ For the take, raise `hud.press_ms` from 320 to 500 in `~/.config/zmk-layer-hud/c
 - **Typed keys**: the strip below the HUD, in the same rail. It shows the keys the *keyboard*
   sends — nothing typed on the laptop's built-in keyboard appears, and neither does anything a
   script injects. Characters run together into one chip, chords and special keys get their own.
-- **Mode line**: the daemon's decision, large, in the empty part of the rail below the strip. The
-  HUD shows layers, so RAW and OFF both read *Alpha 1*; this line is what tells them apart on
-  camera. `bash showcase/modeline.sh start` puts it there (pinned floating Ghostty running
-  `watch -n 0.2 -t 'zmk-vim-mode status | head -1'`); `stop` closes it. `record.py` stops it
-  for beats 1, 2 and 9 — cards, diagrams and doctor carry no daemon state — and restarts it
-  after those takes.
-
-  Output: `decision : raw (code 6) — nvim client`. It is a floating window, so the rail's
-  reservation does not move it; place it once and it stays.
+- **Daemon reasons on camera**: the HUD shows layers, so RAW and OFF both read *Alpha 1*;
+  beats 3 and 8 type `zmk-vim-mode status` in the demo terminal instead, so the reason itself
+  is on camera. (`showcase/modeline.sh` keeps the old pinned reason panel around for manual
+  debugging; takes never show it.)
 - **Editors** are maximized on their workspaces by `prepare.sh` — never fullscreen, which hides
   layer-shell surfaces and ignores their reservations.
 - **Bar widgets stripped** for every take (`prepare.sh` does it: the agent-usage pill
@@ -109,15 +103,16 @@ For the take, raise `hud.press_ms` from 320 to 500 in `~/.config/zmk-layer-hud/c
 
 `python3 showcase/record.py all` (or one beat 0–9) runs `rehearse.py`'s segment with the
 rehearsal HUD, records the monitor with gpu-screen-recorder and muxes a piper TTS scratch of the
-beat's narration (beat 1 is silent); takes land in `run/take<N>.mp4`. Beats 0–2 and 9 need the
+beat's narration; takes land in `run/take<N>.mp4`. Beats 0–2 and 9 need the
 keyboards repo (`KEYBOARDS_REPO`, default `~/projects/keyboards`) and an image viewer
 (`ZMK_IMAGE_VIEWER`, default `imv`; `ZMK_IMAGE_VIEWER_CLASS` if its window class differs). For
 the deliverable:
 
 - `ZMK_RECORD_FPS=60 python3 showcase/record.py all` — the default is 30.
 - Scale the monitor and run `bash showcase/prepare.sh` (it strips the codex/weather bar
-  widgets) **before** starting; the driver does none of that, and the rehearsal HUD
-  reserves its rail against whatever geometry it finds. Place the mode line after prepare.
+  widgets) **before** starting; the driver parks on workspace 8 before every take and no
+  segment leaves workspaces 5–8, so nothing below workspace 5 is ever on camera. The
+  rehearsal HUD reserves its rail against whatever geometry it finds.
 - Stop the take HUD first (`bash showcase/hud.sh stop`): the rehearsal brings its own panel.
 - The TTS track is for judging pace only; the video is dubbed with the human read (below).
 - Each take ends with the rehearsal's own clean-up (rail-less frames, an empty panel): cut that
@@ -128,7 +123,7 @@ the deliverable:
 
 1. Scale the monitor (above), then `bash showcase/prepare.sh`: pristine sources,
    codex/weather widgets stripped from the bar, editors reopened clean and placed.
-2. Privacy checklist (`privacy-checklist.md`), then `bash showcase/hud.sh`, then the mode line.
+2. Privacy checklist (`privacy-checklist.md`), then `bash showcase/hud.sh`.
 3. Check the HUD is live **before** the first take: type on the Diamond and watch the exact keys
    light. A HUD stuck on *waiting for the keymap…* or *waiting for the keyboard's layers…* means
    the feed never opened the device — `bash showcase/hud.sh log` says why (usually the hidraw
@@ -137,8 +132,9 @@ the deliverable:
 5. One OBS recording **per beat**, silent. Hold each state a beat longer than feels natural;
    the cut removes the slack, it cannot add it. The cards are `show <name>` in the demo shell,
    the diagrams `imv <png>`, exactly as the segments do it.
-6. After each take: the mode line (or `zmk-vim-mode status`) must show the reason the script
-   expects. The HUD shows the keyboard's layers, not the daemon's reason.
+6. After each take: `zmk-vim-mode status` (or the typed `status` lines in beats 3 and 8)
+   must show the reason the script expects. The HUD shows the keyboard's layers, not the
+   daemon's reason.
 7. Scrub the clip before moving on: no `command not found`, no doubled text, no `(rehearsal)` chip
    in the strip, no empty HUD. Retake now, while the setup is still up.
 
@@ -149,7 +145,7 @@ a 22 kHz mono track clipping at 0 dB, and 137 s of silence between editors. Inst
 
 - Record every clip **silently**.
 - Cut the picture first: every silence out, plain cuts between beats. No zooms, no callouts, no
-  music — the HUD and the mode line are the graphics.
+  music — the HUD and the typed `status` lines are the graphics.
 - Then read `SCRIPT.md` against the cut, on a USB or headset mic at 48 kHz, one beat at a time.
   Normalize to −16 LUFS (YouTube's target is −14; keep headroom), a light noise gate, no clipping.
 - Trim the picture to the words, not the words to the picture.

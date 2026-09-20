@@ -1,16 +1,16 @@
 # The keyboard that knows your vim mode — video script
 
 **Format:** screen recording plus English narration, nothing else — no camera, no animation, no
-music. ~5:00 (4:30–5:15). **Every beat is recorded hands-off** by `record.py`; the narration is
+music. ~5:15 (4:45–5:30). **Every beat is recorded hands-off** by `record.py`; the narration is
 read after the picture is cut, and the automated takes carry a TTS scratch track only for
 judging pace.
 **Resolution:** the recording monitor at scale 1.25 on 2560×1440 (logical 2048×1152),
 delivered at 1920×1080 **60 fps** (`ZMK_RECORD_FPS=60` for `record.py`; see `env/obs-scene.md`).
 **On screen throughout the demos:** the editor on the left; on the right rail the layer HUD
 ([zmk-layer-hud](https://github.com/rafaelromao/zmk-layer-hud)) with the Diamond's active layer and
-lit keys, the typed-keys strip below it, and the **mode line** — one large terminal line with the
-daemon's decision (`decision : raw (code 6) — nvim client`). The HUD shows the keyboard's layers;
-the mode line shows the daemon's reason; together they tell RAW from OFF on camera.
+lit keys, and the typed-keys strip below it. The HUD shows the keyboard's layers; where the
+daemon's reason matters (beats 3 and 8 — RAW and OFF both read *Alpha 1*), the segment types
+`zmk-vim-mode status` in the demo terminal so the reason itself is on camera.
 **Non-demo shots are screen recordings too, driven the same way:** the diagrams are the PNGs
 from the keyboards repo opened maximized in the image viewer (`imv` on Omarchy; `ZMK_IMAGE_VIEWER`
 overrides it); the title, the "how it works" material, the devicetree node and the end card are
@@ -29,9 +29,11 @@ and where to post; `TAKE-2-PLAN.md` is the review of the first assembly and the 
 number for every beat 0–9, with the rehearsal HUD, and lands `run/take<N>.mp4`. The action
 tables below are what the segments type, so the take shows exactly this. The demo segments run
 longer than the narration on purpose (they exercise every state the rehearsal checks): the
-*Cut* line under each beat says which stretch to keep. Before the run: monitor scaled, waybar
-hidden, the mode line placed, the take HUD stopped (`bash showcase/hud.sh stop`),
-`bash showcase/prepare.sh` done. `ZMK_RECORD_FPS=60` for the deliverable.
+*Cut* line under each beat says which stretch to keep. Before the run: monitor at scale 1.25,
+bar widgets stripped (`bash showcase/prepare.sh` does it), the take HUD stopped
+(`bash showcase/hud.sh stop`), `bash showcase/prepare.sh` done. The driver parks on
+workspace 8 before every take and the segments never leave workspaces 5–8, so nothing
+below workspace 5 is ever on camera. `ZMK_RECORD_FPS=60` for the deliverable.
 
 **Typing in every take:** ~70 words per minute — about one character every 0.17 s —
 so each key lights on its own and no two fall inside the 30 ms combo window.
@@ -65,7 +67,7 @@ flip is the opening shot.
 **Cut.** From the first typed letter to the last `h`; drop the file opening and the exit.
 
 **Expect.** HUD *Vim insert* → *Vim normal* on `Esc`; on the vim layer the right home row
-lights index → pinky. Mode line `normal (code 1) — nvim client`.
+lights index → pinky.
 
 **Narration.**
 > Watch the panel on the right: that's my keyboard, twenty-four keys, drawn live from its own
@@ -73,13 +75,21 @@ lights index → pinky. Mode line `normal (code 1) — nvim client`.
 > the editor just told it vim is in normal mode. h, j, k, l are under my right hand now. Nothing
 > in vim was remapped.
 
-### 1 · Title — 0:18–0:25 (0 words) · `record.py 1`
+### 1 · Title and intro — 0:18–0:39 (48 words) · `record.py 1`
 
 **Screen (`seg1`).** `show title` in the demo terminal (the card in `env/cards/title.txt`),
-4 s; then `Diamond.jpeg` from the keyboards repo maximized in the image viewer, 3 s. Silent:
-`record.py` records this beat without a scratch track.
+4 s; `show intro` (the card in `env/cards/intro.txt`), 14 s; then `Diamond.jpeg` from the
+keyboards repo maximized in the image viewer, 3 s.
 
-### 2 · The problem — 0:25–1:05 (91 words) · `record.py 2`
+**Cut.** Keep the intro card under the narration, the photo to the end.
+
+**Narration.**
+> I'm Rafael, and this is a video about typing. I use a twenty-four-key keyboard with an
+> alternative layout, and I live in vim. Those two never got along — until the editors
+> started telling the keyboard which vim mode they're in. The tour, the trick, and the
+> install.
+
+### 2 · The problem — 0:39–1:19 (91 words) · `record.py 2`
 
 **Screen (`seg2`).** `alpha1.png` maximized in the image viewer for 20 s, then `vim.png` for
 20 s. The narration names the keys (`h|v` the magic key, the `h,` and `mg` combos, `l` on the top
@@ -96,22 +106,22 @@ row; then the `h j k l` home row and the left-hand operators); the diagram is le
 > it's issuing commands. The catch was always knowing *when*. Guessing from keystrokes drops
 > keys.
 
-### 3 · How it works — 1:05–1:55 (118 words) · `record.py 3`
+### 3 · How it works — 1:19–2:09 (118 words) · `record.py 3`
 
 **Screen (`seg3`).** In the demo terminal, `show channel` (the descriptor bytes and the
 eight-code table, `env/cards/channel.txt`) for 12 s, `show pipeline` (the end-to-end diagram)
 for 10 s. Then one maximized demo terminal with two tabs: tab 2 runs the log tail, tab 1
 types `zmk-vim-mode status`, then `set insert`, `set normal`, `set off`, `set off` again
-(back to auto).
+(back to auto), and a closing `zmk-vim-mode status` showing auto again.
 
 ```bash
 journalctl --user -u zmk-vim-mode -f -o cat | grep -e decision -e led
 ```
 
-**Expect.** Banner *Vim normal* → *Vim insert* → *Alpha 1*; the mode line shows the override
-after each `set` and drops it after the second `set off`; one `led write` line per device in
-the tail. `set off` and `set raw` both leave the banner on *Alpha 1*: the mode line tells them
-apart.
+**Expect.** Banner *Vim normal* → *Vim insert* → *Alpha 1* following each `set`; the closing
+`status` shows no override (back to auto); one `led write` line per device in
+the tail. `set off` and `set raw` both leave the banner on *Alpha 1*: the closing status
+tells them apart.
 
 **Cut.** Keep the two cards under the first six sentences, the `set` sequence under "I can set
 it by hand"; drop the `status` dump and the tail's start-up.
@@ -125,13 +135,13 @@ it by hand"; drop the `status` dump and the tail's start-up.
 > bitmask. I can set it by hand from a terminal and the board follows. And this panel is not a
 > mock-up: it reads the keyboard's own reports, so what lights is what the keyboard did.
 
-### 4 · Neovim — 1:55–2:55 (139 words) · `record.py 4`
+### 4 · Neovim — 2:09–3:09 (139 words) · `record.py 4`
 
 **Screen.** Ghostty (demo shell) in `showcase/demo-go`. The HUD spells the daemon's modes from
 the keyboard's layers: NORMAL → *Vim normal*, INSERT → *Vim insert*, VISUAL → *Vim visual · Vim
 normal*, CMDLINE → *Vim cmdline*; **RAW and OFF both read *Alpha 1***.
 
-| Action (what `seg4` types) | HUD banner | mode line |
+| Action (what `seg4` types) | HUD banner | daemon reason |
 |---|---|---|
 | `nvim` → LazyVim dashboard | *Alpha 1* | `raw (code 6) — nvim client` |
 | `f` → `modes.go`, Enter | *Vim normal* | `normal (code 1) — nvim client` |
@@ -160,11 +170,11 @@ the first eight keys if the words run out.
 > Lazy: raw. Back in the file: normal. The keyboard tracks what the editor is expecting, not
 > which window is in front.
 
-### 5 · VS Code — 2:55–3:15 (47 words) · `record.py 5`
+### 5 · VS Code — 3:09–3:29 (47 words) · `record.py 5`
 
 **Screen.** `demo-go.code-workspace`, `modes.go`; title bar `modes.go — demo-go [Text Editor]`.
 
-| Action (what `seg5` types) | HUD banner | mode line |
+| Action (what `seg5` types) | HUD banner | daemon reason |
 |---|---|---|
 | `Ctrl+P` `modes.go` Enter, `Esc`, the tour | *Vim normal* ↔ *Vim insert* | `client vscode` |
 | `/Kana` Enter, `A`, type ` // bit 1 of the code`, `Esc`; `v`, `Esc` | *Vim insert* / *Vim visual · Vim normal* → *Vim normal* | |
@@ -182,11 +192,11 @@ search-and-comment and the Explorer unless the words allow.
 > title and a tiny companion extension: the terminal, raw; back in the file, normal; the
 > command palette, raw.
 
-### 6 · IntelliJ IDEA — 3:15–3:35 (45 words) · `record.py 6`
+### 6 · IntelliJ IDEA — 3:29–3:49 (45 words) · `record.py 6`
 
 **Screen.** `demo-java`, `ModeTable.java`, IdeaVim on. No `Esc` in normal mode (IdeaVim beeps).
 
-| Action (what `seg6` types) | HUD banner | mode line |
+| Action (what `seg6` types) | HUD banner | daemon reason |
 |---|---|---|
 | `Ctrl+Shift+N` `ModeTable` Enter, the tour | *Vim normal* ↔ *Vim insert* | `client intellij` |
 | `/COMPOSE` Enter, `Esc`, `A`, type ` // Compose is bit 0`, `Esc`; `v`, `Esc` | *Vim insert* / *Vim visual · Vim normal* → *Vim normal* | |
@@ -201,11 +211,11 @@ search-and-comment and the Explorer unless the words allow.
 > same layers. The project tree: raw. The terminal: raw. And without the plugin, the keyboard
 > still infers the mode by itself between keystrokes, the way it did for years.
 
-### 7 · Obsidian — 3:35–3:58 (56 words) · `record.py 7`
+### 7 · Obsidian — 3:49–4:12 (56 words) · `record.py 7`
 
 **Screen.** Obsidian, the *Demo* vault, note *Tasks*.
 
-| Action (what `seg7` types) | HUD banner | mode line |
+| Action (what `seg7` types) | HUD banner | daemon reason |
 |---|---|---|
 | `Esc`, the tour | *Vim normal* ↔ *Vim insert* | `client obsidian` |
 | `j j`, `A`, type ` — publish the video`, `Esc`, `u` | *Vim insert* → *Vim normal* | `insert` → `normal` |
@@ -221,14 +231,14 @@ search-and-comment and the Explorer unless the words allow.
 > search, raw; back in the text, normal. Four editors, four different plumbing jobs, one
 > daemon — and the keyboard only ever sees a code.
 
-### 8 · Everywhere else — 3:58–4:23 (54 words) · `record.py 8`
+### 8 · Everywhere else — 4:12–4:37 (54 words) · `record.py 8`
 
-**Screen.** The plain demo shell; mode line `off (code 0) — terminal without nvim client`.
-`seg8` types `zmk-vim-mode set raw` → mode line `raw (code 6)` with the override; `set raw`
-again → back to `off`; then `exit`. The banner reads *Alpha 1* throughout: this beat is carried
-by the mode line.
+**Screen.** The plain demo shell. `seg8` types `zmk-vim-mode set raw` → `status | head -1`
+reads `raw (code 6)` with the override; `set raw` again → back to `off`, and a second
+`status | head -1` reads `off (code 0)`; then `exit`. The banner reads *Alpha 1*
+throughout: this beat is carried by the typed `status` lines.
 
-**Cut.** Keep both `set raw` lines and the mode line flipping.
+**Cut.** Keep both `set raw` lines and the `status` lines flipping.
 
 **Narration.**
 > Anywhere else, the vim layers are simply off. For what nothing can detect — vim over SSH, a
@@ -236,7 +246,7 @@ by the mode line.
 > listens on USB and Bluetooth at the same time, so the same code reaches it whichever host it
 > is paired to.
 
-### 9 · Install and wrap-up — 4:23–4:58 (87 words) · `record.py 9`
+### 9 · Install and wrap-up — 4:37–5:12 (87 words) · `record.py 9`
 
 **Screen (`seg9`).** In the demo terminal: `doctor` (the demo shell's function — the real
 `zmk-vim-mode doctor` with home paths shown as `~`), 8 s; `show node` (the `vim_sync { … }`
@@ -263,7 +273,7 @@ Every shot is a screen recording of the recording monitor, HUD rail included, pr
 | # | Shot | Source | Beat |
 |---|---|---|---|
 | A | Cold open in Neovim | `seg0` | 0 |
-| B | Title card, Diamond photo | `env/cards/title.txt`; `keyboards/docs/img/builds/Diamond.jpeg` in the image viewer | 1 |
+| B | Title and intro cards, Diamond photo | `env/cards/{title,intro}.txt`; `keyboards/docs/img/builds/Diamond.jpeg` in the image viewer | 1 |
 | C | Layer diagrams | `keyboards/docs/img/diagrams/{alpha1,vim}.png` in the image viewer | 2 |
 | D | Channel and pipeline cards, then the live `set` sequence | `env/cards/{channel,pipeline}.txt`; one demo terminal with two tabs | 3 |
 | E | Editor demos | `seg4`–`seg7` | 4–7 |
@@ -272,17 +282,20 @@ Every shot is a screen recording of the recording monitor, HUD rail included, pr
 
 ## Pre-flight, every run
 
-`bash showcase/prepare.sh` run (it strips the codex/weather bar widgets too) · monitor
-scaled · mode line placed · take HUD
+`bash showcase/prepare.sh` run (it strips the codex/weather bar widgets too) · monitor at
+scale 1.25 · take HUD
 stopped (`bash showcase/hud.sh stop`; the rehearsal brings its own) · no daemon override
-(`zmk-vim-mode status` shows none) · `git status` clean in the demo dirs · the keyboards repo at
+(`zmk-vim-mode status` shows none) · `git status` clean in the demo dirs · parked on
+workspace 8 (the driver re-parks before every take; takes never leave workspaces 5–8) ·
+the keyboards repo at
 `~/projects/keyboards` (or `KEYBOARDS_REPO`) · `imv` present (or `ZMK_IMAGE_VIEWER`). After the
-run, scrub each take: HUD drawing the board throughout, no error line in any terminal, the
-mode line matching the tables.
+run, scrub each take: HUD drawing the board throughout, no error line in any terminal, no
+window from workspaces 1–4, the typed `status` lines matching beats 3 and 8.
 
 ## Pass/fail per take
 
-The mode line (or `zmk-vim-mode status`) must show the reason in the tables above; the HUD
+`zmk-vim-mode status` (or the typed `status` lines in beats 3 and 8) must show the reason
+in the tables above; the HUD
 shows the keyboard's layers, not the daemon's reasoning. `rehearse.py` checks the same reasons
 and reports to `run/rehearsal.log`; a take with a failed check is a setup problem (plugin not
 loaded, title marker missing, the unit without `--atspi`), not a script problem.
@@ -292,7 +305,7 @@ loaded, title marker missing, the unit without `--atspi`), not a script problem.
 | Beat | Words | Time |
 |---|---|---|
 | 0 | 57 | 0:18 |
-| 1 | 0 | 0:07 |
+| 1 | 48 | 0:21 |
 | 2 | 91 | 0:40 |
 | 3 | 118 | 0:50 |
 | 4 | 139 | 1:00 |
@@ -301,7 +314,7 @@ loaded, title marker missing, the unit without `--atspi`), not a script problem.
 | 7 | 56 | 0:23 |
 | 8 | 54 | 0:25 |
 | 9 | 87 | 0:35 |
-| **total** | **694** | **4:58** |
+| **total** | **742** | **5:12** |
 
 The automated segments run longer than their words by design (they exercise every state the
 rehearsal checks); the *Cut* lines say what to keep. Cut the actions, not the words.

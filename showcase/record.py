@@ -62,7 +62,7 @@ def narration(beat):
             elif in_beat and line.startswith(">"):
                 text.append(line[1:].strip())
     if not text:
-        return ""   # a silent beat (the title card): recorded without a scratch track
+        return ""   # a beat with no narration lines: recorded without a scratch track
     out = " ".join(text)
     out = out.replace("—", ", ").replace("–", ", ").replace("  ", " ")
     out = re.sub(r"\bssh\b", "S S H", out)
@@ -162,14 +162,19 @@ def mux(raw, wav, out):
     os.remove(raw)
 
 
-# Beats with no editor state on screen (title card, layer diagrams, install and
-# wrap-up): the mode line would only read "off — terminal without nvim client",
-# noise over cards and photos, so it leaves the frame for these takes.
-HIDE_MODELINE = {"1", "2", "9"}
-
-
+# Takes never show the mode line: beats with no editor state would only read
+# "off — terminal without nvim client", and beats 3 and 8 carry the reason in
+# typed `status` lines instead. `modeline.sh` stays for manual debugging.
 def modeline(action):
     subprocess.run(["bash", os.path.join(SHOW, "modeline.sh"), action],
+                   capture_output=True)
+
+
+def park():
+    """Focus workspace 8 before a take: segments never leave workspaces 5–8, but
+    the countdown runs before the first focus call, so park first or the take's
+    head shows wherever the box was parked (nothing below 5, ever, on camera)."""
+    subprocess.run(["hyprctl", "dispatch", 'hl.dsp.focus({workspace="8"})'],
                    capture_output=True)
 
 
@@ -187,9 +192,8 @@ def take(seg, with_tts):
     else:
         wav = None
     print(f"take {seg}: recording", flush=True)
-    hid_modeline = seg in HIDE_MODELINE
-    if hid_modeline:
-        modeline("stop")
+    park()
+    modeline("stop")
     rec = start_recorder(raw)
     try:
         time.sleep(1)
@@ -197,8 +201,6 @@ def take(seg, with_tts):
         time.sleep(1)
     finally:
         stop_recorder(rec)
-        if hid_modeline:
-            modeline("start")
     if rc != 0:
         print(f"take {seg}: segment failed (rc={rc}); raw kept at {raw}", flush=True)
         return False

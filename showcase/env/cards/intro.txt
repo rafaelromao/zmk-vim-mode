@@ -1,0 +1,7 @@
+Why this video exists
+
+I type on a 24-key board with an
+alternative layout, and I live in vim.
+This is the setup that makes both work:
+the keyboard switches layers the moment
+vim changes mode — nothing remapped.

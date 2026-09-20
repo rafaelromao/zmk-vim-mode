@@ -368,10 +368,11 @@ def seg0():
 
 
 def seg1():
-    """Title card in the demo terminal, then the Diamond photo. Beat 1 (no narration)."""
-    log("--- segment 1: title")
+    """Title and intro cards in the demo terminal, then the Diamond photo. Beat 1."""
+    log("--- segment 1: title and intro")
     term = open_demo_ghostty()
     keys("show title\n", 4.0); expect("off")
+    keys("show intro\n", 14.0); expect("off")
     view_image(os.path.join(KEYBOARDS, "docs/img/builds/Diamond.jpeg"), 3.0)
     focus(re.escape(DEMO_CLASS), 0.5, pid=term.pid)
     keys("exit\n", 0.8)
@@ -428,6 +429,7 @@ def seg3():
     ok = st.get("override") is None
     results["pass" if ok else "fail"] += 1
     log(("PASS" if ok else "FAIL") + "  override cleared")
+    keys("zmk-vim-mode status\n", 3.0); expect("off")   # the closing dump shows auto again, on camera
     key(["alt"], "2", 1.0)                # tab 2 again to stop the tail
     key(["ctrl"], "c", 0.8)
 
@@ -531,7 +533,13 @@ def seg6():
 
 def seg7():
     log(f"--- segment 7: Obsidian (vault {VAULT})")
-    sh(f"xdg-open 'obsidian://open?vault={VAULT}&file=Tasks'", 3)
+    # Fire-and-forget: xdg-open waits on the app's handoff and sticks forever against
+    # a windowless instance (seen twice: once 34 min, once to the sh() timeout). The
+    # wait_window below is the real gate and fails loud on its own 90 s budget.
+    subprocess.Popen(["xdg-open", f"obsidian://open?vault={VAULT}&file=Tasks"],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
+    time.sleep(3)
     place(wait_window("obsidian|md\\.obsidian\\.Obsidian")["address"], 7)
     focus("obsidian|md\\.obsidian\\.Obsidian", 1)
     esc(0.8); expect("normal", "obsidian")
@@ -564,12 +572,14 @@ def seg8():
     log("--- segment 8: everywhere else")
     open_demo_ghostty()
     expect("off", "terminal without nvim client")
-    keys("zmk-vim-mode set raw\n", 1.5); expect("raw")   # typed, not sh(): beat 8 is carried by what is on camera
+    keys("zmk-vim-mode set raw\n", 1.5); expect("raw")
+    keys("zmk-vim-mode status | head -1\n", 3.0)   # typed, not sh(): the reason reads on camera
     keys("zmk-vim-mode set raw\n", 1.5)
     st = status()
     ok = st.get("override") is None
     results["pass" if ok else "fail"] += 1
     log(("PASS" if ok else "FAIL") + "  override cleared")
+    keys("zmk-vim-mode status | head -1\n", 3.0)
     expect("off")
     keys("exit\n", 0.8)
 
