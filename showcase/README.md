@@ -19,6 +19,8 @@ its runner and its recording notes — was removed when the HUD moved out; `git 
 | `prepare.sh` | quit, clean and reopen the editors on the demo content, maximized on their workspaces |
 | `rehearse.py` | run one segment (or all) with synthesized keystrokes, report to `run/rehearsal.log` |
 | `record.py` | screen-record every beat (0–9) hands-off, one segment each, with a TTS scratch narration → `run/take<N>.mp4` |
+| `narration.py` | parses a beat's narration out of `SCRIPT.md`, cues included — shared by `record.py` and `dub.py` |
+| `dub.py` | post: render the narration, place each cued line on its moment, normalise, mux → `run/showcase-dubbed.mp4` |
 | `rehearsal-panel.py`, `rehearsal-feed.py` | the rehearsal's own copy of the HUD — see *Rehearsals* below |
 | `setup.sh` | reset the demo content to the committed state, print the one-time GUI steps |
 | `Demo/` | the Obsidian vault used on camera (open it as a vault; its runtime state is ignored) |
@@ -72,6 +74,61 @@ in the header of `env/ghostty-demo.conf`, and `rehearse.py` opens exactly that.
 
 Then follow `env/obs-scene.md` and `env/privacy-checklist.md`, and record one take per beat of
 `SCRIPT.md`.
+
+## Dubbing
+
+`record.py` lays a TTS scratch under each take for judging pace. `dub.py` produces the
+deliverable, and unlike the rest of the kit it needs no Hyprland, no `ydotool` and no
+recorder — it is ffmpeg plus a TTS binary, so the dub can be cut on a laptop while the
+takes are recorded on the Linux box.
+
+```bash
+python3 showcase/dub.py anchors   # measure each take's first on-screen action
+python3 showcase/dub.py hud       # what layer the HUD shows, when
+python3 showcase/dub.py fit       # does the narration fit the picture? (no TTS needed)
+python3 showcase/dub.py render    # render every cued line
+python3 showcase/dub.py master    # lay the bed, normalise, mux onto the assembly
+python3 showcase/dub.py check     # sync, density and loudness of the result
+```
+
+`dub.py resync` skips the TTS and rebuilds the bed from the existing `run/take<N>.wav`
+scratch files — useful to fix the timing of an assembly you already have.
+
+**Cues.** A narration line in `SCRIPT.md` may open with `[+12.3]`: speak this line 12.3 s
+after *the take's first on-screen action*, not 12.3 s into the file. The takes open with a
+few seconds of nothing, because the recorder starts before the segment does, and that
+lead-in is not the same in every take — 5.2 s in takes 0–3, 3.9 s in takes 4–9. `dub.py`
+measures it per take, so the script never has to know. A line with no cue is simply joined
+onto the line above it, which is how every beat read before cues existed.
+
+**Why per-line cues.** One clip per beat drifts against the picture as soon as the beat has
+more than one thing happening in it — beat 4 has eleven. Each cue is placed at its absolute
+position in the assembly, so a clip that renders long can never push the ones after it.
+
+**Place cues against `dub.py hud`, never against a guess.** The HUD banner's underline is a
+solid bar whose colour *is* the layer — green for insert, bright blue for the vim command
+layers, dim blue-grey for Alpha 1 — so cropping it and averaging it to one pixel turns "what
+was the keyboard doing" into three bytes per sample. Scene detection is not a substitute:
+on the whole frame it only says *something* moved, and on the banner it misses
+insert→normal entirely, because the text is the same length and only the colour changes.
+`dub.py fit` prints the layer each line is spoken over, so a line that talks about the vim
+layer while the HUD reads Alpha 1 is visible before anything is rendered.
+
+**Voice.** `dub.py` tries kokoro-onnx first, then piper, both from `~/.cache/zmk-showcase`:
+
+```bash
+python3.12 -m venv ~/.cache/zmk-showcase/tts-kokoro
+~/.cache/zmk-showcase/tts-kokoro/bin/pip install kokoro-onnx soundfile numpy
+# then kokoro-v1.0.onnx + voices-v1.0.bin into ~/.cache/zmk-showcase/voices/
+```
+
+`ZMK_DUB_VOICE` picks the voice (default `am_michael`), `ZMK_DUB_SPEED` its pace,
+`ZMK_DUB_LEAD` how far ahead of its action a line starts (default 0.3 s).
+
+**Delivery.** The bed is normalised to −16 LUFS with a −1.5 dBTP ceiling and delivered at
+48 kHz stereo, per `env/obs-scene.md`. The picture is muxed `-c:v copy` and never
+re-encoded; `dub.py check` reports the sync error per beat.
+
 
 ## How the HUD works
 

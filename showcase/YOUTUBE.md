@@ -24,15 +24,15 @@ keyboard its exact mode over three LED indicator bits no OS ever sets, and a ZMK
 the layer. Works in Neovim, VS Code (vscode-neovim), IntelliJ (IdeaVim) and Obsidian.
 
 0:00 The keyboard follows Escape
-0:18 What this video is about
-0:37 Why alternative layouts break vim
-1:17 How it works: three LED bits
-2:07 Neovim, including raw mode
-3:07 VS Code
-3:27 IntelliJ IDEA
-3:47 Obsidian
-4:10 Everywhere else and the escape hatch
-4:35 Install
+0:47 What this video is about
+1:37 Why alternative layouts break vim
+2:34 How it works: three LED bits
+3:53 Neovim, including raw mode
+5:20 VS Code: four ways to know
+6:37 IntelliJ IDEA
+7:37 Obsidian
+8:26 Everywhere else and the escape hatch
+9:18 Install
 
 zmk-vim-mode   https://github.com/rafaelromao/zmk-vim-mode
 zmk-layer-hud  https://github.com/rafaelromao/zmk-layer-hud   (the live keymap on the right; any ZMK board)

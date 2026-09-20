@@ -27,12 +27,14 @@ session. Takes are silent re-runs of the rehearsal: stop the take's HUD first
 """
 
 import os
-import re
 import shutil
 import signal
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import narration as narration_md   # noqa: E402  (needs the path above)
 
 SHOW = os.path.dirname(os.path.abspath(__file__))
 RUN = os.path.join(SHOW, "run")
@@ -55,20 +57,13 @@ def fail(msg):
 
 
 def narration(beat):
-    """The beat's narration: the `>` quote lines under its `### N` section."""
-    text, in_beat = [], False
-    with open(SCRIPT) as f:
-        for line in f:
-            if line.startswith("### "):
-                in_beat = line.startswith(f"### {beat} ")
-            elif in_beat and line.startswith(">"):
-                text.append(line[1:].strip())
-    if not text:
-        return ""   # a beat with no narration lines: recorded without a scratch track
-    out = " ".join(text)
-    out = out.replace("—", ", ").replace("–", ", ").replace("  ", " ")
-    out = re.sub(r"\bssh\b", "S S H", out)
-    return out
+    """The beat's narration as one string, for the scratch track.
+
+    narration.py owns the parsing so this and dub.py can never disagree about what a
+    beat says. Cues (`[+12.3]`) are stripped here: the scratch only judges pace, and
+    dub.py is what places each line at its own moment.
+    """
+    return narration_md.flat_text(beat, SCRIPT)
 
 
 def tts_bin():
