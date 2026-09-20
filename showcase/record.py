@@ -41,8 +41,10 @@ SCRIPT = os.path.join(SHOW, "SCRIPT.md")
 MONITOR = os.environ.get("ZMK_RECORD_MONITOR", "HDMI-A-1")
 FPS = os.environ.get("ZMK_RECORD_FPS", "30")
 BEATS = [str(n) for n in range(10)]   # every beat of SCRIPT.md is a segment of rehearse.py
-# TTS at ~140 words per minute, the script's assumed narration pace.
-LENGTH_SCALE = os.environ.get("ZMK_TTS_LENGTH_SCALE", "1.3")
+# TTS at the script's assumed narration pace (~140 words per minute on the ryan
+# voice needs length-scale ~1.77; 1.3 rendered ~165wpm and crammed every beat's
+# words into its first third). Post still refits + delays the scratch per take.
+LENGTH_SCALE = os.environ.get("ZMK_TTS_LENGTH_SCALE", "1.77")
 
 os.makedirs(RUN, exist_ok=True)
 

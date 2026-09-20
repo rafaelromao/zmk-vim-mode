@@ -75,7 +75,7 @@ lights index → pinky.
 > the editor just told it vim is in normal mode. h, j, k, l are under my right hand now. Nothing
 > in vim was remapped.
 
-### 1 · Title and intro — 0:18–0:39 (48 words) · `record.py 1`
+### 1 · Title and intro — 0:18–0:37 (45 words) · `record.py 1`
 
 **Screen (`seg1`).** `show title` in the demo terminal (the card in `env/cards/title.txt`),
 4 s; `show intro` (the card in `env/cards/intro.txt`), 14 s; then `Diamond.jpeg` from the
@@ -84,12 +84,12 @@ keyboards repo maximized in the image viewer, 3 s.
 **Cut.** Keep the intro card under the narration, the photo to the end.
 
 **Narration.**
-> I'm Rafael, and this is a video about typing. I use a twenty-four-key keyboard with an
+> This is a video about typing. I use a twenty-four-key keyboard with an
 > alternative layout, and I live in vim. Those two never got along — until the editors
 > started telling the keyboard which vim mode they're in. The tour, the trick, and the
 > install.
 
-### 2 · The problem — 0:39–1:19 (91 words) · `record.py 2`
+### 2 · The problem — 0:37–1:17 (91 words) · `record.py 2`
 
 **Screen (`seg2`).** `alpha1.png` maximized in the image viewer for 20 s, then `vim.png` for
 20 s. The narration names the keys (`h|v` the magic key, the `h,` and `mg` combos, `l` on the top
@@ -106,7 +106,7 @@ row; then the `h j k l` home row and the left-hand operators); the diagram is le
 > it's issuing commands. The catch was always knowing *when*. Guessing from keystrokes drops
 > keys.
 
-### 3 · How it works — 1:19–2:09 (118 words) · `record.py 3`
+### 3 · How it works — 1:17–2:07 (118 words) · `record.py 3`
 
 **Screen (`seg3`).** In the demo terminal, `show channel` (the descriptor bytes and the
 eight-code table, `env/cards/channel.txt`) for 12 s, `show pipeline` (the end-to-end diagram)
@@ -135,7 +135,7 @@ it by hand"; drop the `status` dump and the tail's start-up.
 > bitmask. I can set it by hand from a terminal and the board follows. And this panel is not a
 > mock-up: it reads the keyboard's own reports, so what lights is what the keyboard did.
 
-### 4 · Neovim — 2:09–3:09 (139 words) · `record.py 4`
+### 4 · Neovim — 2:07–3:07 (139 words) · `record.py 4`
 
 **Screen.** Ghostty (demo shell) in `showcase/demo-go`. The HUD spells the daemon's modes from
 the keyboard's layers: NORMAL → *Vim normal*, INSERT → *Vim insert*, VISUAL → *Vim visual · Vim
@@ -170,7 +170,7 @@ the first eight keys if the words run out.
 > Lazy: raw. Back in the file: normal. The keyboard tracks what the editor is expecting, not
 > which window is in front.
 
-### 5 · VS Code — 3:09–3:29 (47 words) · `record.py 5`
+### 5 · VS Code — 3:07–3:27 (47 words) · `record.py 5`
 
 **Screen.** `demo-go.code-workspace`, `modes.go`; title bar `modes.go — demo-go [Text Editor]`.
 
@@ -192,7 +192,7 @@ search-and-comment and the Explorer unless the words allow.
 > title and a tiny companion extension: the terminal, raw; back in the file, normal; the
 > command palette, raw.
 
-### 6 · IntelliJ IDEA — 3:29–3:49 (45 words) · `record.py 6`
+### 6 · IntelliJ IDEA — 3:27–3:47 (45 words) · `record.py 6`
 
 **Screen.** `demo-java`, `ModeTable.java`, IdeaVim on. No `Esc` in normal mode (IdeaVim beeps).
 
@@ -211,7 +211,7 @@ search-and-comment and the Explorer unless the words allow.
 > same layers. The project tree: raw. The terminal: raw. And without the plugin, the keyboard
 > still infers the mode by itself between keystrokes, the way it did for years.
 
-### 7 · Obsidian — 3:49–4:12 (56 words) · `record.py 7`
+### 7 · Obsidian — 3:47–4:10 (56 words) · `record.py 7`
 
 **Screen.** Obsidian, the *Demo* vault, note *Tasks*.
 
@@ -231,7 +231,7 @@ search-and-comment and the Explorer unless the words allow.
 > search, raw; back in the text, normal. Four editors, four different plumbing jobs, one
 > daemon — and the keyboard only ever sees a code.
 
-### 8 · Everywhere else — 4:12–4:37 (54 words) · `record.py 8`
+### 8 · Everywhere else — 4:10–4:35 (54 words) · `record.py 8`
 
 **Screen.** The plain demo shell. `seg8` types `zmk-vim-mode set raw` → `status | head -1`
 reads `raw (code 6)` with the override; `set raw` again → back to `off`, and a second
@@ -246,7 +246,7 @@ throughout: this beat is carried by the typed `status` lines.
 > listens on USB and Bluetooth at the same time, so the same code reaches it whichever host it
 > is paired to.
 
-### 9 · Install and wrap-up — 4:37–5:12 (87 words) · `record.py 9`
+### 9 · Install and wrap-up — 4:35–5:10 (87 words) · `record.py 9`
 
 **Screen (`seg9`).** In the demo terminal: `doctor` (the demo shell's function — the real
 `zmk-vim-mode doctor` with home paths shown as `~`), 8 s; `show node` (the `vim_sync { … }`
@@ -305,7 +305,7 @@ loaded, title marker missing, the unit without `--atspi`), not a script problem.
 | Beat | Words | Time |
 |---|---|---|
 | 0 | 57 | 0:18 |
-| 1 | 48 | 0:21 |
+| 1 | 45 | 0:19 |
 | 2 | 91 | 0:40 |
 | 3 | 118 | 0:50 |
 | 4 | 139 | 1:00 |
@@ -314,7 +314,7 @@ loaded, title marker missing, the unit without `--atspi`), not a script problem.
 | 7 | 56 | 0:23 |
 | 8 | 54 | 0:25 |
 | 9 | 87 | 0:35 |
-| **total** | **742** | **5:12** |
+| **total** | **739** | **5:10** |
 
 The automated segments run longer than their words by design (they exercise every state the
 rehearsal checks); the *Cut* lines say what to keep. Cut the actions, not the words.

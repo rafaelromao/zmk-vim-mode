@@ -141,6 +141,17 @@ raw); take 9's doctor reads `0 failed, 0 warnings, 16 checks` with `~` paths.
 - `prepare.sh` also clears VS Code demo hot-exit backups now (a restored dirty
   `modes.go` buffer put seg5's old comment back on camera with a clean disk).
 
+## Session 2026-09-20 (cont.) — audio refit, name out (done)
+
+Scratch was ~165wpm from take start (~9 s before the first keystroke), so every beat
+crammed its words into the first third. Re-rendered all ten at length-scale 1.77
+(~140wpm, the script's pace; `record.py` default updated from 1.3) with the name out
+of beat 1 (48→45 words; beat times −0:02 from beat 2 on, total 739 words 5:10,
+`YOUTUBE.md` chapters shifted), re-muxed onto the untouched video with a 9 s head
+delay (`adelay=9000,apad`, `-c:v copy`, take durations unchanged), assembly rebuilt
+(10:08). Verified: digital silence 0–8 s, speech after. Uncommitted: SCRIPT, YOUTUBE,
+record.py.
+
 ## Session 2026-09-20 (cont.) — full restart, all green (done)
 
 Restarted from prepare at 1.25x with the no-modeline/intro/ws8-parking script: all ten
