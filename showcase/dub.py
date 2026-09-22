@@ -6,7 +6,6 @@ with no gpu-screen-recorder, ydotool or hyprctl — so the dub can be cut on the
 while the takes are recorded on the Linux box.
 
     dub.py anchors          re-measure each take's first on-screen action
-    dub.py resync           rebuild the bed from the EXISTING take<N>.wav files
     dub.py render [voice]   render SCRIPT.md's narration through the TTS engine
     dub.py master           lay the bed, normalise it, mux onto showcase-takes.mp4
     dub.py hud [N...]       what layer the HUD shows, when — the timeline cues go against
@@ -16,7 +15,7 @@ while the takes are recorded on the Linux box.
     dub.py proof N [file]   one panel per line of beat N: screen + typed keys at the
                             moment it is spoken, straight out of the finished video
     dub.py pauses           find the stretches that are both silent and frozen
-    dub.py tighten          cut those out, re-place the narration → showcase-tight.mp4
+    dub.py tighten          cut those out, re-place the narration → showcase.mp4
     dub.py check            report sync, loudness and speech density of the output
 
 Why a single bed instead of ten padded clips: every cue is placed at its absolute
@@ -37,9 +36,12 @@ import sys
 SHOW = os.path.dirname(os.path.abspath(__file__))
 RUN = os.path.join(SHOW, "run")
 ANCHORS = os.path.join(RUN, "anchors.json")
+# Keep this file: concatenating the takes again does NOT reproduce it (a concat-demuxer
+# copy comes out 608.530 s against its 608.483 s, with a different bitstream), and the
+# cue model rests on frame `offset + t` of the assembly being frame `t` of the take.
 ASSEMBLY = os.path.join(RUN, "showcase-takes.mp4")
 BED = os.path.join(RUN, "narration.wav")
-OUT = os.path.join(RUN, "showcase-dubbed.mp4")
+OUT = os.path.join(RUN, "showcase-untrimmed.mp4")  # debugging aid, not shipped
 CLIPS = os.path.join(RUN, "clips")
 
 BEATS = [str(n) for n in range(10)]
@@ -270,20 +272,11 @@ def render(voice=None):
 
 # ---------------------------------------------------------------- the bed
 
-def placements(source):
-    """[(absolute_seconds, wav)] for the whole assembly.
-
-    source 'takes'  — the existing per-beat take<N>.wav, one clip per beat
-    source 'clips'  — the freshly rendered per-cue clips, placed at their cues
-    """
+def placements(source="clips"):
+    """[(absolute_seconds, wav)] for the whole assembly, one entry per rendered cue."""
     a, out = anchors(), []
     for b in BEATS:
         base = a[b]["offset"] + a[b]["action"] - LEAD
-        if source == "takes":
-            wav = os.path.join(RUN, f"take{b}.wav")
-            if os.path.isfile(wav):
-                out.append((max(0.0, base), wav))
-            continue
         for i, (cue, _) in enumerate(narration.cues(b)):
             wav = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
             if not os.path.isfile(wav):
@@ -446,12 +439,12 @@ def frange(a, b, step):
 
 # ---------------------------------------------------------------- tighten
 
-TIGHT = os.path.join(RUN, "showcase-tight.mp4")
+SHOWCASE = os.path.join(RUN, "showcase.mp4")      # the deliverable
 CUTS = os.path.join(RUN, "cuts.json")
 
 STILL = float(os.environ.get("ZMK_DUB_STILL", "0.6"))    # mean |Δgrey| below this = frozen
-MINGAP = float(os.environ.get("ZMK_DUB_MINGAP", "1.2"))  # shorter than this is rhythm
-KEEPGAP = float(os.environ.get("ZMK_DUB_KEEPGAP", "0.4"))  # leave this much of each pause
+MINGAP = float(os.environ.get("ZMK_DUB_MINGAP", "0.9"))  # shorter than this is rhythm
+KEEPGAP = float(os.environ.get("ZMK_DUB_KEEPGAP", "0.3"))  # leave this much of each pause
 PAD_AFTER, PAD_BEFORE = 0.35, 0.25                       # breathing room around a line
 
 
@@ -480,10 +473,21 @@ def motion(beat, fps=8.0, w=48, h=36):
 
 
 def frame_bytes(beat, t_local, w=64, h=36):
+    """One frame of a take, by frame index.
+
+    Not `-ss`: these files seek badly (see keys_strip), and near the end of a take an
+    input seek returns nothing at all — which used to make find_pauses silently drop the
+    cut, losing every take's dead tail without a word.
+    """
+    mp4 = os.path.join(RUN, f"take{beat}.mp4")
+    n = max(0, int(round(t_local * 60)))
+    # the same region motion() measures. Comparing whole frames instead rejects cuts whose
+    # content is frozen, because the HUD's typed-keys strip decays and its clock ticks —
+    # changes that are not the picture the viewer is watching.
     return subprocess.run(
-        ["ffmpeg", "-v", "error", "-ss", f"{t_local:.3f}",
-         "-i", os.path.join(RUN, f"take{beat}.mp4"), "-frames:v", "1",
-         "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        ["ffmpeg", "-v", "error", "-i", mp4, "-vf",
+         f"select='eq(n\\,{n})',crop=1790:1330:10:60,scale={w}:{h}", "-frames:v", "1",
+         "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
         capture_output=True).stdout
 
 
@@ -503,11 +507,14 @@ def find_pauses(verify=True):
 
     for b in BEATS:
         fps, m = motion(b)
-        off, vid = a[b]["offset"], a[b]["video"]
+        off, vid, cs = a[b]["offset"], a[b]["video"], a[b]["content_start"]
         run = None
         for i, val in enumerate(m):
             t = (i + 1) / fps
-            dead = val < STILL and not talking(off + t)
+            # inside the head the rail being drawn is a motion spike, but it is not this
+            # take's picture starting — do not let it break the run in two
+            still = val < STILL or t < cs - 0.2
+            dead = still and not talking(off + t)
             if dead and run is None:
                 run = t
             elif not dead and run is not None:
@@ -520,9 +527,21 @@ def find_pauses(verify=True):
     if verify:
         kept = []
         for b, s, e in cuts:
-            off = a[b]["offset"]
-            f0, f1 = frame_bytes(b, s - off), frame_bytes(b, e - off)
+            off, cs = a[b]["offset"], a[b]["content_start"]
+            # Before content_start the screen still belongs to the previous beat, so there
+            # is nothing of this take's to protect and the frame check does not apply. It
+            # would reject the cut anyway: the HUD rail is drawn partway through, so the
+            # first and last frames differ for a reason that is setup, not content.
+            if e <= off + cs + 0.05:
+                kept.append((b, s, e))
+                continue
+            # sample just inside the window: the very last frame of a take may not
+            # decode, and a silent drop here costs a whole dead tail
+            f0 = frame_bytes(b, s - off + 0.1)
+            f1 = frame_bytes(b, min(e - off - 0.1, a[b]["video"] - 0.2))
             if not f0 or not f1 or len(f0) != len(f1):
+                print(f"  beat {b} {s:.2f}→{e:.2f}: could not sample, keeping the cut")
+                kept.append((b, s, e))
                 continue
             d = sum(abs(f0[i] - f1[i]) for i in range(len(f0))) / len(f0)
             if d <= 3.0:
@@ -600,9 +619,9 @@ def tighten():
     ff(["-i", os.path.join(RUN, "tight-video.mp4"), "-i", normed,
         "-map", "0:v", "-map", "1:a", "-c:v", "copy",
         "-c:a", "aac", "-b:a", "192k", "-ar", RATE, "-ac", CHANNELS,
-        "-movflags", "+faststart", "-shortest", TIGHT])
-    print(f"wrote {TIGHT} ({duration(TIGHT):.3f}s)")
-    return TIGHT
+        "-movflags", "+faststart", "-shortest", SHOWCASE])
+    print(f"wrote {SHOWCASE} ({duration(SHOWCASE):.3f}s)")
+    return SHOWCASE
 
 
 # ---------------------------------------------------------------- proof
@@ -616,12 +635,12 @@ def proof(beat, video=None, out=None):
     the words — that is the only check that actually caught beat 4, after two rounds of
     weaker ones passed while the cues were eight seconds out.
     """
-    video = video or TIGHT
+    video = video or SHOWCASE
     if not os.path.isfile(video):
         fail(f"missing {video}")
     a, cuts = anchors(), json.load(open(CUTS)) if os.path.isfile(CUTS) else []
     ordered = sorted((s_, e_) for _, s_, e_ in cuts)
-    tight = os.path.abspath(video) == os.path.abspath(TIGHT)
+    tight = os.path.abspath(video) == os.path.abspath(SHOWCASE)
 
     def place(t):
         if not tight:
@@ -741,8 +760,6 @@ def main():
         for b, d in measure_anchors().items():
             print(f"take{b}  action={d['action']:>7.3f}  video={d['video']:>7.3f}  "
                   f"offset={d['offset']:>8.3f}")
-    elif cmd == "resync":
-        master(source="takes")
     elif cmd == "render":
         render(sys.argv[2] if len(sys.argv) > 2 else None)
     elif cmd == "master":

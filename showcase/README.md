@@ -27,7 +27,7 @@ its runner and its recording notes — was removed when the HUD moved out; `git 
 | `demo-go/`, `demo-go.code-workspace` | Go module for Neovim and VS Code |
 | `demo-java/` | plain Java project for IntelliJ IDEA |
 | `env/` | `ghostty-demo.conf` and `demo.bashrc` (demo terminal), `obs-scene.md`, `privacy-checklist.md`, `cards/` (title, channel, pipeline, node, links — printed with `show <card>`) |
-| `run/` | gitignored runtime files |
+| `run/` | the takes, the assembly, `showcase.mp4` and the two small json files the dub is built from; everything else here is regenerated and ignored |
 
 ## Prerequisites
 
@@ -90,12 +90,17 @@ python3 showcase/dub.py fit       # does the narration fit the picture? (no TTS 
 python3 showcase/dub.py render    # render every cued line
 python3 showcase/dub.py master    # lay the bed, normalise, mux onto the assembly
 python3 showcase/dub.py pauses    # find the stretches that are both silent and frozen
-python3 showcase/dub.py tighten   # cut those out, re-place the narration
+python3 showcase/dub.py tighten   # cut those out, re-place the narration -> run/showcase.mp4
 python3 showcase/dub.py check     # sync, density and loudness of the result
 ```
 
-`dub.py resync` skips the TTS and rebuilds the bed from the existing `run/take<N>.wav`
-scratch files — useful to fix the timing of an assembly you already have.
+**What run/ keeps.** `take<N>.mp4` and `showcase-takes.mp4` are the only things here that
+cannot be made again: the takes came from one session with the demo content, HUD and
+editors in a state that no longer exists, and the assembly is not reproducible either —
+concatenating the takes yields 608.530 s against its 608.483 s and a different bitstream,
+and every cue is placed against that file's timeline. `showcase.mp4` is the deliverable;
+`anchors.json` and `cuts.json` are small and load-bearing. The narration beds, the per-cue
+clips, the silent intermediate and the proof images all come back from `dub.py`.
 
 **Cues.** A narration line in `SCRIPT.md` may open with `[+12.3]`: speak this line 12.3 s
 after *the take's first on-screen action*, not 12.3 s into the file. The takes open with a
@@ -166,6 +171,14 @@ being said *and* the picture is not moving, and each candidate is then re-checke
 comparing the frame at its start with the frame at its end — if they differ, something
 happened in there and the cut is dropped. That check is what saves the Diamond photo at
 the end of beat 1, which is silent and nearly still but not still enough.
+
+The frame check has one exemption, and it matters: everything before a take's
+`content_start` is the *previous* beat's screen, so there is nothing of this take's to
+protect. Without the exemption the check rejects exactly the region that is always safe to
+cut, because the HUD rail is drawn partway through it and the first and last frames
+therefore differ. That one rule is worth about 95 s across the ten takes — it is the
+difference between a 9:10 cut and a 7:57 one. For the same reason the rail's motion spike
+must not split the head into two runs, or only the few seconds before it get removed.
 
 `ZMK_DUB_STILL` (0.6) is how frozen counts as frozen, `ZMK_DUB_MINGAP` (1.2 s) how long a
 pause has to be before it is worth cutting, and `ZMK_DUB_KEEPGAP` (0.4 s) how much of it
