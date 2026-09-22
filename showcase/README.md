@@ -15,6 +15,7 @@ its runner and its recording notes — was removed when the HUD moved out; `git 
 | `YOUTUBE.md` | title, thumbnail, description, chapters, where to post, the Short |
 | `HANDOFF.md` | state, decisions and lessons for the next agent |
 | `TAKE-2-PLAN.md` | review of the first take (2026-09-19) and the production plan for the second |
+| `HANDOFF-TAKE-3.md` | review of the dubbed video (2026-09-22): the HUD must type like the owner (alpha2, magic key, NUM hold), LED writes on camera in beat 3, verification |
 | `hud.sh` | start/stop the layer HUD for a take, from its own checkout (`$ZMK_LAYER_HUD`, default `~/projects/zmk-layer-hud`) |
 | `prepare.sh` | quit, clean and reopen the editors on the demo content, maximized on their workspaces |
 | `rehearse.py` | run one segment (or all) with synthesized keystrokes, report to `run/rehearsal.log` |
