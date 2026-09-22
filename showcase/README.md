@@ -85,6 +85,7 @@ takes are recorded on the Linux box.
 ```bash
 python3 showcase/dub.py anchors   # measure each take's first on-screen action
 python3 showcase/dub.py hud       # what layer the HUD shows, when
+python3 showcase/dub.py keys N    # the typed-keys strip through take N
 python3 showcase/dub.py fit       # does the narration fit the picture? (no TTS needed)
 python3 showcase/dub.py render    # render every cued line
 python3 showcase/dub.py master    # lay the bed, normalise, mux onto the assembly
@@ -106,6 +107,36 @@ onto the line above it, which is how every beat read before cues existed.
 **Why per-line cues.** One clip per beat drifts against the picture as soon as the beat has
 more than one thing happening in it — beat 4 has eleven. Each cue is placed at its absolute
 position in the assembly, so a clip that renders long can never push the ones after it.
+
+**A take opens with the previous beat's screen.** The recorder starts several seconds
+before the segment does, the HUD rail is drawn at 3.7-5.2 s, and the take's own picture
+does not arrive until about 10 s. Everything in between is whatever the beat before it
+left on the monitor. `dub.py anchors` therefore reports two numbers: `action`, the rail
+appearing, which is what cues are relative to; and `content_start`, when this take's
+picture actually begins. **No beat's opening line may start before `content_start`** — if
+it does, it narrates the previous beat over the previous beat's screen. Getting this wrong
+put every one of the ten beats 5-6.6 s early, and it survived several rounds of checking
+because each beat was internally consistent: only the relationship to the picture was off.
+
+Note that cropping the rail away does not rescue full-frame scene detection here — the
+editor window resizes when the rail appears, so the content pane changes too.
+
+**Never sample these recordings with `-ss` before `-i`.** They carry sparse keyframes and a
+nominal 60 fps that is really 59.99 (`nb_frames` is six short of `duration × 60`), so input
+seeking lands on a keyframe some seconds away and returns that frame without a word of
+complaint. Sample with the `fps` filter in a single decode — `dub.py keys` does — or with
+`-ss` *after* `-i`. This is not a nicety: it is what put beat 4's cues eight seconds out and
+then made the frame-by-frame check that should have caught it agree with them. Two rounds of
+"it is still out of sync" came from trusting a seek.
+
+**The banner is not enough on its own.** `dub.py hud` says which layer is lit, and that is
+the right anchor for a line about a *mode* — insert, normal, raw. It is the wrong anchor for
+a line that names a *keystroke*, because the banner reads `normal` for twenty seconds while
+the segment types an entire tour. Cue those against `dub.py keys`, which stacks the HUD's
+typed-keys strip through a take so you can read what was actually being pressed and when.
+Beat 4 is the cautionary one: every line sat on the correct layer and four of them were
+still four to ten seconds adrift, two of them describing an action that had already
+happened. Its cue list now carries the keystroke timeline as a comment.
 
 **Place cues against `dub.py hud`, never against a guess.** The HUD banner's underline is a
 solid bar whose colour *is* the layer — green for insert, bright blue for the vim command

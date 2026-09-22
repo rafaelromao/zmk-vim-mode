@@ -70,11 +70,11 @@ flip is the opening shot.
 lights index → pinky.
 
 **Narration.**
-> [+0.0] Watch the panel on the right. That's my keyboard, twenty-four keys, a layout called
+> [+5.0] Watch the panel on the right. That's my keyboard, twenty-four keys, a layout called
 > Romak, and it's drawn live from the board's own reports, so what lights up is what the
 > keyboard actually did.
-> [+15.3] The file is open, and vim is in normal mode.
-> [+20.8] A, and we're inserting. Romak is back, laid out for letters.
+> [+18.2] The file is open, and vim is in normal mode.
+> [+21.7] A, and we're inserting. Romak is back, laid out for letters.
 > [+26.5] Escape. The layers change, and h, j, k and l are under my right hand.
 > [+33.7] Nothing in vim was remapped. The keyboard followed the editor.
 
@@ -87,12 +87,11 @@ keyboards repo maximized in the image viewer, 3 s.
 **Cut.** Keep the intro card under the narration, the photo to the end.
 
 **Narration.**
-> [+0.0] This is a video about typing.
-> [+4.5] I use a twenty-four-key keyboard with an alternative layout, and I live in vim. Those
-> two never got along, for a simple reason: vim's motions are placed for QWERTY, and an
-> alternative layout moves them somewhere else. What follows isn't a compromise between them,
-> and it isn't a remap either. The editors tell the keyboard which vim mode they're in, and the
-> keyboard changes layers to match.
+> [+5.1] This is a video about typing. I use a twenty-four-key keyboard with an alternative
+> layout, and I live in vim. Those two never got along, for a simple reason: vim's motions are
+> placed for QWERTY, and an alternative layout moves them somewhere else. What follows isn't a
+> compromise between them, and it isn't a remap either. The editors tell the keyboard which vim
+> mode they're in, and the keyboard changes layers to match.
 > [+33.0] This is the board. The tour, the trick, and the install.
 
 ### 2 · The problem — 1:18–2:09 (125 words) · `record.py 2`
@@ -104,15 +103,15 @@ row; then the `h j k l` home row and the left-hand operators); the diagram is le
 **Cut.** Switch images where the narration turns to "A vim layer removes the compromise".
 
 **Narration.**
-> [+0.0] Every alternative layout breaks vim's motions.
-> [+5.4] This is Romak's base layer. On it, h is a magic key, l is a reach to the top row, and
-> j and k aren't on this layer at all: each one is either a combo, or a hop to the second alpha
-> layer. That's harder than some other alternative layouts make it. Colemak, Dvorak and Gallium
-> all scatter those four keys; Romak just scatters them further.
-> [+28.6] A vim layer removes the compromise. In normal mode the keyboard isn't typing letters
+> [+5.4] Every alternative layout breaks vim's motions. This is Romak's base layer. On it, h is
+> a magic key, l is a reach to the top row, and j and k aren't on this layer at all: each one is
+> either a combo, or a hop to the second alpha layer. That's harder than some other alternative
+> layouts make it. Colemak, Dvorak and Gallium all scatter those four keys; Romak just scatters
+> them further.
+> [+31.3] A vim layer removes the compromise. In normal mode the keyboard isn't typing letters
 > at all, it's issuing commands, and they sit where they belong. The usual fixes are worse:
 > remap vim and you fight every plugin and every remote machine.
-> [+46.8] The catch was always knowing when. Guessing from keystrokes drops keys.
+> [+47.8] The catch was always knowing when. Guessing from keystrokes drops keys.
 
 ### 3 · How it works — 2:09–3:12 (148 words) · `record.py 3`
 
@@ -135,14 +134,14 @@ tells them apart.
 it by hand"; drop the `status` dump and the tail's start-up.
 
 **Narration.**
-> [+0.0] The editor knows its mode. So the editor should say it. Three parts: a plugin in the
+> [+5.0] The editor knows its mode. So the editor should say it. Three parts: a plugin in the
 > editor, a daemon on the host, and a module in the keyboard's firmware. The channel between
 > them is one every keyboard already has, the LED report the operating system uses for Caps
 > Lock and Num Lock. Five bits, and three of them, Compose, Kana and Scroll Lock, no operating
 > system ever sets on its own. That's eight codes, over USB or Bluetooth, on stock ZMK, with
 > nothing to pair and nothing the operating system has to cooperate with.
-> [+39.2] Set it by hand, and the board follows. Insert.
-> [+45.4] Normal, and the command layer is back.
+> [+42.2] Set it by hand, and the board follows. Insert.
+> [+45.6] Normal, and the command layer is back.
 > [+51.7] Off, and the vim layers step aside entirely. The daemon writes the code, the firmware
 > flips a layer bitmask, and that's the whole protocol.
 > [+62.5] And the panel is not a mock-up. It reads the keyboard's own reports.
@@ -172,19 +171,20 @@ normal*, CMDLINE → *Vim cmdline*; **RAW and OFF both read *Alpha 1***.
 the first eight keys if the words run out.
 
 **Narration.**
-> [+0.0] Neovim first, because here the plugin reports the real mode from inside the editor.
+> [+6.3] Neovim first, because here the plugin reports the real mode from inside the editor.
 > The dashboard: every letter on it is a command, so the keyboard drops to raw.
-> [+16.2] Open a file, press i, and Romak is back.
-> [+20.6] Escape, and the command layer returns. The motions are where they should be now: j
-> and k, w and b, zero and dollar, single keys under the fingers, not combos.
-> [+38.2] Append, type, escape, undo.
-> [+40.4] Select and yank: visual has a layer of its own, and the colon line another.
-> [+48.9] Insert again, for the comment.
-> [+53.5] Space is my leader, so the board goes raw,
-> [+56.6] because the next letter is a shortcut, not a motion.
-> [+61.7] The explorer is raw too, so a, d and r reach the tree.
-> [+67.9] Back in the file, normal again.
-> [+74.4] The terminal is raw, so Escape belongs to the shell.
+> [+17.9] Open a file, and it's normal.
+> [+20.2] The motions are where they should be now: j and k, w and b, zero and dollar, single
+> keys under the fingers, not combos.
+> [+29.5] i for insert, and Romak is back, untouched. Escape.
+> [+35.8] Append, and the comment goes in as letters.
+> [+40.2] Escape, undo.
+> [+41.8] v, select, yank: visual gets its own layer, and the colon line another.
+> [+47.0] Space is my leader, so the board goes raw: the next letter is a shortcut.
+> [+52.1] The explorer is raw too, so a, d and r reach the tree instead of vim.
+> [+57.6] The terminal is raw, so Escape belongs to the shell.
+> [+68.3] Lazy, raw again. The keyboard tracks what the editor expects, not which window is in
+> front.
 
 ### 5 · VS Code — 4:23–5:31 (140 words) · `record.py 5`
 
@@ -203,12 +203,11 @@ the first eight keys if the words run out.
 search-and-comment and the Explorer unless the words allow.
 
 **Narration.**
-> [+0.0] The same trick, three more editors.
-> [+3.0] VS Code is the interesting one, because inside it there are four separate ways to tell
-> what's going on.
-> [+11.5] The mode itself is exact, because vscode-neovim runs a real Neovim inside VS Code,
+> [+6.1] The same trick, three more editors. VS Code is the interesting one, because inside it
+> there are four separate ways to tell what's going on.
+> [+15.8] The mode itself is exact, because vscode-neovim runs a real Neovim inside VS Code,
 > which loads my config, which loads the same plugin as before. None of it is VS Code specific.
-> [+29.0] Insert, visual, normal, all of them exact.
+> [+30.3] Insert, visual, normal, all of them exact.
 > [+36.7] But no extension API fires when focus moves to the terminal or the sidebar. So the
 > window title carries it: a marker reading Text Editor in the editor, and the view's own name
 > anywhere else. Terminal, raw.
@@ -233,17 +232,16 @@ search-and-comment and the Explorer unless the words allow.
 **Cut.** Keep four keys of the tour, `i`/`Esc`, the project tree, the terminal.
 
 **Narration.**
-> [+0.0] IntelliJ. IdeaVim has a mode listener, so the plugin subscribes to it directly.
-> [+6.5] Same layers as everywhere else. One thing it deliberately doesn't report is operator
-> pending: when c is waiting for a motion, the keyboard's own gesture layer owns that moment,
-> and the daemon stays out of it.
-> [+22.0] And without the plugin nothing breaks: the keyboard infers the mode between
-> keystrokes, as it did for years.
-> [+31.0] i for insert, and Escape back to normal.
-> [+39.3] The colon line is a separate component, so, raw.
-> [+45.5] The project tree, raw.
-> [+49.0] And the terminal, though that one takes work: in IntelliJ the consoles are editors
+> [+6.2] IntelliJ. IdeaVim has a mode listener, so the plugin subscribes to it directly.
+> [+12.5] Same layers as everywhere else, and the same keys under the fingers.
+> [+17.2] One thing it deliberately doesn't report is operator pending: when c waits for a
+> motion, the keyboard's own gesture layer owns it.
+> [+32.3] Insert, and the letters come back.
+> [+36.3] Visual, then the colon line, which is a separate component, so, raw.
+> [+41.0] The project tree, raw as well.
+> [+44.5] And the terminal, though that one takes work: in IntelliJ the consoles are editors
 > too, told apart by kind.
+> [+52.2] And without the plugin, the keyboard still infers the mode itself.
 
 ### 7 · Obsidian — 6:19–6:57 (88 words) · `record.py 7`
 
@@ -260,11 +258,11 @@ search-and-comment and the Explorer unless the words allow.
 **Cut.** Keep `A`/type/`Esc`, reading view both ways, search and the click back.
 
 **Narration.**
-> [+0.0] Obsidian runs CodeMirror's vim, and its own plugin listens to that.
-> [+7.3] Normal mode, and the same command layer as the other three. The colon dialog becomes
-> the command line, exactly the way it does in Neovim, because as far as the daemon is
-> concerned it is the same code travelling the same wire.
-> [+25.3] Insert, and Romak returns.
+> [+7.3] Obsidian runs CodeMirror's vim, and its own plugin listens to that. Normal mode, and
+> the same command layer as the other three. The colon dialog becomes the command line, exactly
+> the way it does in Neovim, because as far as the daemon is concerned it is the same code
+> travelling the same wire.
+> [+28.4] Insert, and Romak returns.
 > [+33.6] Reading view has no vim at all, so the board goes plain. Search, raw.
 > [+38.5] Four editors, four different plumbing jobs, one daemon, and a keyboard that only ever
 > sees a number.
@@ -279,14 +277,14 @@ throughout: this beat is carried by the typed `status` lines.
 **Cut.** Keep both `set raw` lines and the `status` lines flipping.
 
 **Narration.**
-> [+0.0] Anywhere else, the vim layers are simply off. The keyboard is just a keyboard.
-> [+6.8] And for what nothing can detect, vim over ssh, a shared screen, a machine that isn't
-> yours, set is the escape hatch. It pins the mode by hand, and the keyboard believes it until
-> you say otherwise. Run it again and the override clears, and the daemon goes back to deciding
-> for itself. There is no mode to remember and nothing to undo later. The board also listens on
-> USB and Bluetooth at the same time, so the same code reaches it whichever host it's paired
-> to, and switching hosts changes nothing.
-> [+43.0] No pairing step, and no per-host setup.
+> [+6.8] Anywhere else, the vim layers are simply off. The keyboard is just a keyboard. And for
+> what nothing can detect, vim over ssh, a shared screen, a machine that isn't yours, set is the
+> escape hatch. It pins the mode by hand, and the keyboard believes it until you say otherwise.
+> Run it again and the override clears, and the daemon goes back to deciding for itself. There
+> is no mode to remember and nothing to undo later. The board also listens on USB and Bluetooth
+> at the same time, so the same code reaches it whichever host it's paired to, and switching
+> hosts changes nothing.
+> [+46.1] No pairing step, and no per-host setup.
 
 ### 9 · Install and wrap-up — 7:44–8:22 (93 words) · `record.py 9`
 
@@ -298,10 +296,9 @@ zmk-layer-hud · keyboards · Romak), 8 s.
 **Cut.** Doctor under the first sentence, the node under the second, the links to the end.
 
 **Narration.**
-> [+0.0] One command installs the daemon, the service, the Neovim spec and the editor
-> extensions.
-> [+6.9] And doctor tells you what's left to do by hand, one line per thing, with the fix next
-> to it.
+> [+6.9] One command installs the daemon, the service, the Neovim spec and the editor
+> extensions. And doctor tells you what's left to do by hand, one line per thing, with the fix
+> next to it.
 > [+22.4] The keyboard side is four layers and one devicetree node, and they can start
 > completely empty. Nothing breaks while they are.
 > [+32.0] Everything is on GitHub: the tool, the keymap, the layout, and the layer HUD you have

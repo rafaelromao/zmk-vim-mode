@@ -1,62 +1,72 @@
 {
   "0": {
-    "action": 5.3,
+    "action": 5.2,
     "video": 47.65,
     "narration": 24.52,
-    "offset": 0.0
+    "offset": 0.0,
+    "content_start": 10.2
   },
   "1": {
-    "action": 5.15,
+    "action": 5.1,
     "video": 49.5,
     "narration": 18.495,
-    "offset": 47.65
+    "offset": 47.65,
+    "content_start": 10.2
   },
   "2": {
-    "action": 5.2,
+    "action": 5.1,
     "video": 57.8,
     "narration": 46.335,
-    "offset": 97.15
+    "offset": 97.15,
+    "content_start": 10.0
   },
   "3": {
-    "action": 5.3,
+    "action": 5.2,
     "video": 78.583,
     "narration": 52.628,
-    "offset": 154.95
+    "offset": 154.95,
+    "content_start": 10.2
   },
   "4": {
-    "action": 3.9,
+    "action": 3.8,
     "video": 87.45,
     "narration": 65.782,
-    "offset": 233.533
+    "offset": 233.533,
+    "content_start": 10.1
   },
   "5": {
-    "action": 3.833,
+    "action": 3.7,
     "video": 76.1,
     "narration": 23.719,
-    "offset": 320.983
+    "offset": 320.983,
+    "content_start": 9.8
   },
   "6": {
-    "action": 3.867,
+    "action": 3.7,
     "video": 60.05,
     "narration": 22.14,
-    "offset": 397.083
+    "offset": 397.083,
+    "content_start": 9.9
   },
   "7": {
-    "action": 3.883,
+    "action": 3.7,
     "video": 48.9,
     "narration": 27.62,
-    "offset": 457.133
+    "offset": 457.133,
+    "content_start": 10.5
   },
   "8": {
-    "action": 3.883,
+    "action": 3.7,
     "video": 52.133,
     "narration": 23.255,
-    "offset": 506.033
+    "offset": 506.033,
+    "content_start": 10.1
   },
   "9": {
-    "action": 3.933,
+    "action": 3.8,
     "video": 50.317,
     "narration": 37.291,
-    "offset": 558.166
+    "offset": 558.166,
+    "content_start": 10.2
   }
 }

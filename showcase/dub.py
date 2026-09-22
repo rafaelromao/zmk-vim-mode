@@ -11,6 +11,10 @@ while the takes are recorded on the Linux box.
     dub.py master           lay the bed, normalise it, mux onto showcase-takes.mp4
     dub.py hud [N...]       what layer the HUD shows, when — the timeline cues go against
     dub.py fit              does the narration fit the picture? (works without TTS)
+    dub.py keys N [every]   stack the typed-keys strip through take N — the ground truth
+                            for cueing a line that names a keystroke
+    dub.py proof N [file]   one panel per line of beat N: screen + typed keys at the
+                            moment it is spoken, straight out of the finished video
     dub.py pauses           find the stretches that are both silent and frozen
     dub.py tighten          cut those out, re-place the narration → showcase-tight.mp4
     dub.py check            report sync, loudness and speech density of the output
@@ -83,21 +87,30 @@ def scene_hits(path, thresh, window=30):
 
 
 def measure_anchors():
-    """First sustained change per take. A blinking cursor trips the loose threshold
-    but never the firm one, so a loose hit only counts as the action if a firm hit
-    stands with it or after it."""
+    """Per take: when the HUD rail is drawn, and when the take's OWN picture begins.
+
+    These are not the same moment and the difference matters. A take starts recording
+    several seconds before its segment does anything, and what is on screen in the
+    meantime is whatever the *previous* beat left there. The rail is drawn first (at
+    3.7-5.2 s), the take's own content arrives later (consistently ~10 s), and scene
+    detection on the whole frame finds the rail — it even resizes the editor window, so
+    cropping the rail away does not help.
+
+    Cues are relative to `action` (the rail appearing) because that is what they were
+    written against, but no beat's opening line may start before `content_start`, or it
+    narrates the previous beat's screen. That mistake put every beat 5-6.6 s early.
+    """
     anchors, acc = {}, 0.0
     for b in BEATS:
         mp4 = os.path.join(RUN, f"take{b}.mp4")
         if not os.path.isfile(mp4):
             fail(f"missing {mp4}")
-        loose, firm = scene_hits(mp4, 0.02), scene_hits(mp4, 0.04)
-        action = next((t for t in loose
-                       if any(abs(f - t) < 0.01 for f in firm) or any(f > t for f in firm)),
-                      loose[0] if loose else 0.0)
+        rail = _first_change(mp4, "700:900:1806:60")
+        content = _first_change(mp4, "1780:1300:10:70", after=rail + 1.5)
         wav = os.path.join(RUN, f"take{b}.wav")
         anchors[b] = {
-            "action": round(action, 3),
+            "action": round(rail, 3),
+            "content_start": round(content, 3),
             "video": round(duration(mp4), 3),
             "narration": round(duration(wav), 3) if os.path.isfile(wav) else None,
             "offset": round(acc, 3),
@@ -105,6 +118,21 @@ def measure_anchors():
         acc += anchors[b]["video"]
     json.dump(anchors, open(ANCHORS, "w"), indent=2)
     return anchors
+
+
+def _first_change(mp4, crop, after=0.0, fps=10.0, w=128, h=72, thresh=3.0, window=50):
+    """First frame-to-frame jump in a region, at or after `after`. Single decode, no seeking."""
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", mp4, "-t", str(window),
+         "-vf", f"crop={crop},fps={fps:g},scale={w}:{h}",
+         "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout
+    sz = w * h
+    n = len(raw) // sz
+    for i in range(max(1, int(after * fps)), n):
+        d = sum(abs(raw[(i - 1) * sz + j] - raw[i * sz + j]) for j in range(sz)) / sz
+        if d > thresh:
+            return i / fps
+    return after
 
 
 def anchors():
@@ -367,6 +395,55 @@ def check(path=OUT):
             print("  " + line.strip())
 
 
+# ---------------------------------------------------------------- the typed-keys strip
+
+# Below the keymap the HUD prints the keys as they are pressed. That strip is the only
+# ground truth fine enough to cue narration that names individual keystrokes: the banner
+# says "normal" for twenty seconds straight while the segment types a whole tour, so
+# aligning to the banner alone puts a line about yanking over a line about undo.
+#
+# There is no OCR here — `dub.py keys <N>` stacks samples of the strip into one image for
+# a person (or a model) to read, and the timeline goes into SCRIPT.md as a comment above
+# the beat's cues.
+KEYS_CROP = "crop=740:64:1806:582"
+
+
+def keys_strip(beat, every=4.0, out=None):
+    """Stack samples of the typed-keys strip through a take into one tall image.
+
+    Sampled with the fps filter in a single decode, never with `-ss`: these recordings
+    have sparse keyframes and a nominal 60 fps that is really 59.99, so seeking returns a
+    frame from several seconds away without saying so. That is not a theoretical risk —
+    it put beat 4's cues eight seconds out and then made the check that should have caught
+    it agree with them.
+    """
+    mp4 = os.path.join(RUN, f"take{beat}.mp4")
+    if not os.path.isfile(mp4):
+        fail(f"missing {mp4}")
+    outdir = os.path.join(RUN, f".keys-{beat}")
+    shutil.rmtree(outdir, ignore_errors=True)
+    os.makedirs(outdir, exist_ok=True)
+    ff(["-i", mp4, "-vf", f"{KEYS_CROP},fps=1/{every:g}", "-f", "image2",
+        os.path.join(outdir, "%03d.png")])
+    frames = sorted(f for f in os.listdir(outdir) if f.endswith(".png"))
+    out = out or os.path.join(RUN, f"keys-take{beat}.png")
+    args, filt = [], ""
+    for n, f in enumerate(frames):
+        args += ["-i", os.path.join(outdir, f)]
+        filt += f"[{n}:v]"
+    ff([*args, "-filter_complex", f"{filt}vstack=inputs={len(frames)}[o]", "-map", "[o]", out])
+    shutil.rmtree(outdir, ignore_errors=True)
+    print(f"wrote {out} — {len(frames)} rows, row n is t={every:g}*(n-1)s")
+    return out
+
+
+def frange(a, b, step):
+    t = a
+    while t < b:
+        yield t
+        t += step
+
+
 # ---------------------------------------------------------------- tighten
 
 TIGHT = os.path.join(RUN, "showcase-tight.mp4")
@@ -528,6 +605,65 @@ def tighten():
     return TIGHT
 
 
+# ---------------------------------------------------------------- proof
+
+def proof(beat, video=None, out=None):
+    """One panel per narration line: the screen above the typed-keys strip, at the moment
+    that line is being spoken, taken from the finished video.
+
+    Every frame comes out of a single decode driven by `select`, never by `-ss`, for the
+    reason in keys_strip's docstring. Read the strip under each panel and check it against
+    the words — that is the only check that actually caught beat 4, after two rounds of
+    weaker ones passed while the cues were eight seconds out.
+    """
+    video = video or TIGHT
+    if not os.path.isfile(video):
+        fail(f"missing {video}")
+    a, cuts = anchors(), json.load(open(CUTS)) if os.path.isfile(CUTS) else []
+    ordered = sorted((s_, e_) for _, s_, e_ in cuts)
+    tight = os.path.abspath(video) == os.path.abspath(TIGHT)
+
+    def place(t):
+        if not tight:
+            return t
+        return t - sum(min(e_, t) - s_ for s_, e_ in ordered if s_ < t)
+
+    base = a[beat]["offset"] + a[beat]["action"] - LEAD
+    marks, texts = [], []
+    for i, (cue, text) in enumerate(narration.cues(beat)):
+        w = os.path.join(CLIPS, f"beat{beat}-{i:02d}.wav")
+        if not os.path.isfile(w):
+            continue
+        marks.append(place(max(0.0, base + (cue or 0.0))) + duration(w) * 0.55)
+        texts.append(text)
+    if not marks:
+        fail(f"beat {beat}: nothing rendered")
+
+    outdir = os.path.join(RUN, f".proof-{beat}")
+    shutil.rmtree(outdir, ignore_errors=True)
+    os.makedirs(outdir, exist_ok=True)
+    sel = "+".join(f"between(t,{m:.3f},{m + 0.05:.3f})" for m in marks)
+    # split first: a filter graph cannot read [0:v] twice
+    ff(["-i", video, "-filter_complex",
+        f"[0:v]select='{sel}',split=2[p][q];"
+        f"[p]crop=1790:1010:10:60,scale=700:-2[a];"
+        f"[q]{KEYS_CROP},scale=700:-2[b];[a][b]vstack=inputs=2[o]",
+        "-map", "[o]", "-fps_mode", "passthrough", os.path.join(outdir, "%03d.png")])
+
+    frames = sorted(f for f in os.listdir(outdir) if f.endswith(".png"))[:len(marks)]
+    out = out or os.path.join(RUN, f"proof-beat{beat}.png")
+    args, filt = [], ""
+    for n, f in enumerate(frames):
+        args += ["-i", os.path.join(outdir, f)]
+        filt += f"[{n}:v]"
+    ff([*args, "-filter_complex", f"{filt}hstack=inputs={len(frames)}[o]", "-map", "[o]", out])
+    shutil.rmtree(outdir, ignore_errors=True)
+    print(f"wrote {out} — {len(frames)} panels, left to right:")
+    for m, t in zip(marks, texts):
+        print(f"  {m:7.1f}  {t[:72]}")
+    return out
+
+
 # ---------------------------------------------------------------- fit
 
 WPM = float(os.environ.get("ZMK_DUB_WPM", "140"))
@@ -613,6 +749,12 @@ def main():
                 print(f"  {a_:6.2f} → {b_:6.2f}   cue +{a_ - an:6.2f} → +{b_ - an:6.2f}   {st}")
     elif cmd == "fit":
         fit(strict="--strict" in sys.argv)
+    elif cmd == "keys":
+        every = float(sys.argv[3]) if len(sys.argv) > 3 else 6.0
+        for b in (sys.argv[2:3] or BEATS):
+            keys_strip(b, every)
+    elif cmd == "proof":
+        proof(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
     elif cmd == "pauses":
         for b, s_, e_ in find_pauses():
             print(f"  beat {b}  {s_:8.2f} → {e_:8.2f}  {e_-s_:5.2f}s")
