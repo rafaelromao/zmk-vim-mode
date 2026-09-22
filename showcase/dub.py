@@ -642,7 +642,15 @@ def proof(beat, video=None, out=None):
     outdir = os.path.join(RUN, f".proof-{beat}")
     shutil.rmtree(outdir, ignore_errors=True)
     os.makedirs(outdir, exist_ok=True)
-    sel = "+".join(f"between(t,{m:.3f},{m + 0.05:.3f})" for m in marks)
+    # exact frame indices, not a time window: `between(t,m,m+0.05)` catches three frames
+    # at 60 fps, so the panels silently come from the first few cues repeated
+    rate = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "stream=r_frame_rate", "-of", "csv=p=0", video],
+        capture_output=True, text=True).stdout.strip()
+    num, _, den = rate.partition("/")
+    fps = float(num) / float(den or 1)
+    sel = "+".join(f"eq(n\\,{round(m * fps)})" for m in marks)
     # split first: a filter graph cannot read [0:v] twice
     ff(["-i", video, "-filter_complex",
         f"[0:v]select='{sel}',split=2[p][q];"
