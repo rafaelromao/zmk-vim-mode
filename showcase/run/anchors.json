@@ -1,72 +1,72 @@
 {
   "0": {
-    "action": 5.2,
-    "video": 47.65,
-    "narration": 24.52,
-    "offset": 0.0,
-    "content_start": 10.2
+    "action": 5.5,
+    "content_start": 10.5,
+    "video": 50.367,
+    "narration": 41.599,
+    "offset": 0.0
   },
   "1": {
-    "action": 5.1,
-    "video": 49.5,
-    "narration": 18.495,
-    "offset": 47.65,
-    "content_start": 10.2
+    "action": 5.4,
+    "content_start": 10.5,
+    "video": 51.15,
+    "narration": 35.538,
+    "offset": 50.367
   },
   "2": {
-    "action": 5.1,
-    "video": 57.8,
-    "narration": 46.335,
-    "offset": 97.15,
-    "content_start": 10.0
+    "action": 5.4,
+    "content_start": 10.4,
+    "video": 58.05,
+    "narration": 55.67,
+    "offset": 101.517
   },
   "3": {
-    "action": 5.2,
-    "video": 78.583,
-    "narration": 52.628,
-    "offset": 154.95,
-    "content_start": 10.2
+    "action": 5.4,
+    "content_start": 10.5,
+    "video": 93.433,
+    "narration": 66.27,
+    "offset": 159.567
   },
   "4": {
-    "action": 3.8,
-    "video": 87.45,
-    "narration": 65.782,
-    "offset": 233.533,
-    "content_start": 10.1
+    "action": 5.4,
+    "content_start": 10.5,
+    "video": 92.7,
+    "narration": 63.681,
+    "offset": 253.0
   },
   "5": {
-    "action": 3.7,
-    "video": 76.1,
-    "narration": 23.719,
-    "offset": 320.983,
-    "content_start": 9.8
+    "action": 5.4,
+    "content_start": 10.2,
+    "video": 81.15,
+    "narration": 65.48,
+    "offset": 345.7
   },
   "6": {
-    "action": 3.7,
-    "video": 60.05,
-    "narration": 22.14,
-    "offset": 397.083,
-    "content_start": 9.9
+    "action": 5.3,
+    "content_start": 10.1,
+    "video": 62.483,
+    "narration": 48.356,
+    "offset": 426.85
   },
   "7": {
-    "action": 3.7,
-    "video": 48.9,
-    "narration": 27.62,
-    "offset": 457.133,
-    "content_start": 10.5
+    "action": 5.5,
+    "content_start": 10.5,
+    "video": 51.183,
+    "narration": 40.716,
+    "offset": 489.333
   },
   "8": {
-    "action": 3.7,
-    "video": 52.133,
-    "narration": 23.255,
-    "offset": 506.033,
-    "content_start": 10.1
+    "action": 5.3,
+    "content_start": 10.4,
+    "video": 56.917,
+    "narration": 49.4,
+    "offset": 540.516
   },
   "9": {
-    "action": 3.8,
-    "video": 50.317,
-    "narration": 37.291,
-    "offset": 558.166,
-    "content_start": 10.2
+    "action": 5.4,
+    "content_start": 10.5,
+    "video": 51.983,
+    "narration": 39.462,
+    "offset": 597.433
   }
 }
