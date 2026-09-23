@@ -30,7 +30,6 @@ import argparse
 import asyncio
 import os
 import sys
-import unicodedata
 from pathlib import Path
 
 HUD = Path(os.environ.get("ZMK_LAYER_HUD", Path.home() / "projects/zmk-layer-hud")).expanduser()
@@ -48,6 +47,8 @@ try:
     from evdev import ecodes as E
 except ImportError:
     sys.exit("python-evdev is required to see the injected keys: sudo pacman -S python-evdev")
+
+from typist import ALPHA2_CHARS, VOWELS, is_vowel, remember_char, uses_alpha2
 
 PORT = int(os.environ.get("ZMKHUD_PORT", "8767"))
 # ydotoold's uinput device, by name. `libinput list-devices` names yours if this misses.
@@ -86,17 +87,6 @@ DIGIT_CODES = {E.KEY_0, E.KEY_1, E.KEY_2, E.KEY_3, E.KEY_4,
                E.KEY_5, E.KEY_6, E.KEY_7, E.KEY_8, E.KEY_9}
 NAV_DRAWERS = {"nav"}
 DIGIT_DRAWERS = {"numbers"}
-ALPHA2_CHARS = frozenset("qkyzxwj_'") | {
-    chr(n) for n in (0x00f4, 0x00f3, 0x00fa, 0x00e3, 0x00e1, 0x00e9,
-                     0x00ed, 0x00e7, 0x00f5, 0x00e2, 0x00ea)
-}
-VOWELS = frozenset("aeiou") | {
-    chr(n) for n in (0x00e1, 0x00e0, 0x00e2, 0x00e4, 0x00e3, 0x00e5,
-                     0x00e9, 0x00e8, 0x00ea, 0x00eb, 0x00ed, 0x00ec,
-                     0x00ee, 0x00ef, 0x00f3, 0x00f2, 0x00f4, 0x00f6,
-                     0x00f5, 0x00fa, 0x00f9, 0x00fb, 0x00fc, 0x00fd,
-                     0x00ff)
-}
 ALPHA2_THUMB_IDX = 22
 SHIFT_THUMB_IDX = 23
 
@@ -179,29 +169,14 @@ class InjectedKeys:
                 pass
         return None
 
-    def is_vowel(self, char):
-        return bool(char) and char.casefold() in VOWELS
-
     def remember_char(self, chars):
-        if len(chars) == 1 and chars.isalpha():
-            self.previous_char = unicodedata.normalize("NFC", chars).casefold()
-        else:
-            # The firmware's adaptive key treats punctuation, whitespace and other
-            # non-letters as a new word.
-            self.previous_char = None
+        self.previous_char = remember_char(chars)
 
     def alpha2_drawer(self, chars):
         """Return the drawer the Diamond owner would use for this typed character."""
         if self.command_layers_active():
             return None
-        lower = chars.casefold()
-        if lower == "h":
-            alpha2 = self.is_vowel(self.previous_char)
-        elif lower == "v":
-            alpha2 = not self.is_vowel(self.previous_char)
-        else:
-            alpha2 = lower in ALPHA2_CHARS
-        if not alpha2:
+        if not uses_alpha2(chars, self.previous_char):
             return None
         return "shifted2" if chars.isalpha() and chars.isupper() else "alpha2"
 

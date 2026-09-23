@@ -35,8 +35,9 @@ the complete existing menu-bar layout and icons left unchanged, the take HUD sto
 workspace 8 before every take and the segments never leave workspaces 5–8, so nothing
 below workspace 5 is ever on camera. `ZMK_RECORD_FPS=60` for the deliverable.
 
-**Typing in every take:** ~70 words per minute — about one character every 0.17 s —
-so each key lights on its own and no two fall inside the 30 ms combo window.
+**Typing in every take:** 60 words per minute — about one character every 0.20 s. Sticky Alpha 2
+characters add a 0.10 s thumb-hop pause; Vim motions use the base gap. No two keys fall inside the
+30 ms combo window.
 The rehearsal types letters the way the Diamond owner does: `q k y z x w j`, accents, `ç`, `'`
 and `_` use the sticky `alpha2` thumb; `h|v` produces `h` at a word start or after a consonant
 and `v` after a vowel, while `v|h` on `alpha2` supplies the opposite result. Uppercase alpha2
@@ -103,9 +104,10 @@ keyboards repo maximized in the image viewer, 3 s.
 
 ### 2 · The problem — 1:18–2:09 (125 words) · `record.py 2`
 
-**Screen (`seg2`).** `alpha1.png` maximized in the image viewer for 20 s, then `vim.png` for
-20 s. The narration names the keys (`h|v` the magic key, the `h,` and `mg` combos, `l` on the top
-row; then the `h j k l` home row and the left-hand operators); the diagram is legible full-frame.
+**Screen (`seg2`).** `alphas.png`, with Alpha 1 and Alpha 2 side by side, maximized in the image
+viewer for 20 s, then `vim.png` for 20 s. The narration names the keys (`h|v` the magic key, the
+`h,` and `mg` combos, `l` on the top row; then the `h j k l` home row and the left-hand operators);
+the diagram is legible full-frame.
 
 **Cut.** Switch images where the narration turns to "A vim layer removes the compromise".
 
@@ -324,7 +326,7 @@ Every shot is a screen recording of the recording monitor, HUD rail included, pr
 |---|---|---|---|
 | A | Cold open in Neovim | `seg0` | 0 |
 | B | Title and intro cards, Diamond photo | `env/cards/{title,intro}.txt`; `keyboards/docs/img/builds/Diamond.jpeg` in the image viewer | 1 |
-| C | Layer diagrams | `keyboards/docs/img/diagrams/{alpha1,vim}.png` in the image viewer | 2 |
+| C | Layer diagrams | `keyboards/docs/img/diagrams/{alphas,vim}.png` in the image viewer | 2 |
 | D | Channel and pipeline cards, then the live `set` sequence | `env/cards/{channel,pipeline}.txt`; one demo terminal split into two panes | 3 |
 | E | Editor demos | `seg4`–`seg7` | 4–7 |
 | F | Everywhere else | `seg8` | 8 |

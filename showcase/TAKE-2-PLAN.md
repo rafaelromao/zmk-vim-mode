@@ -138,7 +138,7 @@ type and a *Cut* line says what to keep.
 |---|---|---|---|
 | 0 | Cold open: `Esc` in Neovim, the HUD flips, `hjkl` on the home row | `record.py 0` (new `seg0`) | 0:18 |
 | 1 | Title card, `Diamond.jpeg` | `record.py 1` (new `seg1`, silent) | 0:07 |
-| 2 | The problem: `alpha1.png` vs `vim.png` | `record.py 2` (new `seg2`) | 0:40 |
+| 2 | The problem: `alphas.png` (Alpha 1 + Alpha 2) vs `vim.png` | `record.py 2` (`seg2`) | 0:40 |
 | 3 | How it works: channel and pipeline cards, then `set` in two panes | `record.py 3` (cards first) | 0:50 |
 | 4 | Neovim, the one full tour, including *raw* | `record.py 4` | 1:00 |
 | 5 | VS Code: terminal and palette | `record.py 5` | 0:20 |

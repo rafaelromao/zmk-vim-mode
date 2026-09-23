@@ -19,10 +19,9 @@ is looked up on PATH, then $ZMK_TTS_BIN:
     mkdir -p ~/.cache/zmk-showcase/voices && cd $_ &&
       curl -sLO https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx{,.json}
 
-Run showcase/prepare.sh first and keep hands off while it runs. A take that
-fails stops at the failed segment like the rehearsal does; the driver keeps
-the raw capture and moves on to the next beat, so one flake does not eat the
-session. Takes are silent re-runs of the rehearsal: stop the take's HUD first
+Run showcase/prepare.sh first and keep hands off while it runs. A failed
+segment keeps its raw capture and stops the full run so the master cannot mix
+new and stale takes. Takes are re-runs of the rehearsal: stop the take's HUD first
 (`bash showcase/hud.sh stop`), the rehearsal brings its own.
 """
 
@@ -339,7 +338,9 @@ if __name__ == "__main__":
             print("record: stay-awake for the run", flush=True)
             set_idle("stay-awake")
         for seg in segs:
-            ok = take(seg, with_tts) and ok
+            if not take(seg, with_tts):
+                ok = False
+                break
     finally:
         try:
             if hold_idle:

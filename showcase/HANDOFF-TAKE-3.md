@@ -17,7 +17,8 @@ also recurred during preparation: the Welcome screen and the demo project appear
 `prepare.sh` now parks every non-`demo-java` IntelliJ surface on workspace 9 and refuses to finish
 unless workspace 6 contains exactly one IntelliJ surface, titled for `demo-java`. It preserves and
 uses the `.idea/workspace.xml` session, and opens the project once only if no titled project window
-remains after session restore settles.
+remains after session restore settles. Beat 2 uses `alphas.png`, showing Alpha 1 and Alpha 2
+together; `alpha1.png` alone is not an acceptable base-layout shot.
 
 Read first: `SCRIPT.md` (what each segment types), `TAKE-2-PLAN.md` (why the video is shaped
 this way), `HANDOFF-TAKE-2.md` (how the box is set up: scale 1.25, bar widgets, Ghostty tabs,
@@ -292,6 +293,9 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
    editor buffer, or image from a previous attempt before the spoken introduction.
 8. Compare the Alpha 2 letters on screen with `dub.py keys 5`: each Alpha 2 letter must flash on
    Alpha 2, then the banner must return to Alpha 1 before the following Alpha 1 character.
+9. Rehearsal typing verifies its target window before each key and reacquires focus after transient
+   focus drift; it refuses to type if focus cannot be restored. If a take still fails, `record.py`
+   stops the all-run and keeps its raw capture instead of assembling mixed-age takes.
 
 Definition of done: the four frame checks above pass on the tightened master, `dub.py check`
 reports the first cue audible at all ten expected cue points and loudness in range, the opening
@@ -321,8 +325,10 @@ contains only the fresh cold-open shot under the requested introduction, and not
 |---|---|
 | `showcase/rehearsal-feed.py` | the typist model (§2): alpha2 one-shot, magic key, stack-preserving holds, working restore, readiness |
 | `showcase/rehearse.py` | wait for the feed's keymap before typing; beat 3 as a split with the generated Ghostty config; split keycodes |
-| `showcase/record.py` | close stale workspace-8 Ghostty surfaces and temporarily set HUD `press_ms=100` for each capture |
+| `showcase/record.py` | close stale workspace-8 Ghostty surfaces, temporarily set HUD `press_ms=100`, and stop on a failed segment |
 | `showcase/prepare.sh` | clear old demo terminals, isolate the demo-java window, reset demos and preserve the menu bar |
+| `showcase/typist.py` | share Alpha 2/magic-key classification between the rehearsal feed and slower typing pace |
+| `showcase/typist_test.py` | verify Alpha 2, magic-key, and per-key timing decisions |
 | `showcase/env/ghostty-demo.conf` → `run/ghostty.conf` | generated with `command =` so tabs/splits are demo shells |
 | `showcase/SCRIPT.md` | exact spoken opening, cue timing, beat 3 Screen/Expect/Cut, and the alpha2/magic typing rules |
 | `showcase/dub.py` | verify cue points against silence in the tightened output and compute density over kept footage |

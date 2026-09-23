@@ -31,15 +31,18 @@ import signal
 import subprocess
 import sys
 import time
+from typist import remember_char, type_gap
 
 SHOW = os.path.dirname(os.path.abspath(__file__))
 RUN = os.path.join(SHOW, "run")
 BINARY = os.path.expanduser("~/.local/bin/zmk-vim-mode")
 VAULT = "Demo"
-# Take pace: ~70 words per minute, about one character every 0.17 s. The rehearsal
-# keeps it, so every key lights on its own and no two land inside the keyboard's
-# 30 ms combo window (a burst would read as combos on the HUD).
-TYPE_GAP = 60.0 / 70 / 5
+# Take pace: 60 words per minute, about one character every 0.20 s. Alpha 2 keys
+# get another 0.10 s for the sticky-thumb hop; both gaps stay outside the 30 ms
+# combo window and let the HUD show the one-shot layer returning before the next key.
+TYPE_GAP = 60.0 / 60 / 5
+ALPHA2_EXTRA_GAP = 0.10
+TYPER_PREVIOUS_CHAR = None
 VERBOSE = "--verbose" in sys.argv or os.environ.get("VERBOSE") == "1"
 
 os.makedirs(RUN, exist_ok=True)
@@ -176,30 +179,53 @@ def send(*args):
     if target_address:
         active = json.loads(subprocess.check_output(["hyprctl", "activewindow", "-j"], text=True))
         if active.get("address") != target_address:
-            raise RuntimeError(f"Focus left rehearsal window; refusing to type into {active.get('title')!r}")
+            if VERBOSE:
+                log(f"  · focus drift to {active.get('title')!r}; restoring the rehearsal window")
+            if not focus_address(target_address, timeout=2.0):
+                raise RuntimeError(f"Focus left rehearsal window; refusing to type into {active.get('title')!r}")
     subprocess.run(["ydotool", *args], check=True)
 
 
-def keys(text, wait=0.6):
-    """Type text at take pace (70 wpm, one character per TYPE_GAP); "\\n" is a
-    Return key. Single `ydotool type` calls per character, at the pace the script
-    asks for on camera; rehearsal-feed.py reads them off ydotool's virtual device
-    so the HUD shows them like Diamond keystrokes."""
+def focus_address(address, timeout=3.0):
+    """Reassert focus until Hyprland reports the target address active."""
+    args = [f'hl.dsp.focus({{window="address:{address}"}})'] if LUA else ["focuswindow", f"address:{address}"]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        subprocess.run(["hyprctl", "dispatch", *args], capture_output=True)
+        time.sleep(0.1)
+        active = json.loads(subprocess.check_output(["hyprctl", "activewindow", "-j"], text=True))
+        if active.get("address") == address:
+            return True
+    return False
+
+
+def keys(text, wait=0.6, slow_alpha2=True):
+    """Type text at take pace; sticky Alpha 2 characters get an extra thumb-hop pause.
+
+    "\\n" is a Return key. Single `ydotool type` calls per character let the feed
+    draw the same events as Diamond typing. Use slow_alpha2=False for Vim motions
+    that happen to share a letter with the Alpha 2 drawer.
+    """
+    global TYPER_PREVIOUS_CHAR
     if VERBOSE:
         log("  · type " + text.replace("\n", "⏎"))
     for ch in text:
         if ch == "\n":
             send("key", "28:1", "28:0")
             time.sleep(0.35)
+            TYPER_PREVIOUS_CHAR = None
         else:
             send("type", ch)
-            time.sleep(TYPE_GAP)
+            time.sleep(type_gap(ch, TYPER_PREVIOUS_CHAR, TYPE_GAP,
+                                ALPHA2_EXTRA_GAP, slow_alpha2))
+            TYPER_PREVIOUS_CHAR = remember_char(ch)
     time.sleep(wait)
 
 
 def key(mods, k, wait=0.6):
     """A chord: mods is a list of modifier names (ctrl, alt, shift, super);
     k is a KEYCODES name (Return, Escape, F1, Down, grave, ...) or a letter."""
+    global TYPER_PREVIOUS_CHAR
     if VERBOSE:
         log("  · " + "+".join(mods + [k]))
     if k in MODS:
@@ -213,6 +239,7 @@ def key(mods, k, wait=0.6):
     args = [f"{KEYCODES[m]}:1" for m in mods] + [f"{code}:1", f"{code}:0"]
     args += [f"{KEYCODES[m]}:0" for m in reversed(mods)]
     send("key", *args)
+    TYPER_PREVIOUS_CHAR = remember_char(k) if len(k) == 1 and k.isalpha() else None
     time.sleep(wait)
 
 
@@ -252,13 +279,12 @@ def focus(cls, wait=2.0, pid=None, maximize=True):
         subprocess.run(["hyprctl", "dispatch",
                         f'hl.dsp.window.fullscreen({{mode="maximized", action="set", window="address:{address}"}})'],
                        capture_output=True, check=True)
-    args = [f'hl.dsp.focus({{window="address:{address}"}})'] if LUA else ["focuswindow", f"address:{address}"]
-    subprocess.run(["hyprctl", "dispatch", *args], capture_output=True, check=True)
-    time.sleep(wait)
-    active = json.loads(subprocess.check_output(["hyprctl", "activewindow", "-j"], text=True))
-    if active.get("address") != address:
-        raise RuntimeError(f"Could not focus {cls!r}; refusing to type")
     target_address = address
+    if not focus_address(address, timeout=4.0):
+        raise RuntimeError(f"Could not focus {cls!r}; refusing to type")
+    time.sleep(wait)
+    if not focus_address(address, timeout=2.0):
+        raise RuntimeError(f"Could not focus {cls!r}; refusing to type")
 
 
 def wait_window(cls, timeout=90.0, pid=None):
@@ -383,9 +409,9 @@ def seg0():
     keys(" no OS ever sets these", 1.0)
     esc(1.0); expect("normal")
     for k in "jjk":
-        keys(k, 0.5)
+        keys(k, 0.5, slow_alpha2=False)
     for k in "llh":
-        keys(k, 0.5)
+        keys(k, 0.5, slow_alpha2=False)
     expect("normal")
     keys("u", 0.5)
     keys(":qa!\n", 1.5)
@@ -404,9 +430,9 @@ def seg1():
 
 
 def seg2():
-    """The problem: the alpha layer, then the vim layer. Beat 2."""
+    """The problem: both alpha layers, then the vim layer. Beat 2."""
     log("--- segment 2: the problem")
-    view_image(os.path.join(KEYBOARDS, "docs/img/diagrams/alpha1.png"), 20.0)
+    view_image(os.path.join(KEYBOARDS, "docs/img/diagrams/alphas.png"), 20.0)
     view_image(os.path.join(KEYBOARDS, "docs/img/diagrams/vim.png"), 20.0)
     expect("off")
 
@@ -423,15 +449,15 @@ def seg9():
 
 def vim_tour():
     for k in "jjjklllhh":
-        keys(k, 0.35)
+        keys(k, 0.35, slow_alpha2=False)
     expect("normal")
     for k in ["w", "w", "e", "b", "b", "0", "$", "0"]:
-        keys(k, 0.35)
-    keys("i", 0.5); expect("insert")
+        keys(k, 0.35, slow_alpha2=False)
+    keys("i", 0.5, slow_alpha2=False); expect("insert")
     esc(0.5); expect("normal")
     keys("a", 0.5); expect("insert")
     esc(0.5); expect("normal")
-    keys("gg", 0.5)
+    keys("gg", 0.5, slow_alpha2=False)
 
 
 def seg3():
@@ -468,8 +494,8 @@ def seg4():
     keys(" // bit 0 of the code", 0.5)
     esc(0.5); expect("normal")
     keys("u", 0.4)
-    keys("v", 0.5); expect("visual")
-    keys("jj", 0.3); keys("y", 0.5); expect("normal")
+    keys("v", 0.5, slow_alpha2=False); expect("visual")
+    keys("jj", 0.3, slow_alpha2=False); keys("y", 0.5, slow_alpha2=False); expect("normal")
     keys(":", 0.5); expect("cmdline")
     esc(0.5); expect("normal")
     # keys() paces one character per TYPE_GAP; a single space plus the 0.05 s
@@ -507,7 +533,7 @@ def seg5():
     keys("A", 0.5); expect("insert")
     keys(" // bit 1 of the code", 0.4)
     esc(0.5); expect("normal")
-    keys("v", 0.5); expect("visual")
+    keys("v", 0.5, slow_alpha2=False); expect("visual")
     esc(0.5); expect("normal")
     # NOTE: the command is "View: Toggle Terminal", not "...Integrated Terminal".
     # The longer name fuzzy-matches "Browser: Open Integrated Browser" first (recently
@@ -538,7 +564,7 @@ def seg6():
     keys("A", 0.5); expect("insert")
     keys(" // Compose is bit 0", 0.4)
     esc(0.5); expect("normal")
-    keys("v", 0.5); expect("visual")
+    keys("v", 0.5, slow_alpha2=False); expect("visual")
     esc(0.5); expect("normal")
     keys(":", 0.6); expect("raw", "intellij client raw")   # IdeaVim's ex line is a separate component
     esc(0.6); expect("normal")
@@ -567,7 +593,7 @@ def seg7():
     esc(0.8); expect("normal", "obsidian")
     wait_editor("obsidian")
     vim_tour()
-    keys("jj", 0.3); keys("A", 0.5); expect("insert")
+    keys("jj", 0.3, slow_alpha2=False); keys("A", 0.5); expect("insert")
     keys(" publish the video", 0.4)   # on camera in the take; `u` undoes it
     esc(0.5); expect("normal")
     keys("u", 0.4)

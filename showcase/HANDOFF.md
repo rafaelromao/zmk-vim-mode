@@ -318,9 +318,10 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   rehearsal cleared its own. Left alone (may be deliberate); clear before
   recording or the daemon stays forced.
 - **Take technique corrections (user): layers, not combos, for nav/numbers;
-  70 wpm typing.** `rehearse.py keys()` now types character-by-character at
-  ~0.17 s (70 wpm), so no two keys land in the 30 ms combo window; the feed
-  holds the nav layer for arrows and NUM for unshifted digits, restoring the
+  slower typing, especially Alpha 2.** `rehearse.py keys()` now types at 60 wpm
+  (~0.20 s between characters), with an additional 0.10 s for sticky Alpha 2
+  activations while Vim motions keep the base gap. No two keys land in the 30 ms
+  combo window; the feed holds the nav layer for arrows and NUM for unshifted digits, restoring the
   keyboard's true layers on release (heartbeat would heal it anyway).
   `SCRIPT.md` directs the same for the takes. All leader gaps stay under the
   ~350 ms timeout — audited, then proven by the green run below.

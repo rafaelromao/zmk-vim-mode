@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 SHOW = Path(__file__).resolve().parent
+sys.path.insert(0, str(SHOW))
 spec = importlib.util.spec_from_file_location("rehearsal_feed", SHOW / "rehearsal-feed.py")
 feed = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = feed
