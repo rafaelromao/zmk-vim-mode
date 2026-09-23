@@ -122,9 +122,10 @@ bash "$SHOW/setup.sh" || exit 1
 step "preserving the current menu bar layout"
 echo "  bar config left untouched; all existing icons and widgets remain enabled"
 
-step "forgetting per-project UI state"
+step "clearing volatile UI state and preserving IntelliJ's restored project"
 # Preserve VS Code workspace storage: it can contain recovery state for unsaved tabs.
-rm -f "$SHOW/demo-java/.idea/workspace.xml" 2>/dev/null && echo "  intellij: cleared .idea/workspace.xml"
+# Keep demo-java/.idea/workspace.xml: its session restore opens the project directly and avoids
+# the Welcome screen appearing beside the project frame during IntelliJ's cold start.
 rm -f "$SHOW/Demo/.obsidian/workspace.json" 2>/dev/null && echo "  obsidian: cleared Demo/.obsidian/workspace.json"
 # VS Code's hot exit restores dirty demo buffers (e.g. seg5's `// bit 1 of the code`
 # comment) even though the files on disk are pristine — the take then shows doubled
@@ -141,36 +142,40 @@ maximize_window '^code$' 5 'demo-go' || exit 1
 IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intellij-idea-community || true)"
 [ -n "$IDEA" ] && {
   hyprctl dispatch 'hl.dsp.focus({workspace="6"})' || exit 1
-  # A cold `idea <path>` races the platform's async project open: the project is
-  # disposed ~1s in ("Cannot Execute Command / No project was found to open the
-  # file in", IdeStarter WARN in idea.log), while opening the same path into a
-  # running instance over its socket works. So start bare, wait for Welcome,
-  # then send the path.
+  # Use IntelliJ's saved project session. Sending a second `idea <path>` command after
+  # session restore disposes the restored project and can leave Welcome beside a blank frame.
   nohup "$IDEA" >"$RUN/idea.log" 2>&1 &
   for _ in {1..120}; do
     hyprctl clients -j | jq -e '[.[] | select(.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$"))] | length > 0' >/dev/null && break
     sleep 0.5
   done
   hyprctl clients -j | jq -e '[.[] | select(.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$"))] | length > 0' >/dev/null \
-    || { echo "IntelliJ showed no window within a minute; check $RUN/idea.log." >&2; exit 1; }
-  # The Welcome window exists long before the instance accepts socket opens: an
-  # early `idea <path>` replays the cold-start dispose ("frame helper is not
-  # found", project disposed right after indexing). Let it settle first.
+   || { echo "IntelliJ showed no window within a minute; check $RUN/idea.log." >&2; exit 1; }
+  # Welcome may briefly appear during restore. Wait for the saved demo-java project
+  # to return; maximize_window fails prep if the session did not restore it.
   sleep 25
-  nohup "$IDEA" "$SHOW/demo-java" >>"$RUN/idea.log" 2>&1 &
   maximize_window '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java' || exit 1
-  # The Welcome path leaves a dead titleless surface beside the project window:
-  # unfocusable, ignores close, invisible under the maximized project (the IDE
-  # logs a single project frame, so this is a leaked surface, not a window).
-  # Park it on workspace 9 so it can never wander on camera. Best effort only.
+  # The Welcome path can leave both a Welcome window and a dead titleless surface
+  # beside the project. Only the titled demo-java project belongs on camera; park
+  # every other IntelliJ surface on workspace 9, outside the recorded workspaces.
   parked=0
   while read -r frame; do
     [ -n "$frame" ] || continue
     if hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='9', window='address:$frame'}))" >/dev/null 2>&1; then
       parked=$((parked + 1))
     fi
-  done < <(hyprctl clients -j | jq -r '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and .title == "") | .address] | .[]')
-  [ "$parked" -gt 0 ] && echo "  intellij: parked $parked untitled frame(s) on workspace 9"
+  done < <(hyprctl clients -j | jq -r '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and ((.title // "") | contains("demo-java") | not)) | .address] | .[]')
+  [ "$parked" -gt 0 ] && echo "  intellij: parked $parked non-project surface(s) on workspace 9"
+  idea_ws6="$(hyprctl clients -j | jq '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and .workspace.id == 6)] | length')"
+  idea_demo_ws6="$(hyprctl clients -j | jq '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and .workspace.id == 6 and ((.title // "") | contains("demo-java")))] | length')"
+  if ! [[ "$idea_ws6" =~ ^[0-9]+$ && "$idea_demo_ws6" =~ ^[0-9]+$ ]]; then
+    echo "Could not verify IntelliJ workspace isolation." >&2
+    exit 1
+  fi
+  if [ "$idea_ws6" -ne 1 ] || [ "$idea_demo_ws6" -ne 1 ]; then
+    echo "IntelliJ is not isolated on workspace 6 (surfaces=$idea_ws6 demo-java=$idea_demo_ws6)." >&2
+    exit 1
+  fi
   true
 } || echo "  intellij launcher not found; open showcase/demo-java by hand"
 hyprctl dispatch 'hl.dsp.focus({workspace="7"})' || exit 1
@@ -203,6 +208,16 @@ check_ws() {  # $1 = class pattern, $2 = workspace, $3 = title fragment
 check_ws '^code$' 5 'demo-go'
 check_ws '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java'
 check_ws '^(obsidian|md\.obsidian\.Obsidian)$' 7 ' - Demo - '
+idea_surfaces_ws6="$(hyprctl clients -j | jq '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and .workspace.id == 6)] | length')"
+idea_demo_ws6="$(hyprctl clients -j | jq '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and .workspace.id == 6 and ((.title // "") | contains("demo-java")))] | length')"
+if ! [[ "$idea_surfaces_ws6" =~ ^[0-9]+$ && "$idea_demo_ws6" =~ ^[0-9]+$ ]]; then
+  echo "Could not verify final IntelliJ workspace isolation." >&2
+  exit 1
+fi
+if [ "$idea_surfaces_ws6" -ne 1 ] || [ "$idea_demo_ws6" -ne 1 ]; then
+  echo "LAYOUT PROBLEM: workspace 6 must contain only demo-java (surfaces=$idea_surfaces_ws6 project=$idea_demo_ws6)" >&2
+  exit 1
+fi
 [ "$layout_ok" = 1 ] || exit 1
 
 cat <<EOF

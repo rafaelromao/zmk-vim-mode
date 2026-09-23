@@ -299,17 +299,13 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
   Rehearsal feed/panel verified against the new wire format. IntelliJ paint
   held for the whole run; one untitled empty frame lingers beside demo-java
   and is harmless (the runner filters untitled windows).
-- **The empty frame, solved.** It is a dead Wayland surface, not a window: no
-  title, `acceptsInput: false` (focus requests fail), ignores client close,
-  empty xdg hints, and the IDE logs exactly one project frame — a leaked
-  surface from the Welcome path, most likely the abandoned pre-content main
-  frame. Evidence: it appears at bare-launch startup alongside Welcome, before
-  any socket open; a bare launch that session-restores demo-java (no Welcome)
-  produces no frame at all. It cannot steal input and is invisible under the
-  maximized project (seg6 went 19/19 with it present). Fix: `prepare.sh` parks
-  untitled jetbrains frames on workspace 9 (compositor-side move needs no
-  client cooperation) after maximizing demo-java; verified live, IDE
-  unaffected, ws6 left with only the project window.
+- **The IntelliJ Welcome/project pair is isolated for recording.** The failed
+  2026-09-23 prep log shows the bare launch briefly restoring `demo-java`, which
+  was disposed before the delayed project-open command (`frame helper is not
+  found`, `WLMainSurface` null). `prepare.sh` now relies on the saved session,
+  parks every non-project IntelliJ surface (Welcome or untitled) on workspace 9,
+  and refuses to finish unless workspace 6 has exactly one `demo-java` window.
+  Verified on the recording monitor: workspace 6 shows only `demo-java – README.md`.
 - **Paint death recurred.** ~40 min after its 19:58 start the project window
   went blank-but-titled (toolbar renders, content does not) — the known
   Skiko/GL take-blocker. Restart fixed it; session restore reopened demo-java

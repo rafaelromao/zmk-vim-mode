@@ -12,7 +12,12 @@ its fresh Ghostty; the prior demo terminal was still there during recorder pre-r
 rerun also adds this spoken opening, verbatim: “Hi, in this video I'm going to show you how I use
 my keyboards with vim editors”. Clean workspace 8 before every take and frame-check the first
 seconds of the tightened master before accepting it. Keep the menu bar intact: the user reports
-that stripping the Codex/weather icons removes items they expect to see.
+that stripping the Codex/weather icons removes items they expect to see. The IntelliJ duo screen
+also recurred during preparation: the Welcome screen and the demo project appeared together.
+`prepare.sh` now parks every non-`demo-java` IntelliJ surface on workspace 9 and refuses to finish
+unless workspace 6 contains exactly one IntelliJ surface, titled for `demo-java`. It preserves and
+relies on the `.idea/workspace.xml` session; it does not issue a project-open request that could
+recreate the Welcome/project pair.
 
 Read first: `SCRIPT.md` (what each segment types), `TAKE-2-PLAN.md` (why the video is shaped
 this way), `HANDOFF-TAKE-2.md` (how the box is set up: scale 1.25, bar widgets, Ghostty tabs,
@@ -121,6 +126,20 @@ that head. `prepare.sh` used to reset the editors but did not clear this termina
 cleanup before every take and refuses to start if a stale Ghostty remains. Do not begin capture
 until the workspace and the first-frame preview are clean.
 
+### 1.7 IntelliJ's Welcome/project pair must not reach the recording workspace
+
+The prep screenshot showed the Welcome/Projects surface beside an empty IntelliJ project frame.
+The IntelliJ log from the failed prep records the bare launch disposing its restored `demo-java`
+session, followed later by an external open and a `frame helper is not found`/null Wayland surface.
+The current prep uses only the saved session and parks Welcome/untitled surfaces away from the
+recording workspace.
+
+**Required:** preserve `.idea/workspace.xml` and use only the bare launch so IntelliJ restores its
+saved demo-java session. Never send a second project-open command in the same run. Move every
+non-`demo-java` IntelliJ surface (Welcome or untitled) to workspace 9. Refuse prep unless workspace
+6 contains exactly one IntelliJ surface, titled for `demo-java`; if session restore fails, prep must
+stop for manual recovery rather than leave Welcome/project together on camera.
+
 ---
 
 ## 2 · Why the HUD draws combos, and where to fix it
@@ -225,11 +244,14 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
 `dub.py` (anchors → render → master → pauses → tighten → check). Before pressing record:
 
 0. Confirm the monitor is 2560×1440 at scale 1.25. Run `prepare.sh`; it closes the old demo
-   terminal on workspace 8 and resets demo content and editor state. It must leave
+   terminal on workspace 8 and resets demo content and volatile editor state, while preserving
+   `demo-java/.idea/workspace.xml` for IntelliJ session restore. Use only the bare IntelliJ launch;
+   never send a second project-open request in that run. `prepare.sh` must leave
    `~/.config/omarchy/shell.json` untouched so every existing menu-bar icon remains. **Do not run
    `omarchy-restart-shell`** as part of this capture (QuickShell has a recurring crash on restart).
    Confirm no `com.mitchellh.ghostty` window is left on workspace 8. `record.py` repeats this
-   check before every take.
+   check before every take. Workspace 6 must contain one `demo-java` IntelliJ window only; all
+   Welcome/untitled IntelliJ surfaces belong on workspace 9.
 1. Run one segment per rule with `rehearsal-feed.py --debug` and read the feed log before
    recording anything. `rehearse.py 0` types `ever`: `e` is a vowel, so its `v` must be the
    alpha1 `h|v` key, no thumb. `rehearse.py 7` types `video`: word-start `v`, so alpha2 thumb
@@ -282,7 +304,7 @@ contains only the fresh cold-open shot under the requested introduction, and not
 | `showcase/rehearsal-feed.py` | the typist model (§2): alpha2 one-shot, magic key, stack-preserving holds, working restore, readiness |
 | `showcase/rehearse.py` | wait for the feed's keymap before typing; beat 3 as a split with the generated Ghostty config; split keycodes |
 | `showcase/record.py` | close stale workspace-8 Ghostty surfaces before each recorded take |
-| `showcase/prepare.sh` | clear the old demo terminal, reset demos, and leave the menu-bar config untouched |
+| `showcase/prepare.sh` | clear old demo terminals, isolate the demo-java window, reset demos and preserve the menu bar |
 | `showcase/env/ghostty-demo.conf` → `run/ghostty.conf` | generated with `command =` so tabs/splits are demo shells |
 | `showcase/SCRIPT.md` | exact spoken opening, cue timing, beat 3 Screen/Expect/Cut, and the alpha2/magic typing rules |
 | `showcase/dub.py` | verify cue points against silence in the tightened output and compute density over kept footage |
