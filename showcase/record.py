@@ -26,6 +26,7 @@ session. Takes are silent re-runs of the rehearsal: stop the take's HUD first
 (`bash showcase/hud.sh stop`), the rehearsal brings its own.
 """
 
+import json
 import os
 import shutil
 import signal
