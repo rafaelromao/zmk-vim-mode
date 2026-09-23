@@ -190,6 +190,16 @@ hyprctl dispatch 'hl.dsp.focus({workspace="7"})' || exit 1
 nohup obsidian --in-process-gpu "obsidian://open?vault=$VAULT_NAME&file=Tasks" >"$RUN/obsidian.log" 2>&1 &
 maximize_window '^(obsidian|md\.obsidian\.Obsidian)$' 7 ' - Demo - ' || exit 1
 
+# Starting the next editor can make IntelliJ reopen or re-focus its project frame
+# on the current workspace. Reassert its final placement after every editor has
+# started, so the invariant checked below describes the actual capture layout.
+step "reasserting IntelliJ isolation after editor startup"
+maximize_window '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java' || exit 1
+while read -r frame; do
+  [ -n "$frame" ] || continue
+  hyprctl eval "hl.dispatch(hl.dsp.window.move({workspace='9', window='address:$frame'}))" >/dev/null 2>&1 || true
+done < <(hyprctl clients -j | jq -r '[.[] | select((.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$")) and ((.title // "") | contains("demo-java") | not)) | .address] | .[]')
+
 step "daemon state"
 if command -v zmk-vim-mode >/dev/null 2>&1; then
   if [ "$(zmk-vim-mode status --json 2>/dev/null | jq -r '.override == null')" != "true" ]; then
