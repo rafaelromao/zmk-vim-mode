@@ -39,8 +39,9 @@ and all of its icons and widgets remain untouched.
 | Audio | **none during takes** — the voice-over is recorded afterwards (see *Sound*) |
 | Text sizes | the table below is mandatory |
 
-For the take, raise `hud.press_ms` from 320 to 500 in `~/.config/zmk-layer-hud/config.yaml`
-(`hud.combo_pill_ms` 1000 is fine) and restart the HUD. Revert after recording.
+`record.py` temporarily sets `hud.press_ms` to 100 during a take so the Alpha 2 banner returns to
+Alpha 1 before the next key (about 171 ms later). It restores the saved config afterward.
+`hud.combo_pill_ms` 1000 is fine.
 
 ## Sources
 

@@ -28,6 +28,7 @@ session. Takes are silent re-runs of the rehearsal: stop the take's HUD first
 
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -48,6 +49,7 @@ BEATS = [str(n) for n in range(10)]   # every beat of SCRIPT.md is a segment of 
 # voice needs length-scale ~1.77; 1.3 rendered ~165wpm and crammed every beat's
 # words into its first third). Post still refits + delays the scratch per take.
 LENGTH_SCALE = os.environ.get("ZMK_TTS_LENGTH_SCALE", "1.77")
+CAPTURE_PRESS_MS = 100
 
 os.makedirs(RUN, exist_ok=True)
 
@@ -132,6 +134,40 @@ def set_idle(mode):
         return
     subprocess.run(["omarchy", "toggle", "idle", mode],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def set_capture_press_ms(config_path=None):
+    """Keep one-shot layer banners in step with the rehearsal's character pace.
+
+    The HUD retains a disappearing drawer for press_ms after a key so its flash stays
+    under the right legend. At the 70-wpm typing gap (171 ms), the take setting of 500 ms
+    leaves Alpha 2 visible while the next Alpha 1 character is already in the strip.
+    """
+    path = os.path.expanduser(config_path or "~/.config/zmk-layer-hud/config.yaml")
+    try:
+        with open(path, encoding="utf-8") as config:
+            original = config.read()
+    except OSError as e:
+        fail(f"cannot read HUD config {path}: {e}")
+    pattern = re.compile(r"(?m)^([ \t]*press_ms[ \t]*:[ \t]*)\d+([ \t]*(?:#.*)?)$")
+    updated, count = pattern.subn(
+        lambda match: f"{match.group(1)}{CAPTURE_PRESS_MS}{match.group(2)}", original)
+    if count != 1:
+        fail(f"expected one hud.press_ms entry in {path}, found {count}")
+    with open(path, "w", encoding="utf-8") as config:
+        config.write(updated)
+    print(f"record: HUD press_ms={CAPTURE_PRESS_MS}ms (Alpha 2 returns before the next typed key)",
+          flush=True)
+    return path, original
+
+
+def restore_hud_config(saved):
+    if saved is None:
+        return
+    path, original = saved
+    with open(path, "w", encoding="utf-8") as config:
+        config.write(original)
+    print("record: HUD config restored", flush=True)
 
 
 def idle_active():
@@ -292,17 +328,23 @@ if __name__ == "__main__":
         tts_bin()
         voice()
     print(f"recording beats {','.join(segs)} — hands off", flush=True)
-    kill_strays()
-    hold_idle = not idle_active()
-    if hold_idle:
-        print("record: stay-awake for the run", flush=True)
-        set_idle("stay-awake")
+    saved_hud_config = None
+    hold_idle = False
     ok = True
     try:
+        saved_hud_config = set_capture_press_ms()
+        kill_strays()
+        hold_idle = not idle_active()
+        if hold_idle:
+            print("record: stay-awake for the run", flush=True)
+            set_idle("stay-awake")
         for seg in segs:
             ok = take(seg, with_tts) and ok
     finally:
-        if hold_idle:
-            set_idle("allow-idle")
-            print("record: idle behavior restored", flush=True)
+        try:
+            if hold_idle:
+                set_idle("allow-idle")
+                print("record: idle behavior restored", flush=True)
+        finally:
+            restore_hud_config(saved_hud_config)
     sys.exit(0 if ok else 1)

@@ -138,6 +138,24 @@ settle, then open `demo-java` once only if no titled project window remains. Mov
 non-`demo-java` IntelliJ surface (Welcome or untitled) to workspace 9. Refuse prep unless workspace
 6 contains exactly one IntelliJ surface, titled for `demo-java`.
 
+### 1.8 Alpha 2 layer return is delayed past the next key
+
+The strip shows the injected characters correctly. `rehearsal-feed.py` also emits the restore to
+the saved Alpha 1 stack on the Alpha 2 character's key-up. The HUD intentionally delays removing a
+drawn layer until `press_ms` so the key flash remains under its legend. At 500 ms, that leaves the
+HUD on Alpha 2 after the next character has already appeared in the strip (the typist interval is
+about 171 ms).
+
+**Required:** use `press_ms=100` during rehearsal/recording so the HUD returns to Alpha 1 before
+the next typed character. Set it before manual rehearsals; `record.py` applies this value for a
+capture and restores the saved HUD config in `finally`. `node showcase/hud_alpha2_return_test.js`
+checks the real HUD renderer at the typing interval; run the record/feed regression tests to verify
+temporary config restoration and the Alpha 1 layer-id sequence:
+
+```sh
+python3 -m unittest showcase.record_test showcase.rehearsal_feed_test
+```
+
 ---
 
 ## 2 · Why the HUD draws combos, and where to fix it
@@ -272,6 +290,8 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
    or stale terminal in any take invalidates that capture; clean the environment and record again.
 7. Inspect the tightened master's first two seconds separately. There must be no stale shell,
    editor buffer, or image from a previous attempt before the spoken introduction.
+8. Compare the Alpha 2 letters on screen with `dub.py keys 5`: each Alpha 2 letter must flash on
+   Alpha 2, then the banner must return to Alpha 1 before the following Alpha 1 character.
 
 Definition of done: the four frame checks above pass on the tightened master, `dub.py check`
 reports the first cue audible at all ten expected cue points and loudness in range, the opening
@@ -291,7 +311,7 @@ contains only the fresh cold-open shot under the requested introduction, and not
 - One full tour (Neovim); the other editors one beat each; no dead air (`dub.py tighten`).
 - The daemon's reason on camera where RAW and OFF look alike (beats 3 and 8): typed `status`
   lines, now with the LED writes beside them.
-- 60 fps, scale 1.25, `press_ms` 500 for the takes (revert to 320 after); preserve the full
+- 60 fps, scale 1.25, `press_ms` 100 during takes (the driver restores the saved value); preserve the full
   current menu bar, including the Codex and weather icons.
 - Human read against the cut for the deliverable; the TTS is scratch (`YOUTUBE.md` for the rest).
 
@@ -301,10 +321,11 @@ contains only the fresh cold-open shot under the requested introduction, and not
 |---|---|
 | `showcase/rehearsal-feed.py` | the typist model (§2): alpha2 one-shot, magic key, stack-preserving holds, working restore, readiness |
 | `showcase/rehearse.py` | wait for the feed's keymap before typing; beat 3 as a split with the generated Ghostty config; split keycodes |
-| `showcase/record.py` | close stale workspace-8 Ghostty surfaces before each recorded take |
+| `showcase/record.py` | close stale workspace-8 Ghostty surfaces and temporarily set HUD `press_ms=100` for each capture |
 | `showcase/prepare.sh` | clear old demo terminals, isolate the demo-java window, reset demos and preserve the menu bar |
 | `showcase/env/ghostty-demo.conf` → `run/ghostty.conf` | generated with `command =` so tabs/splits are demo shells |
 | `showcase/SCRIPT.md` | exact spoken opening, cue timing, beat 3 Screen/Expect/Cut, and the alpha2/magic typing rules |
 | `showcase/dub.py` | verify cue points against silence in the tightened output and compute density over kept footage |
 | `showcase/HANDOFF-TAKE-2.md` | supersede the "tabs" note |
 | `showcase/rehearsal_feed_test.py` | verify alpha2/magic, number-layer restores and uppercase thumb flashes |
+| `showcase/record_test.py`, `showcase/hud_alpha2_return_test.js` | verify temporary HUD timing and Alpha 1 return before the next typed character |

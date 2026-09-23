@@ -57,7 +57,9 @@ venv (`~/projects/zmk-layer-hud/.venv`) is healthy; keyboards-repo images exist
 
 ## Remaining steps (continue here)
 
-1. `press_ms: 320` → `500` in `~/.config/zmk-layer-hud/config.yaml` (line 16). Revert after.
+1. The original take raised `press_ms` to 500 ms for longer flashes. This was superseded after
+   review: 500 ms keeps the HUD on Alpha 2 across later Alpha 1 characters. `record.py` now uses
+   100 ms during capture and restores the user's saved value.
 2. Scale monitor: `hyprctl keyword monitor HDMI-A-1,2560x1440,auto,1.333333` (logical 1080p).
 3. `bash showcase/prepare.sh` — few minutes (IntelliJ relaunch with 25 s settle + indexing).
 4. Verify edited segments per the plan: `python3 showcase/rehearse.py 3`, then `7`, then `8`;
@@ -99,7 +101,8 @@ User corrections to the plan above, all applied:
   `romao.weather`, but the user reported missing icons. `prepare.sh` now leaves
   `~/.config/omarchy/shell.json` untouched and must not remove or disable any bar item or restart
   QuickShell.
-- `press_ms` is at 500 (revert to 320 after). Demo terminal font stays 20.
+- The 500 ms take timing above is historical and superseded by the 100 ms Alpha 2-return setting
+  documented in HANDOFF-TAKE-3.md. Demo terminal font stays 20.
 
 State: `prepare.sh` re-ran at 1.25 but failed on IntelliJ showing no window within a
 minute (process up, `run/idea.log` empty) — retry in progress. `seg7` was interrupted

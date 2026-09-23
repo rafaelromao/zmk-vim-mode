@@ -16,7 +16,9 @@ spec.loader.exec_module(feed)
 class InjectedKeysTest(unittest.TestCase):
     def setUp(self):
         self.out = []
-        self.layers = []
+        # ZMK's active stack includes the Alpha 1 base layer. The HUD omits id 0
+        # when rendering, but a one-shot layer restore must preserve that base id.
+        self.layers = [0]
         self.keymap = {
             "positions": {"33": 22, "34": 23},
             "zmk_layers": {
@@ -58,13 +60,13 @@ class InjectedKeysTest(unittest.TestCase):
         # Word-start v and the final k/x are alpha2 taps. The v after the e in ever,
         # and both magic keys in have, stay on alpha1.
         alpha2_downs = [(i, msg["chars"]) for i, msg in downs if msg["chars"] in {"v", "k", "x"}
-                        and self.out[i - 1] == {"kind": "layers", "ids": [13]}]
+                        and self.out[i - 1] == {"kind": "layers", "ids": [0, 13]}]
         self.assertEqual([char for _, char in alpha2_downs], ["v", "k", "x"])
         for i, char in alpha2_downs:
             self.assertEqual(self.out[i + 1:i + 3],
                              [{"kind": "press", "pos": 33}, {"kind": "release", "pos": 33}])
             self.assertEqual(self.out[i + 3]["type"], "keyUp")
-            self.assertEqual(self.out[i + 4], {"kind": "layers", "ids": []})
+            self.assertEqual(self.out[i + 4], {"kind": "layers", "ids": [0]})
 
         self.assertFalse(any(msg.get("pill") or msg.get("combo") for msg in self.out))
 
@@ -78,7 +80,7 @@ class InjectedKeysTest(unittest.TestCase):
     def test_uppercase_alpha2_flashes_both_thumbs(self):
         self.send(feed.E.KEY_LEFTSHIFT, 1)
         self.send(feed.E.KEY_K, 1)
-        self.assertEqual(self.out[1], {"kind": "layers", "ids": [18]})
+        self.assertEqual(self.out[1], {"kind": "layers", "ids": [0, 18]})
         self.assertEqual(self.out[3:7], [
             {"kind": "press", "pos": 33},
             {"kind": "release", "pos": 33},

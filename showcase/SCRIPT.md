@@ -41,7 +41,9 @@ The rehearsal types letters the way the Diamond owner does: `q k y z x w j`, acc
 and `_` use the sticky `alpha2` thumb; `h|v` produces `h` at a word start or after a consonant
 and `v` after a vowel, while `v|h` on `alpha2` supplies the opposite result. Uppercase alpha2
 letters use `shifted2`; uppercase alpha1 letters tap sticky shift. The feed resets this adaptive
-state at spaces, punctuation and other non-letter keys.
+state at spaces, punctuation and other non-letter keys. During capture, `record.py` temporarily
+sets the HUD `press_ms` to 100 so Alpha 2 returns to Alpha 1 before the next 171 ms typing interval,
+then restores the user's saved setting.
 Digit strings come off the NUM layer and arrow keys off the nav layer, held for
 the whole sequence; neither is ever a combo. (Digits on the vim layer itself —
 `0`, `$` in the tours — are single keys and need no hold.) `rehearse.py` types at
