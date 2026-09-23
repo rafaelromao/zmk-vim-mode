@@ -119,7 +119,7 @@ class InjectedKeys:
             name = MODS[code]
             self.held[name] = max(0, self.held[name] + (1 if value == 1 else -1 if value == 0 else 0))
             return {"kind": "key", "type": "flagsChanged", "name": "", "chars": "", "code": 0,
-                    "flags": self.flags(), "repeat": False}
+                    "flags": self.flags(), "repeat": False, "synthetic": True}
         flags = self.flags()
         chars = CONTROL_CHARS.get(code, "")
         if not chars and code in CHARS:
@@ -127,7 +127,8 @@ class InjectedKeys:
         name = NAMED.get(code) or (chars if chars and chars != " " else
                                    E.KEY.get(code, str(code)).replace("KEY_", "").lower())
         return {"kind": "key", "type": "keyDown" if value else "keyUp", "name": name,
-                "chars": chars, "code": code, "flags": flags, "repeat": value == 2}
+                "chars": chars, "code": code, "flags": flags, "repeat": value == 2,
+                "synthetic": True}
 
     def drawer_ids(self, drawers, preferred_names=()):
         """ZMK layer ids drawn with one of these drawers, from the keymap message."""

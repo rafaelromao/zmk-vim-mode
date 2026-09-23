@@ -1,72 +1,72 @@
 {
   "0": {
-    "action": 5.5,
-    "content_start": 10.5,
-    "video": 50.367,
-    "narration": 41.599,
+    "action": 5.7,
+    "content_start": 10.6,
+    "video": 50.483,
+    "narration": 40.554,
     "offset": 0.0
   },
   "1": {
-    "action": 5.4,
-    "content_start": 10.5,
-    "video": 51.15,
-    "narration": 35.538,
-    "offset": 50.367
+    "action": 5.5,
+    "content_start": 10.6,
+    "video": 51.217,
+    "narration": 35.016,
+    "offset": 50.483
   },
   "2": {
-    "action": 5.4,
+    "action": 5.5,
     "content_start": 10.4,
-    "video": 58.05,
-    "narration": 55.67,
-    "offset": 101.517
+    "video": 58.1,
+    "narration": 55.844,
+    "offset": 101.7
   },
   "3": {
-    "action": 5.4,
-    "content_start": 10.5,
-    "video": 93.433,
-    "narration": 66.27,
-    "offset": 159.567
+    "action": 5.6,
+    "content_start": 10.6,
+    "video": 93.667,
+    "narration": 67.93,
+    "offset": 159.8
   },
   "4": {
-    "action": 5.4,
-    "content_start": 10.5,
-    "video": 92.7,
-    "narration": 63.681,
-    "offset": 253.0
+    "action": 5.5,
+    "content_start": 10.6,
+    "video": 92.867,
+    "narration": 65.039,
+    "offset": 253.467
   },
   "5": {
-    "action": 5.4,
+    "action": 5.5,
     "content_start": 10.2,
-    "video": 81.15,
-    "narration": 65.48,
-    "offset": 345.7
+    "video": 81.4,
+    "narration": 65.144,
+    "offset": 346.334
   },
   "6": {
-    "action": 5.3,
-    "content_start": 10.1,
-    "video": 62.483,
-    "narration": 48.356,
-    "offset": 426.85
+    "action": 5.6,
+    "content_start": 10.2,
+    "video": 62.717,
+    "narration": 48.855,
+    "offset": 427.734
   },
   "7": {
-    "action": 5.5,
-    "content_start": 10.5,
-    "video": 51.183,
-    "narration": 40.716,
-    "offset": 489.333
-  },
-  "8": {
-    "action": 5.3,
-    "content_start": 10.4,
-    "video": 56.917,
-    "narration": 49.4,
-    "offset": 540.516
-  },
-  "9": {
     "action": 5.4,
     "content_start": 10.5,
-    "video": 51.983,
-    "narration": 39.462,
-    "offset": 597.433
+    "video": 51.067,
+    "narration": 40.101,
+    "offset": 490.451
+  },
+  "8": {
+    "action": 5.5,
+    "content_start": 10.5,
+    "video": 56.95,
+    "narration": 48.344,
+    "offset": 541.518
+  },
+  "9": {
+    "action": 5.5,
+    "content_start": 10.5,
+    "video": 51.967,
+    "narration": 39.578,
+    "offset": 598.468
   }
 }

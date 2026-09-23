@@ -104,6 +104,13 @@ class InjectedKeysTest(unittest.TestCase):
             self.assertEqual(self.out[i + 3]["type"], "keyUp")
             self.assertEqual(self.out[i + 4], {"kind": "layers", "ids": [0]})
 
+    def test_evdev_key_events_are_marked_synthetic_for_hud_highlighting(self):
+        self.send(feed.E.KEY_A, 1)
+        down = next(msg for msg in self.out
+                    if msg.get("kind") == "key" and msg.get("type") == "keyDown")
+        self.assertTrue(down.get("synthetic"),
+                        "injected key events must bypass the physical-position freshness guard")
+
     def test_digits_use_numbers_layer_instead_of_combo(self):
         self.layers[:] = [2]
         self.type_text("0125")
