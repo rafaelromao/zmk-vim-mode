@@ -48,10 +48,12 @@ Seen in the video: the `k`/`K` combo pill near `b m` during `/Kana` in VS Code (
 pill during `jj`/`publish the video` in Obsidian (~6:0x), and every `w`, `y`, `k` in the demo
 comments. The user types none of these as combos.
 
-**Required on camera**, for each alpha2 letter: the `alpha2` thumb flashes, the banner reads
-*Alpha 2* for that one key, the letter's key on the alpha2 drawer flashes, the banner returns to
-the layer the keyboard is really on. Enter and Tab as combos are fine (they are combos on the
-Diamond).
+**Required on camera:** literal text never uses a combo. For each alpha2 letter, the `alpha2`
+thumb flashes, the banner reads *Alpha 2* for that one key, the letter's key on the alpha2 drawer
+flashes, and the banner returns to the layer the keyboard is really on. Digits use NUMBERS;
+symbols use SYMBOLS or NUMBERS according to the keymap. No letter, digit, punctuation mark, or
+symbol may appear in a combo pill while being entered as text. Only documented non-printing control
+combos (such as Enter or Tab) are permitted.
 
 ### 1.2 The magic key is not modelled
 
@@ -78,8 +80,9 @@ to the `v` combo or lit nothing legible.
 ### 1.3 Digits are drawn as combos, and the NUMBERS layer sticks
 
 Digits come off the **numbers layer**, held on the space thumb (`{ t: space, h: numbers }`),
-never combos — `SCRIPT.md` already says so and `rehearsal-feed.py` claims to emulate it. Two
-things went wrong on camera:
+never combos. Symbols use the **symbols layer**, held on the alpha2 thumb; number-layer symbols
+use NUMBERS. The feed must model these layers and restore the real stack after each character.
+Two things went wrong on camera:
 
 - In the cold open (`:21`, ~0:14) the HUD drew **`COMBO 1`** pills over the vim layer: the hold
   was not applied at all there.
@@ -164,8 +167,8 @@ python3 -m unittest showcase.record_test showcase.rehearsal_feed_test
 Nothing is wrong with the HUD. It is drawing exactly what it is told.
 
 - `rehearsal-feed.py` reads the keys ydotool injects (evdev) and sends the pages a **character
-  event** per key (`{"kind":"key","chars":"k",…}`), plus, for arrows and digits only, a
-  `{"kind":"layers","ids":[…]}` message before the key and a restore after it.
+  event** per key (`{"kind":"key","chars":"k",…}`), plus a `{"kind":"layers","ids":[…]}`
+  message before any character that needs Alpha 2, NUMBERS, or SYMBOLS, and a restore after it.
 - `hud/hud.js` (zmk-layer-hud) resolves a character **on the live layer stack the keyboard
   reported** — `resolveOnStack()` → `findOnLayer()`, which tries the layer's plain keys first
   and then **its combos**. The keyboard is on `alpha1` (or a vim layer), `alpha2` is not on the
@@ -179,13 +182,15 @@ character, decide how the Diamond's owner would have typed it and emit that.
 
 | Character | Emit |
 |---|---|
-| plain alpha1 letter, `,` `.` space | as today |
-| alpha2 letter (`q k y z x w j`, `'`, `_`, accents) | alpha2 thumb press+release; `layers` = keyboard's stack + alpha2 id; the character; restore |
-| `h` / `v` | apply the magic table in §1.2 using the previous typed character; alpha1 `h|v` is a plain key on the stack; the alpha2 case goes through the row above |
-| uppercase letter | sticky-shift thumb tap, then the letter (alpha1) — or alpha2 thumb + shift → `shifted2` for alpha2 letters; check how `shifted1`/`shifted2` are entered in `keyboards/src` and mirror it |
-| digit | as today (numbers hold), but **layers = keyboard's stack + numbers id**, not numbers alone, and a restore that actually fires (§ below) |
-| arrows, Home/End, Page | as today (nav hold), same restore fix |
-| Enter, Tab, Esc, `:` `;` `/` `$` `0` | as today; they are combos or single keys on the real board |
+| plain alpha1 letter, `,` `.` space | direct single key on the active layer |
+| alpha2 letter (`q k y z x w j`, `'`, `_`, accents) in literal text | alpha2 thumb; keyboard stack + alpha2 id; the character; exact restore |
+| Vim command letter with no single-key Vim binding (`v`, `y`, `x`, `z`, etc.) | use its plain Alpha 2 key, never its Vim-layer combo; reset adaptive context if needed (`v|h` must emit `v`) |
+| `h` / `v` in literal text | adaptive table in §1.2; use alpha1 `h|v` or alpha2 `v|h` as appropriate |
+| uppercase letter in literal text | sticky-shift thumb tap, then the alpha1 key — or alpha2 + shift → `shifted2` for alpha2 letters |
+| digit or number-layer symbol (`\ { } & ( ) | [ ]`) | space thumb / NUMBERS layer; key; exact restore |
+| symbol-layer character (tilde, hash, percent, equals, colon, at, caret, dollar, quote, question mark, hyphen, plus, angle brackets, backtick, exclamation, slash, star) | alpha2 thumb / SYMBOLS layer; key; exact restore |
+| arrow, Home/End, Page | nav hold, same stack-preserving restore |
+| Enter, Tab, Esc and explicit editor shortcuts | documented non-text control; its combo is an action, never character entry |
 
 Where the pieces are:
 
@@ -274,12 +279,17 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
    recording anything. `rehearse.py 0` types `ever`: `e` is a vowel, so its `v` must be the
    alpha1 `h|v` key, no thumb. `rehearse.py 7` types `video`: word-start `v`, so alpha2 thumb
    then `v|h`. `rehearse.py 5` types `/Kana` and `keyboard`: `K` and `k` are alpha2 letters,
-   so thumb (plus sticky shift for `K`) then the key, never the `[1,2]` combo. `rehearse.py 4`
-   types `bit 0 of the code`: NUMBERS for the `0` only, INSERT back before `of`.
+   so thumb (plus sticky shift for `K`) then the key, never the `[1,2]` combo. Numbers must use
+   NUMBERS; literal punctuation must resolve on Alpha 1 or the SYMBOLS/NUMBERS drawer. In Vim
+   CMDLINE, alpha2 letters and symbols/numbers still use their text layers, not Vim combos. In
+   Normal-mode tour actions, direct single-key Vim commands stay on Vim; a command such as `v` or
+   `y` with no single-key Vim binding uses its plain Alpha 2 key instead of the combo. Run
+   `python3 -m unittest showcase.rehearsal_feed_test showcase.typist_test` before the visual checks.
 2. Frame check, not log check: `ffmpeg -i run/take5.mp4 -vf "fps=2,crop=640:560:1920:40"
-   frames/%04d.jpg`, tile them, and look at every COMBO pill. Allowed pills: `⏎`, `⇥`, the vim
-   layer's own combos (`⎋`, `` ` ``, `vim mode`), `:`/`;`. **Any letter or digit in a pill is a
-   failure.** Every NUMBERS/NAV banner must end with the key that caused it.
+   frames/%04d.jpg`, tile them, and inspect every COMBO pill. Non-text controls explicitly used by
+   the segment (Enter, Tab, Escape, Vim mode, and listed modifier shortcuts) may use combos.
+   **Any combo used to emit a literal letter, digit, punctuation mark, or symbol—including `:` or
+   `;`—fails the take.** Every NUMBERS/NAV/SYMBOLS banner must end with the key that caused it.
 3. `dub.py keys N` stacks the typed-keys strip per take; use it to confirm the sequence, then
    `dub.py proof N` on beats 0, 4, 5 and 7 for the finished video.
 4. Beat 3: freeze a frame during `set insert` — the top pane shows the command, the bottom pane
@@ -324,16 +334,16 @@ contains only the fresh cold-open shot under the requested introduction, and not
 
 | File | Change |
 |---|---|
-| `showcase/rehearsal-feed.py` | the typist model (§2): alpha2 one-shot, magic key, stack-preserving holds, working restore, readiness |
+| `showcase/rehearsal-feed.py` | the typist model (§2): Alpha 2, NUMBERS and SYMBOLS routing, Vim command/text distinction, and exact layer restore |
 | `showcase/rehearse.py` | wait for the feed's keymap before typing; beat 3 as a split with the generated Ghostty config; split keycodes |
 | `showcase/record.py` | close stale workspace-8 Ghostty surfaces, temporarily set HUD `press_ms=100`, and stop on a failed segment |
 | `showcase/prepare.sh` | clear old demo terminals, isolate the demo-java window, reset demos and preserve the menu bar |
-| `showcase/typist.py` | share Alpha 2/magic-key classification between the rehearsal feed and slower typing pace |
+| `showcase/typist.py` | share Alpha 2/magic-key, Numbers/Symbols character classes, and per-key pacing |
 | `showcase/typist_test.py` | verify Alpha 2, magic-key, and per-key timing decisions |
 | `showcase/env/demo.bashrc` | disable swap files for disposable demo buffers so stale prompts cannot interrupt a take |
 | `showcase/env/ghostty-demo.conf` → `run/ghostty.conf` | generated with `command =` so tabs/splits are demo shells |
 | `showcase/SCRIPT.md` | exact spoken opening, cue timing, beat 3 Screen/Expect/Cut, and the alpha2/magic typing rules |
 | `showcase/dub.py` | verify cue points against silence in the tightened output and compute density over kept footage |
 | `showcase/HANDOFF-TAKE-2.md` | supersede the "tabs" note |
-| `showcase/rehearsal_feed_test.py` | verify alpha2/magic, number-layer restores and uppercase thumb flashes |
+| `showcase/rehearsal_feed_test.py` | verify combo-free Alpha 2, Numbers, Symbols and Vim/CMDLINE behavior |
 | `showcase/record_test.py`, `showcase/hud_alpha2_return_test.js` | verify temporary HUD timing and Alpha 1 return before the next typed character |

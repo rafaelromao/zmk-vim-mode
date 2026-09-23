@@ -11,11 +11,12 @@ runs zmk-layer-hud's own reader -- the keymap and its live reload, the device na
 layers the keyboard really is on, which follow `zmk-vim-mode set ...` because the daemon writes
 the mode to the keyboard -- and adds the injected keys read off ydotool's virtual device. The
 pages then light them against the real layer stack, exactly as they light real typing.
-Arrow keys and digits are drawn as held layers (the nav/numbers drawers), never as combos -- the
-way the takes type them. Letters on the Diamond's secondary alpha layer are modelled as one-shot
-alpha2 activations, including the adaptive h|v/v|h magic key. The release puts the keyboard's
-own layers back at once (a same-valued heartbeat re-asserts nothing, so the restore is the
-correction, not a speedup).
+Arrows, digits, and symbols are drawn through their nav/numbers/symbols layers, never as combos.
+Letters on the Diamond's secondary alpha layer are modelled as one-shot alpha2 activations,
+including the adaptive h|v/v|h magic key. Literal text entered in Vim's insert, replace, or
+command-line modes uses the same layer rules as shell and editor text. The release puts the
+keyboard's own layers back at once (a same-valued heartbeat re-asserts nothing, so the restore is
+the correction, not a speedup).
 
 Everything about the protocol, the keymap and the layers comes from zmk-layer-hud
 ($ZMK_LAYER_HUD, default ~/projects/zmk-layer-hud); this file only adds the evdev half. Port:
@@ -48,7 +49,8 @@ try:
 except ImportError:
     sys.exit("python-evdev is required to see the injected keys: sudo pacman -S python-evdev")
 
-from typist import ALPHA2_CHARS, VOWELS, is_vowel, remember_char, uses_alpha2
+from typist import (ALPHA2_CHARS, NUMBER_LAYER_CHARS, SYMBOL_LAYER_CHARS, VOWELS,
+                    is_vowel, remember_char, uses_alpha2)
 
 PORT = int(os.environ.get("ZMKHUD_PORT", "8767"))
 # ydotoold's uinput device, by name. `libinput list-devices` names yours if this misses.
@@ -79,16 +81,18 @@ MODS = {
     E.KEY_RIGHTCTRL: "ctrl", E.KEY_LEFTALT: "alt", E.KEY_RIGHTALT: "alt",
     E.KEY_LEFTMETA: "cmd", E.KEY_RIGHTMETA: "cmd",
 }
-# Keys a human never combos: arrows and digits come off held layers, so the
-# rehearsal holds them too -- the banner reads the layer, exactly as on camera.
+# Character layers and navigation use held layers, never combos. The rehearsal
+# models the same thumbs the typist uses for literal text on camera.
 NAV_CODES = {E.KEY_UP, E.KEY_DOWN, E.KEY_LEFT, E.KEY_RIGHT,
              E.KEY_HOME, E.KEY_END, E.KEY_PAGEUP, E.KEY_PAGEDOWN}
-DIGIT_CODES = {E.KEY_0, E.KEY_1, E.KEY_2, E.KEY_3, E.KEY_4,
-               E.KEY_5, E.KEY_6, E.KEY_7, E.KEY_8, E.KEY_9}
 NAV_DRAWERS = {"nav"}
-DIGIT_DRAWERS = {"numbers"}
+NUMBER_DRAWERS = {"numbers"}
+SYMBOL_DRAWERS = {"symbols"}
 ALPHA2_THUMB_IDX = 22
 SHIFT_THUMB_IDX = 23
+NUMBERS_THUMB_IDX = 21
+SYMBOLS_THUMB_IDX = 22
+TEXT_ENTRY_VIM_LAYERS = {"insert", "replace", "cmdline"}
 
 
 class InjectedKeys:
@@ -103,6 +107,7 @@ class InjectedKeys:
         self.keymap = keymap or (lambda: None)
         self.layer_state = layers or true_layers or (lambda: None)
         self.layer_restore = {}
+        self.layer_activator = {}
         self.previous_char = None
 
     def flags(self):
@@ -152,11 +157,15 @@ class InjectedKeys:
         return ids
 
     def command_layers_active(self):
-        """Vim command layers own their letters; alpha2 is for text entry only."""
+        """Whether Vim is interpreting command keys rather than literal text."""
         km = self.keymap() or {}
         current = self.current_layers() or []
-        return any((km.get("zmk_layers") or {}).get(str(i), {}).get("drawer") == "vim"
-                   for i in current)
+        layers = [(km.get("zmk_layers") or {}).get(str(i), {}) for i in current]
+        vim_layers = [layer for layer in layers if layer.get("drawer") == "vim"]
+        if any(str(layer.get("name", "")).casefold() in TEXT_ENTRY_VIM_LAYERS
+               for layer in vim_layers):
+            return False
+        return bool(vim_layers)
 
     def position_for_idx(self, idx):
         """Reverse the keymap's ZMK-position -> drawer-index map for a thumb flash."""
@@ -174,11 +183,18 @@ class InjectedKeys:
 
     def alpha2_drawer(self, chars):
         """Return the drawer the Diamond owner would use for this typed character."""
-        if self.command_layers_active():
+        if (self.command_layers_active() and self.has_plain_vim_key(chars)):
             return None
         if not uses_alpha2(chars, self.previous_char):
             return None
         return "shifted2" if chars.isalpha() and chars.isupper() else "alpha2"
+
+    def has_plain_vim_key(self, chars):
+        """Whether Vim has a single-key binding for this command on its command drawer."""
+        keys = (self.keymap() or {}).get("layers", {}).get("vim", [])
+        token = chars.casefold()
+        return any(key.get("type") != "trans" and
+                   str(key.get("tap", "")).casefold() == token for key in keys)
 
     def layer_entry(self, code, drawer):
         """Enter a one-shot layer and remember the exact stack to restore afterward."""
@@ -192,12 +208,17 @@ class InjectedKeys:
         self.layer_restore[code] = list(restore)
         return [{"kind": "layers", "ids": ids}]
 
-    def hold_layers(self, code):
-        """The layers message a held layer would have produced for this key."""
+    def hold_layers(self, code, chars=""):
+        """Apply the physical layer needed for a literal key, preserving its stack."""
         if code in NAV_CODES:
             drawers, preferred = {"nav"}, {"NAVIGATION"}
-        elif code in DIGIT_CODES and self.held.get("shift", 0) == 0:
-            drawers, preferred = {"numbers"}, {"NUMBERS"}
+            activator_idx = None
+        elif chars in NUMBER_LAYER_CHARS:
+            drawers, preferred = NUMBER_DRAWERS, {"NUMBERS"}
+            activator_idx = NUMBERS_THUMB_IDX
+        elif chars in SYMBOL_LAYER_CHARS:
+            drawers, preferred = SYMBOL_DRAWERS, {"SYMBOLS"}
+            activator_idx = SYMBOLS_THUMB_IDX
         else:
             return []
         restore = self.current_layers()
@@ -207,6 +228,8 @@ class InjectedKeys:
         if ids == restore:
             return []
         self.layer_restore[code] = list(restore)
+        if activator_idx is not None:
+            self.layer_activator[code] = self.position_for_idx(activator_idx)
         return [{"kind": "layers", "ids": ids}]
 
     def restore_layers(self, code=None):
@@ -222,17 +245,17 @@ class InjectedKeys:
         """Translate one evdev event, including the Diamond owner's layer gestures."""
         if code in MODS:
             return [self.message(code, value)]
-        if value == 2:
-            return [self.message(code, value)]
-
-        prefix = self.hold_layers(code) if value == 1 else []
         msg = self.message(code, value)
+        if value == 2:
+            return [msg]
+
         if value == 0:
             if code in self.layer_restore:
                 return [msg, *self.restore_layers(code)]
             return [msg]
 
         chars = msg["chars"]
+        prefix = self.hold_layers(code, chars)
         if not chars:
             self.previous_char = None
             return prefix + [msg]
@@ -260,6 +283,12 @@ class InjectedKeys:
             return out
 
         out = prefix + [msg]
+        activator = self.layer_activator.pop(code, None)
+        if activator is not None:
+            # Flash after the character so the HUD's fresh-position guard does not
+            # hide the key on its Numbers or Symbols drawer.
+            out.extend([{"kind": "press", "pos": activator},
+                        {"kind": "release", "pos": activator}])
         if chars.isalpha() and chars.isupper():
             shift_thumb = self.position_for_idx(SHIFT_THUMB_IDX)
             if shift_thumb is not None:
@@ -315,6 +344,7 @@ class InjectedKeys:
                 dev.close()
                 self.held = {k: 0 for k in self.held}
                 self.layer_restore.clear()
+                self.layer_activator.clear()
                 self.previous_char = None
 
 

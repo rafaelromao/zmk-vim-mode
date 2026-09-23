@@ -494,8 +494,9 @@ def seg4():
     keys(" // bit 0 of the code", 0.5)
     esc(0.5); expect("normal")
     keys("u", 0.4)
-    keys("v", 0.5, slow_alpha2=False); expect("visual")
-    keys("jj", 0.3, slow_alpha2=False); keys("y", 0.5, slow_alpha2=False); expect("normal")
+    esc(0.3)  # reset the magic key so Alpha 2's v|h produces v without a Vim-layer combo
+    keys("v", 0.5); expect("visual")
+    keys("jj", 0.3, slow_alpha2=False); keys("y", 0.5); expect("normal")
     keys(":", 0.5); expect("cmdline")
     esc(0.5); expect("normal")
     # keys() paces one character per TYPE_GAP; a single space plus the 0.05 s
@@ -533,7 +534,7 @@ def seg5():
     keys("A", 0.5); expect("insert")
     keys(" // bit 1 of the code", 0.4)
     esc(0.5); expect("normal")
-    keys("v", 0.5, slow_alpha2=False); expect("visual")
+    keys("v", 0.5); expect("visual")
     esc(0.5); expect("normal")
     # NOTE: the command is "View: Toggle Terminal", not "...Integrated Terminal".
     # The longer name fuzzy-matches "Browser: Open Integrated Browser" first (recently
@@ -564,7 +565,7 @@ def seg6():
     keys("A", 0.5); expect("insert")
     keys(" // Compose is bit 0", 0.4)
     esc(0.5); expect("normal")
-    keys("v", 0.5, slow_alpha2=False); expect("visual")
+    keys("v", 0.5); expect("visual")
     esc(0.5); expect("normal")
     keys(":", 0.6); expect("raw", "intellij client raw")   # IdeaVim's ex line is a separate component
     esc(0.6); expect("normal")

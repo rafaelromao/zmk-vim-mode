@@ -35,20 +35,24 @@ the complete existing menu-bar layout and icons left unchanged, the take HUD sto
 workspace 8 before every take and the segments never leave workspaces 5–8, so nothing
 below workspace 5 is ever on camera. `ZMK_RECORD_FPS=60` for the deliverable.
 
-**Typing in every take:** 60 words per minute — about one character every 0.20 s. Sticky Alpha 2
-characters add a 0.10 s thumb-hop pause; Vim motions use the base gap. No two keys fall inside the
-30 ms combo window.
-The rehearsal types letters the way the Diamond owner does: `q k y z x w j`, accents, `ç`, `'`
-and `_` use the sticky `alpha2` thumb; `h|v` produces `h` at a word start or after a consonant
-and `v` after a vowel, while `v|h` on `alpha2` supplies the opposite result. Uppercase alpha2
-letters use `shifted2`; uppercase alpha1 letters tap sticky shift. The feed resets this adaptive
-state at spaces, punctuation and other non-letter keys. During capture, `record.py` temporarily
-sets the HUD `press_ms` to 100 so Alpha 2 returns to Alpha 1 before the next 171 ms typing interval,
-then restores the user's saved setting.
-Digit strings come off the NUM layer and arrow keys off the nav layer, held for
-the whole sequence; neither is ever a combo. (Digits on the vim layer itself —
-`0`, `$` in the tours — are single keys and need no hold.) `rehearse.py` types at
-this pace.
+**Hard rule for every take: no combos for literal characters.** Every printable character entered
+into a shell, editor, document, or Vim command line must resolve as a single key on the active
+layer or through its proper layer—not a COMBO pill. This applies to letters, digits, punctuation,
+and symbols. If a character has no single-key/layer route in the modeled keymap, change the demo
+string or fix the layer model before recording; never fall back to its combo.
+
+Typing pace is 60 words per minute — about one character every 0.20 s. Sticky Alpha 2 characters
+add a 0.10 s thumb-hop pause; Vim command motions use the base gap. The `q k y z x w j` letters,
+accents, `ç`, `'` and `_` use the sticky `alpha2` thumb; `h|v` produces `h` at a word start or
+after a consonant and `v` after a vowel, while `v|h` on `alpha2` supplies the opposite result.
+Uppercase alpha2 letters use `shifted2`; uppercase alpha1 letters tap sticky shift. Literal digits
+and numeric-layer punctuation use NUMBERS; symbols use SYMBOLS (or NUMBERS where the keymap puts
+them). Plain Alpha 1 punctuation remains a single key. The feed restores the exact prior layer
+stack after each held-layer character. During capture, `record.py` temporarily sets the HUD
+`press_ms` to 100 so Alpha 2 returns to Alpha 1 before the next character, then restores the user's
+saved setting. Non-text control actions may use their documented keymap combos, including Enter,
+Tab, Escape, and the modifier shortcuts named in the segment. Those are commands, not character
+entry; no combo may be used to emit a literal letter, digit, punctuation mark, or symbol.
 
 ---
 
@@ -167,7 +171,7 @@ normal*, CMDLINE → *Vim cmdline*; **RAW and OFF both read *Alpha 1***.
 | `f` → `modes.go`, Enter | *Vim normal* | `normal (code 1) — nvim client` |
 | **the tour**: `j j j k`, `l l l h h`, `w w e b b`, `0 $ 0`, `i` `Esc`, `a` `Esc`, `gg` | *Vim normal* ↔ *Vim insert* | |
 | `/Compose` Enter, `A`, type ` // bit 0 of the code`, `Esc`, `u` | *Vim normal* → *Vim insert* → *Vim normal* | `insert` → `normal` |
-| `v`, `j`, `j`, `y` | *Vim visual · Vim normal* → *Vim normal* | `visual` → `normal` |
+| `Esc` reset, Alpha 2 `v|h` → `v`, `j`, `j`, Alpha 2 `y` | *Vim visual · Vim normal* → *Vim normal* | `visual` → `normal` |
 | `:` then `Esc` | *Vim cmdline* → *Vim normal* | `cmdline` → `normal` |
 | `<space>` (leader), `Esc` | *Alpha 1* for ~0.3 s | `raw` briefly |
 | `<space>ff`, type `readme`, `Esc` `Esc` | *Vim insert* → *Vim normal* | `insert` → `normal` |

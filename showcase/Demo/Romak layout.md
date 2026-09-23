@@ -8,8 +8,10 @@ key that types `v` after a vowel and `h` after a consonant.
 
 ## Where vim's keys land
 
-On the alpha layer `h` is the magic key, `j`, `k`, `x` and `z` are combos and `l`
-sits on the top row. Cursor movement would be a two-finger stretch.
+On Alpha 1, `h` is the magic key, while the keymap also defines alternate combos for
+some letters such as `j`, `k`, `x` and `z`. For literal text, always use the key's
+single-key Alpha 1 or Alpha 2 route—never those combos. `l` sits on the top row.
+Cursor movement would be a two-finger stretch.
 
 On the NORMAL layer the keyboard is not typing letters, so `h j k l` take the
 right home row, operators take the left hand, and `x`, `d`, `y`, `p`, `v` are

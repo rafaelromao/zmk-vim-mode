@@ -6,6 +6,10 @@ ALPHA2_CHARS = frozenset("qkyzxwj_'") | {
     chr(n) for n in (0x00f4, 0x00f3, 0x00fa, 0x00e3, 0x00e1, 0x00e9,
                      0x00ed, 0x00e7, 0x00f5, 0x00e2, 0x00ea)
 }
+# Literal text on these glyphs comes from the corresponding held layer. The Alpha 2
+# punctuation (`'` and `_`) is intentionally resolved above this table first.
+NUMBER_LAYER_CHARS = frozenset("0123456789\\{}&()|[]")
+SYMBOL_LAYER_CHARS = frozenset('~#%=:@^$"?-+<>`!/*')
 VOWELS = frozenset("aeiou") | {
     chr(n) for n in (0x00e1, 0x00e0, 0x00e2, 0x00e4, 0x00e3, 0x00e5,
                      0x00e9, 0x00e8, 0x00ea, 0x00eb, 0x00ed, 0x00ec,

@@ -3,7 +3,8 @@
 
 import unittest
 
-from showcase.typist import type_gap, uses_alpha2
+from showcase.typist import (ALPHA2_CHARS, NUMBER_LAYER_CHARS, SYMBOL_LAYER_CHARS,
+                             type_gap, uses_alpha2)
 
 
 class TypistTest(unittest.TestCase):
@@ -22,6 +23,12 @@ class TypistTest(unittest.TestCase):
         self.assertAlmostEqual(type_gap("v", "b", base, extra), 0.3)
         self.assertAlmostEqual(type_gap("v", "e", base, extra), 0.2)
         self.assertAlmostEqual(type_gap("k", None, base, extra, slow_alpha2=False), 0.2)
+
+    def test_literal_glyph_classes_have_explicit_layers(self):
+        self.assertTrue(set("0123456789\\{}&()|[]") <= NUMBER_LAYER_CHARS)
+        self.assertTrue(set('~#%=:@^$"?-+<>`!/*') <= SYMBOL_LAYER_CHARS)
+        self.assertTrue({"'", "_", "z"} <= ALPHA2_CHARS)
+        self.assertFalse({"'", "_"} & SYMBOL_LAYER_CHARS)
 
 
 if __name__ == "__main__":

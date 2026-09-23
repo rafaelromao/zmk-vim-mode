@@ -317,12 +317,14 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 - **Stale sticky override seen 20:28** (`set legacy`, sticky) — after the
   rehearsal cleared its own. Left alone (may be deliberate); clear before
   recording or the daemon stays forced.
-- **Take technique corrections (user): layers, not combos, for nav/numbers;
-  slower typing, especially Alpha 2.** `rehearse.py keys()` now types at 60 wpm
-  (~0.20 s between characters), with an additional 0.10 s for sticky Alpha 2
-  activations while Vim motions keep the base gap. No two keys land in the 30 ms
-  combo window; the feed holds the nav layer for arrows and NUM for unshifted digits, restoring the
-  keyboard's true layers on release (heartbeat would heal it anyway).
+- **Take technique corrections (user): literal characters never use combos.** Any letter, digit,
+  punctuation mark, or symbol entered as text must resolve as a single key on the active layer or
+  through Alpha 2, NUMBERS, or SYMBOLS. This includes text in Vim CMDLINE. A missing layer route is
+  a stop-and-fix condition, never permission to use a combo. Only documented non-printing control
+  combos are allowed. `rehearse.py keys()` types at 60 wpm (~0.20 s between characters), with an
+  additional 0.10 s for sticky Alpha 2 activations while Vim motions keep the base gap. The feed
+  models Alpha 2, NUMBERS, SYMBOLS, and NAV layers and restores the keyboard's true layer stack
+  after each held-layer character.
   `SCRIPT.md` directs the same for the takes. All leader gaps stay under the
   ~350 ms timeout — audited, then proven by the green run below.
 - **Full green again 22:29: 89/89** with pace + layer holds, on a twice
