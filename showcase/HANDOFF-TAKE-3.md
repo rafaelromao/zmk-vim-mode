@@ -16,8 +16,8 @@ that stripping the Codex/weather icons removes items they expect to see. The Int
 also recurred during preparation: the Welcome screen and the demo project appeared together.
 `prepare.sh` now parks every non-`demo-java` IntelliJ surface on workspace 9 and refuses to finish
 unless workspace 6 contains exactly one IntelliJ surface, titled for `demo-java`. It preserves and
-relies on the `.idea/workspace.xml` session; it does not issue a project-open request that could
-recreate the Welcome/project pair.
+uses the `.idea/workspace.xml` session, and opens the project once only if no titled project window
+remains after session restore settles.
 
 Read first: `SCRIPT.md` (what each segment types), `TAKE-2-PLAN.md` (why the video is shaped
 this way), `HANDOFF-TAKE-2.md` (how the box is set up: scale 1.25, bar widgets, Ghostty tabs,
@@ -129,16 +129,14 @@ until the workspace and the first-frame preview are clean.
 ### 1.7 IntelliJ's Welcome/project pair must not reach the recording workspace
 
 The prep screenshot showed the Welcome/Projects surface beside an empty IntelliJ project frame.
-The IntelliJ log from the failed prep records the bare launch disposing its restored `demo-java`
-session, followed later by an external open and a `frame helper is not found`/null Wayland surface.
-The current prep uses only the saved session and parks Welcome/untitled surfaces away from the
-recording workspace.
+The 12:26 log shows the bare launch briefly restoring `demo-java`, which was disposed before the
+delayed project-open command; it then logged `frame helper is not found` and a null Wayland surface.
+The Welcome surface remained on workspace 6 after the later successful project open.
 
-**Required:** preserve `.idea/workspace.xml` and use only the bare launch so IntelliJ restores its
-saved demo-java session. Never send a second project-open command in the same run. Move every
+**Required:** preserve `.idea/workspace.xml`; start IntelliJ bare, wait for restore/disposal to
+settle, then open `demo-java` once only if no titled project window remains. Move every
 non-`demo-java` IntelliJ surface (Welcome or untitled) to workspace 9. Refuse prep unless workspace
-6 contains exactly one IntelliJ surface, titled for `demo-java`; if session restore fails, prep must
-stop for manual recovery rather than leave Welcome/project together on camera.
+6 contains exactly one IntelliJ surface, titled for `demo-java`.
 
 ---
 
@@ -245,8 +243,8 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
 
 0. Confirm the monitor is 2560×1440 at scale 1.25. Run `prepare.sh`; it closes the old demo
    terminal on workspace 8 and resets demo content and volatile editor state, while preserving
-   `demo-java/.idea/workspace.xml` for IntelliJ session restore. Use only the bare IntelliJ launch;
-   never send a second project-open request in that run. `prepare.sh` must leave
+   `demo-java/.idea/workspace.xml` for IntelliJ session restore. Let the bare launch restore it;
+   after settling, open the path only if no titled demo-java window remains. `prepare.sh` must leave
    `~/.config/omarchy/shell.json` untouched so every existing menu-bar icon remains. **Do not run
    `omarchy-restart-shell`** as part of this capture (QuickShell has a recurring crash on restart).
    Confirm no `com.mitchellh.ghostty` window is left on workspace 8. `record.py` repeats this

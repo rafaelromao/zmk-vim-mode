@@ -302,10 +302,12 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 - **The IntelliJ Welcome/project pair is isolated for recording.** The failed
   2026-09-23 prep log shows the bare launch briefly restoring `demo-java`, which
   was disposed before the delayed project-open command (`frame helper is not
-  found`, `WLMainSurface` null). `prepare.sh` now relies on the saved session,
-  parks every non-project IntelliJ surface (Welcome or untitled) on workspace 9,
-  and refuses to finish unless workspace 6 has exactly one `demo-java` window.
-  Verified on the recording monitor: workspace 6 shows only `demo-java – README.md`.
+  found`, `WLMainSurface` null). A Welcome surface then remained beside the
+  successfully opened project. `prepare.sh` now waits for session restore to
+  settle, opens the project only if its titled window is absent, parks every
+  non-project IntelliJ surface (Welcome or untitled) on workspace 9, and refuses
+  to finish unless workspace 6 has exactly one `demo-java` window. Verified on
+  the recording monitor: workspace 6 shows only `demo-java – README.md`.
 - **Paint death recurred.** ~40 min after its 19:58 start the project window
   went blank-but-titled (toolbar renders, content does not) — the known
   Skiko/GL take-blocker. Restart fixed it; session restore reopened demo-java

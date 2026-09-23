@@ -142,8 +142,8 @@ maximize_window '^code$' 5 'demo-go' || exit 1
 IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intellij-idea-community || true)"
 [ -n "$IDEA" ] && {
   hyprctl dispatch 'hl.dsp.focus({workspace="6"})' || exit 1
-  # Use IntelliJ's saved project session. Sending a second `idea <path>` command after
-  # session restore disposes the restored project and can leave Welcome beside a blank frame.
+  # Let IntelliJ attempt session restore first. If it did not leave a titled demo-java
+  # window, open the project once after startup settles.
   nohup "$IDEA" >"$RUN/idea.log" 2>&1 &
   for _ in {1..120}; do
     hyprctl clients -j | jq -e '[.[] | select(.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$"))] | length > 0' >/dev/null && break
@@ -151,9 +151,15 @@ IDEA="$(command -v idea || command -v intellij-idea-ultimate || command -v intel
   done
   hyprctl clients -j | jq -e '[.[] | select(.class | test("^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$"))] | length > 0' >/dev/null \
    || { echo "IntelliJ showed no window within a minute; check $RUN/idea.log." >&2; exit 1; }
-  # Welcome may briefly appear during restore. Wait for the saved demo-java project
-  # to return; maximize_window fails prep if the session did not restore it.
+  # Welcome exists long before the instance accepts socket opens. Let restore/disposal settle
+  # before deciding whether the project still needs one explicit open request.
   sleep 25
+  if hyprctl clients -j | jq -e --arg pattern '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' --arg project 'demo-java' \
+    'any(.[]; ((.class | test($pattern)) and ((.title // "") | contains($project))))' >/dev/null; then
+    echo "  intellij: reused restored demo-java project"
+  else
+    nohup "$IDEA" "$SHOW/demo-java" >>"$RUN/idea.log" 2>&1 &
+  fi
   maximize_window '^(jetbrains-idea|jetbrains-idea-ultimate|jetbrains-idea-community)$' 6 'demo-java' || exit 1
   # The Welcome path can leave both a Welcome window and a dead titleless surface
   # beside the project. Only the titled demo-java project belongs on camera; park
