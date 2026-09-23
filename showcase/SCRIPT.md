@@ -37,6 +37,11 @@ below workspace 5 is ever on camera. `ZMK_RECORD_FPS=60` for the deliverable.
 
 **Typing in every take:** ~70 words per minute — about one character every 0.17 s —
 so each key lights on its own and no two fall inside the 30 ms combo window.
+The rehearsal types letters the way the Diamond owner does: `q k y z x w j`, accents, `ç`, `'`
+and `_` use the sticky `alpha2` thumb; `h|v` produces `h` at a word start or after a consonant
+and `v` after a vowel, while `v|h` on `alpha2` supplies the opposite result. Uppercase alpha2
+letters use `shifted2`; uppercase alpha1 letters tap sticky shift. The feed resets this adaptive
+state at spaces, punctuation and other non-letter keys.
 Digit strings come off the NUM layer and arrow keys off the nav layer, held for
 the whole sequence; neither is ever a combo. (Digits on the vim layer itself —
 `0`, `$` in the tours — are single keys and need no hold.) `rehearse.py` types at
@@ -57,7 +62,7 @@ are commands, and installs with one command.
 
 ## Beats
 
-### 0 · Cold open — 0:00–0:36 (80 words) · `record.py 0`
+### 0 · Cold open — 0:00–0:36 (92 words) · `record.py 0`
 
 **Screen (`seg0`).** `nvim internal/modes/modes.go` in the demo shell, `:21` (the comment on the
 three indicator bits), `A` → INSERT, the HUD reads *Vim insert*; type ` no OS ever sets these`,
@@ -70,13 +75,13 @@ flip is the opening shot.
 lights index → pinky.
 
 **Narration.**
-> [+5.0] Watch the panel on the right. That's my keyboard, twenty-four keys, a layout called
-> Romak, and it's drawn live from the board's own reports, so what lights up is what the
-> keyboard actually did.
-> [+18.2] The file is open, and vim is in normal mode.
-> [+21.7] A, and we're inserting. Romak is back, laid out for letters.
-> [+26.5] Escape. The layers change, and h, j, k and l are under my right hand.
-> [+33.7] Nothing in vim was remapped. The keyboard followed the editor.
+> [+5.0] Hi, in this video I'm going to show you how I use my keyboards with vim editors.
+> Watch the panel on the right. That's my keyboard: twenty-four keys, a layout called Romak,
+> drawn live from its own reports. What lights up is what the keyboard actually did.
+> [+21.2] The file is open, and vim is in normal mode.
+> [+24.7] A, and we're inserting. Romak is back, laid out for letters.
+> [+29.5] Escape. The layers change, and h, j, k and l are under my right hand.
+> [+36.7] Nothing in vim was remapped. The keyboard followed the editor.
 
 ### 1 · Title and intro — 0:36–1:18 (84 words) · `record.py 1`
 
@@ -117,18 +122,18 @@ row; then the `h j k l` home row and the left-hand operators); the diagram is le
 
 **Screen (`seg3`).** In the demo terminal, `show channel` (the descriptor bytes and the
 eight-code table, `env/cards/channel.txt`) for 12 s, `show pipeline` (the end-to-end diagram)
-for 10 s. Then one maximized demo terminal with two tabs: tab 2 runs the log tail, tab 1
-types `zmk-vim-mode status`, then `set insert`, `set normal`, `set off`, `set off` again
+for 10 s. Then one maximized demo terminal split down: the bottom pane runs the log tail while
+the top pane types `zmk-vim-mode status`, then `set insert`, `set normal`, `set off`, `set off` again
 (back to auto), and a closing `zmk-vim-mode status` showing auto again.
 
 ```bash
-journalctl --user -u zmk-vim-mode -f -o cat | grep -e decision -e led
+journalctl --user -u zmk-vim-mode -f -o cat | grep --line-buffered -e decision -e led | cut -c 51-
 ```
 
 **Expect.** Banner *Vim normal* → *Vim insert* → *Alpha 1* following each `set`; the closing
-`status` shows no override (back to auto); one `led write` line per device in
-the tail. `set off` and `set raw` both leave the banner on *Alpha 1*: the closing status
-tells them apart.
+`status` shows no override (back to auto); one short `decision` and one `led write` line per
+device appears in the lower pane beside each command. `set off` and `set raw` both leave the
+banner on *Alpha 1*: the closing status tells them apart.
 
 **Cut.** Keep the two cards under the first six sentences, the `set` sequence under "I can set
 it by hand"; drop the `status` dump and the tail's start-up.
@@ -318,7 +323,7 @@ Every shot is a screen recording of the recording monitor, HUD rail included, pr
 | A | Cold open in Neovim | `seg0` | 0 |
 | B | Title and intro cards, Diamond photo | `env/cards/{title,intro}.txt`; `keyboards/docs/img/builds/Diamond.jpeg` in the image viewer | 1 |
 | C | Layer diagrams | `keyboards/docs/img/diagrams/{alpha1,vim}.png` in the image viewer | 2 |
-| D | Channel and pipeline cards, then the live `set` sequence | `env/cards/{channel,pipeline}.txt`; one demo terminal with two tabs | 3 |
+| D | Channel and pipeline cards, then the live `set` sequence | `env/cards/{channel,pipeline}.txt`; one demo terminal split into two panes | 3 |
 | E | Editor demos | `seg4`–`seg7` | 4–7 |
 | F | Everywhere else | `seg8` | 8 |
 | G | Doctor (paths masked), the node card, the links card | the demo shell's `doctor`; `env/cards/{node,links}.txt` | 9 |

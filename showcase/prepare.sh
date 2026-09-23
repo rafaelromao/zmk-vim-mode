@@ -47,6 +47,24 @@ close_editor_windows() {
   return 1
 }
 
+close_demo_terminal() {
+  # Workspace 8 is reserved for the demo Ghostty. Do not leave a previous take's
+  # terminal on screen during the recorder's pre-roll.
+  hyprctl clients -j | jq -r '.[] | select(.class == "com.mitchellh.ghostty" and .workspace.id == 8) | .address' |
+    while read -r address; do
+      [ -n "$address" ] || continue
+      hyprctl eval "return hl.dispatch(hl.dsp.window.close({window='address:$address'}))" >/dev/null
+    done
+  for _ in {1..20}; do
+    if hyprctl clients -j | jq -e '[.[] | select(.class == "com.mitchellh.ghostty" and .workspace.id == 8)] | length == 0' >/dev/null; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "A stale Ghostty window remains on workspace 8; resolve it before recording." >&2
+  return 1
+}
+
 maximize_window() {
   # Two phases: the window appears in seconds but the right project/title can lag
   # far behind (IntelliJ reuses its window on the previous project first). Place the
@@ -95,6 +113,9 @@ maximize_window() {
 step "quitting the editors"
 close_editor_windows || exit 1
 
+step "clearing any previous demo terminal from workspace 8"
+close_demo_terminal || exit 1
+
 step "demo content back to the committed state"
 bash "$SHOW/setup.sh" || exit 1
 
@@ -102,12 +123,11 @@ step "hiding the codex and weather bar widgets for the recording"
 # The takes show the menu bar, so the agent-usage pill (romao.agents: Codex, Claude,
 # Fireworks) and the weather pill (romao.weather) leave it for the session: they clutter
 # the frame and change between takes. Stripped from ~/.config/omarchy/shell.json (the
-# pre-strip config is kept at run/shell.json.with-widgets) and the shell restarted to
-# pick it up — quickshell runs with its file watcher off, so no restart means no change.
+# pre-strip config is kept at run/shell.json.with-widgets); the Omarchy shell hot-reloads it.
 # `omarchy plugin disable` cannot do this: it needs omarchy-shell IPC, which reports
 # "not running" on this box. Idempotent: a config already stripped is left alone and
-# the shell is not restarted. Restore after recording:
-#   cp showcase/run/shell.json.with-widgets ~/.config/omarchy/shell.json && omarchy-restart-shell
+# the shell is not restarted. Restore after recording by copying the saved config back;
+# avoid restarting QuickShell during a capture session.
 bar_state="$(RUN="$RUN" python3 - <<'EOF'
 import json, os, shutil
 cfg = os.path.expanduser("~/.config/omarchy/shell.json")
@@ -124,9 +144,8 @@ else:
 EOF
 )"
 if [ "$bar_state" = STRIPPED ]; then
-  omarchy-restart-shell >/dev/null 2>&1 || { echo "shell restart failed; the bar may still show the widgets" >&2; exit 1; }
-  sleep 3
-  echo "  bar widgets stripped (romao.agents, romao.weather); shell restarted"
+  sleep 1
+  echo "  bar widgets stripped (romao.agents, romao.weather); shell hot-reloaded"
 else
   echo "  bar already clean"
 fi

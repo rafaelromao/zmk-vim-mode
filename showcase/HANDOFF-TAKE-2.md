@@ -91,10 +91,10 @@ User corrections to the plan above, all applied:
   `hyprctl eval 'return hl.monitor({output="HDMI-A-1", mode="2560x1440@59.95",
   position="0x0", scale=1.25})'`. Note: asking for 1.5 snaps to 1.6 (logical 1600×900) —
   1.5 gives fractional pixels on 2560 wide. `SCRIPT.md` and `env/obs-scene.md` now say 1.25.
-- **Beat 3 uses Ghostty tabs, not two tiled windows** (`rehearse.py` `seg3`: one maximized
-  window, `ctrl+shift+t` for tab 2 with the log tail, `alt+1`/`alt+2` to switch; digit
-  keycodes added to `KEYCODES`). Verified green 4/4. `SCRIPT.md` beat 3 and shot D updated.
-  Ghostty tab binds confirmed: `ctrl+shift+t` new, `alt+1/2` goto, `ctrl+tab` next.
+- **Beat 3 uses one Ghostty window split down, not tabs or two tiled windows** (`rehearse.py`
+  `seg3`: `ctrl+shift+e`, the lower pane tails the log, and `ctrl+alt+up/down` switches focus).
+  The generated `run/ghostty.conf` gives every split the demo Bash prompt. `SCRIPT.md` beat 3
+  and shot D are updated.
 - **Codex/agent + weather widgets leave the bar during recording.** `omarchy plugin
   disable` cannot do it (needs omarchy-shell IPC, reports "not running"); instead
   `prepare.sh` strips `romao.agents` + `romao.weather` from `~/.config/omarchy/shell.json`

@@ -346,6 +346,8 @@ def check(path=OUT):
     if not os.path.isfile(path):
         fail(f"no {path}")
     a = anchors()
+    cuts = json.load(open(CUTS)) if os.path.isfile(CUTS) else []
+    shift = shift_for(cuts)
     out = subprocess.run(
         ["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-map", "0:a",
          "-af", "silencedetect=noise=-45dB:d=0.6", "-f", "null", "-"],
@@ -355,27 +357,28 @@ def check(path=OUT):
     starts = [float(l.split("silence_start:")[1].split()[0])
               for l in out.splitlines() if "silence_start:" in l]
 
-    print("\nsync — first speech in each beat vs its measured action:")
-    worst = 0.0
+    print("\nsync — first cue audio at its expected post-cut time:")
+    silent_cues = 0
     for b in BEATS:
-        want = a[b]["offset"] + a[b]["action"] - LEAD
-        seg = [e for e in ends if e >= a[b]["offset"] - 0.5]
-        got = seg[0] if seg else float("nan")
-        err = got - want
-        worst = max(worst, abs(err))
-        flag = "ok" if abs(err) <= 0.30 else "OFF"
-        print(f"  beat {b}  want {want:7.2f}  got {got:7.2f}  err {err:+5.2f}s  {flag}")
-    print(f"  worst |err| = {worst:.2f}s")
+        first_cue = next((cue for cue, _ in narration.cues(b) if cue is not None), 0.0)
+        want = shift(a[b]["offset"] + a[b]["action"] - LEAD + first_cue)
+        silent_at_want = any(s + 0.1 < want < e - 0.1
+                             for s, e in zip(starts, ends + [duration(path)]))
+        state = "SILENCE" if silent_at_want else "audible"
+        silent_cues += int(silent_at_want)
+        print(f"  beat {b}  cue at {want:7.2f}s  {state}")
+    print(f"  {len(BEATS) - silent_cues}/{len(BEATS)} cue points have audio")
 
     print("\ndensity — speech vs picture per beat:")
     for b in BEATS:
-        lo, hi = a[b]["offset"], a[b]["offset"] + a[b]["video"]
+        lo = shift(a[b]["offset"])
+        hi = shift(a[b]["offset"] + a[b]["video"])
         quiet = 0.0
         for s, e in zip(starts, ends + [duration(path)]):
             if e <= lo or s >= hi:
                 continue
             quiet += min(e, hi) - max(s, lo)
-        d = 100.0 * (1 - quiet / a[b]["video"])
+        d = 100.0 * (1 - quiet / (hi - lo))
         print(f"  beat {b}  {d:5.1f}%")
 
     r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", path,

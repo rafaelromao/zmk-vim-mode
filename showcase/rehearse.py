@@ -47,6 +47,8 @@ report = open(os.path.join(RUN, "rehearsal.log"), "w")
 results = {"pass": 0, "fail": 0}
 target_address = None
 DEMO_CLASS = "com.mitchellh.ghostty"
+GHOSTTY_CONFIG = os.path.join(RUN, "ghostty.conf")
+DEMO_BASHRC = os.path.abspath(os.path.join(SHOW, "env", "demo.bashrc"))
 # Beats 1 and 2 show images from the keyboards repo in an image viewer (Omarchy ships imv;
 # override both if yours differs — the class is what wait_window() matches).
 KEYBOARDS = os.environ.get("KEYBOARDS_REPO", os.path.expanduser("~/projects/keyboards"))
@@ -131,6 +133,24 @@ def stop_hud(proc):
         pass
 
 
+def wait_feed_keymap(timeout=15.0):
+    """Do not type until rehearsal-feed has emitted its keymap message."""
+    if os.environ.get("NO_HUD") == "1":
+        return
+    path = os.path.join(RUN, "rehearsal-feed.log")
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            with open(path, encoding="utf-8") as f:
+                if "hudfeed: keymap " in f.read():
+                    log("  · rehearsal feed keymap ready")
+                    return
+        except FileNotFoundError:
+            pass
+        time.sleep(0.2)
+    raise RuntimeError("rehearsal feed did not report its keymap; refusing to type")
+
+
 # Linux evdev keycodes for the non-printable keys the segments need, plus every
 # letter (Ctrl+C and friends go through key() as numeric codes).
 _KEY_LETTERS = {"q": 16, "w": 17, "e": 18, "r": 19, "t": 20, "y": 21, "u": 22,
@@ -139,7 +159,7 @@ _KEY_LETTERS = {"q": 16, "w": 17, "e": 18, "r": 19, "t": 20, "y": 21, "u": 22,
                 "c": 46, "v": 47, "b": 48, "n": 49, "m": 50}
 KEYCODES = {
     "Escape": 1, "Return": 28, "Tab": 15, "space": 57, "BackSpace": 14,
-    "grave": 41, "backslash": 43,
+    "grave": 41, "backslash": 43, "leftbrace": 26, "rightbrace": 27,
     "F1": 59, "F12": 88,
     "1": 2, "2": 3, "3": 4, "4": 5, "5": 6,
     "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
@@ -320,13 +340,18 @@ def expect(mode, reason=None):
 def open_demo_ghostty(maximize=True):
     if LUA:
         subprocess.run(["hyprctl", "dispatch", 'hl.dsp.focus({workspace="8"})'], check=True)
-    conf = os.path.join(SHOW, "env", "ghostty-demo.conf")
+    source_conf = os.path.join(SHOW, "env", "ghostty-demo.conf")
+    with open(source_conf, encoding="utf-8") as source:
+        config = source.read().rstrip() + "\n"
+    config += f"command = /bin/bash --noprofile --rcfile {DEMO_BASHRC} -i\n"
+    with open(GHOSTTY_CONFIG, "w", encoding="utf-8") as generated:
+        generated.write(config)
     with open(os.path.join(RUN, "ghostty.log"), "w") as output:
-        proc = subprocess.Popen(["ghostty", "--gtk-single-instance=false", f"--config-file={conf}",
+        proc = subprocess.Popen(["ghostty", "--gtk-single-instance=false", f"--config-file={GHOSTTY_CONFIG}",
                                  f"--working-directory={os.path.join(SHOW, 'demo-go')}", f"--class={DEMO_CLASS}",
                                  "-e", "/bin/bash", "--noprofile", "--rcfile",
-                                 os.path.join(SHOW, "env", "demo.bashrc"), "-i"],
-                                stdout=output, stderr=output)
+                                 DEMO_BASHRC, "-i"],
+                                 stdout=output, stderr=output)
     time.sleep(3)
     focus(re.escape(DEMO_CLASS), 1.5, pid=proc.pid, maximize=maximize)
     return proc
@@ -411,15 +436,12 @@ def vim_tour():
 
 def seg3():
     log("--- segment 3: how it works (set overrides)")
-    # One maximized Ghostty with two tabs on workspace 8, as beat 3 shows
-    # them: tab 1 runs the commands, tab 2 tails the daemon log. Tabs, not
-    # two tiled windows, so the terminal keeps full width at the recording
-    # scale. Everything is typed on camera at take pace; the expects read the
-    # daemon like every other segment.
-    open_demo_ghostty(maximize=True)        # the one window; tabs never change its address
-    key(["ctrl", "shift"], "t", 1.0)      # tab 2 appears, focused
-    keys("journalctl --user -u zmk-vim-mode -f -o cat | grep -e decision -e led\n", 1.5)  # no quotes: ydotool dropped them, the shell saw `| led`
-    key(["alt"], "1", 1.0)                # back to tab 1 for the commands
+    # One maximized Ghostty split down: commands stay in the top pane and the
+    # daemon tail stays visible in the bottom pane for the whole sequence.
+    open_demo_ghostty(maximize=True)
+    key(["ctrl", "shift"], "e", 1.0)
+    keys("journalctl --user -u zmk-vim-mode -f -o cat | grep --line-buffered -e decision -e led | cut -c 51-\n", 1.5)
+    key(["super", "ctrl"], "leftbrace", 1.0)
     keys("zmk-vim-mode status\n", 3.0)
     keys("zmk-vim-mode set insert\n", 1.5); expect("insert")
     keys("zmk-vim-mode set normal\n", 1.5); expect("normal")
@@ -430,7 +452,7 @@ def seg3():
     results["pass" if ok else "fail"] += 1
     log(("PASS" if ok else "FAIL") + "  override cleared")
     keys("zmk-vim-mode status\n", 3.0); expect("off")   # the closing dump shows auto again, on camera
-    key(["alt"], "2", 1.0)                # tab 2 again to stop the tail
+    key(["super", "ctrl"], "rightbrace", 1.0)
     key(["ctrl"], "c", 0.8)
 
 
@@ -590,6 +612,7 @@ SEGMENTS = {"0": seg0, "1": seg1, "2": seg2, "3": seg3, "4": seg4, "5": seg5,
 if __name__ == "__main__":
     ensure_ydotoold()
     hud = start_hud()
+    wait_feed_keymap()
     which = next((a for a in sys.argv[1:] if not a.startswith("--")), "all")
     order = list(SEGMENTS) if which == "all" else [which]
     log(f"rehearsal {which} — hands off the keyboard")

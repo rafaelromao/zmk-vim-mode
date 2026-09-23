@@ -6,6 +6,13 @@ cuts the dead air and lays the narration in sync. **The video is rejected on con
 process**, for three reasons the user named and a handful this review adds. Fix them, re-run the
 same pipeline, and check the result frame by frame before calling it done.
 
+**Update 2026-09-23:** a later rerun passed the HUD assertions, but its opening retained a
+sliver of the previous attempt. The recording driver focused workspace 8 before `seg0` opened
+its fresh Ghostty; the prior demo terminal was still there during recorder pre-roll. The current
+rerun also adds this spoken opening, verbatim: “Hi, in this video I'm going to show you how I use
+my keyboards with vim editors”. Clean workspace 8 before every take and frame-check the first
+seconds of the tightened master before accepting it.
+
 Read first: `SCRIPT.md` (what each segment types), `TAKE-2-PLAN.md` (why the video is shaped
 this way), `HANDOFF-TAKE-2.md` (how the box is set up: scale 1.25, bar widgets, Ghostty tabs,
 mode line, TTS), `HANDOFF.md` (everything older). Do not re-derive any of it.
@@ -101,6 +108,17 @@ the `set` that caused them. Three more problems in that tab, all visible in the 
 - Everything else in `TAKE-2-PLAN.md`'s list is fixed in this cut: hook first, no dead air,
   legible at 1.25×, no waybar clock, `(rehearsal)` gone, beat 8's commands typed on camera,
   doctor with `~` paths, ten takes green.
+
+### 1.6 The opening contains a previous attempt
+
+The last rerun began recording while an old demo Ghostty window was still visible on workspace 8.
+`record.py` parked there, then `rehearse.py 0` opened another Ghostty a few seconds later. The
+old shell was therefore on camera during pre-roll; pause tightening preserved a short piece of
+that head. `prepare.sh` used to reset the editors but did not clear this terminal.
+
+**Required:** `prepare.sh` clears the demo Ghostty from workspace 8. `record.py` repeats that
+cleanup before every take and refuses to start if a stale Ghostty remains. Do not begin capture
+until the workspace and the first-frame preview are clean.
 
 ---
 
@@ -205,6 +223,11 @@ Process is unchanged from `HANDOFF-TAKE-2.md` and `SCRIPT.md` *One process, ten 
 scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all`, then
 `dub.py` (anchors → render → master → pauses → tighten → check). Before pressing record:
 
+0. Confirm the monitor is 2560×1440 at scale 1.25. Run `prepare.sh`; it closes the old demo
+   terminal on workspace 8, resets demo content and editor state, and strips the clutter widgets.
+   The shell config hot-reloads; **do not run `omarchy-restart-shell`** as part of this capture
+   (QuickShell has a recurring crash on restart). Confirm no `com.mitchellh.ghostty` window is
+   left on workspace 8. `record.py` repeats this check before every take.
 1. Run one segment per rule with `rehearsal-feed.py --debug` and read the feed log before
    recording anything. `rehearse.py 0` types `ever`: `e` is a vowel, so its `v` must be the
    alpha1 `h|v` key, no thumb. `rehearse.py 7` types `video`: word-start `v`, so alpha2 thumb
@@ -219,9 +242,19 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
    `dub.py proof N` on beats 0, 4, 5 and 7 for the finished video.
 4. Beat 3: freeze a frame during `set insert` — the top pane shows the command, the bottom pane
    the `decision` and two `led write` lines, no `time=` prefix, demo prompt in both panes.
+5. The first narration cue is the exact introduction requested above. It begins at `+5.0`, when
+   the fresh Neovim shot is on screen; do not move it to `+0.0`, which would speak over setup
+   frames before the demo window appears.
+6. Watch the system journal for `Quickshell has crashed`, `SIGSEGV`, or `dumped core` from before
+   capture through the last take. No shell restart is expected during recording. A crash dialog
+   or stale terminal in any take invalidates that capture; clean the environment and record again.
+7. Inspect the tightened master's first two seconds separately. There must be no stale shell,
+   editor buffer, or image from a previous attempt before the spoken introduction.
 
 Definition of done: the four frame checks above pass on the tightened master, `dub.py check`
-reports sync and loudness in range, and nothing in `TAKE-2-PLAN.md` §1 has come back.
+reports the first cue audible at all ten expected cue points and loudness in range, the opening
+contains only the fresh cold-open shot under the requested introduction, and nothing in
+`TAKE-2-PLAN.md` §1 has come back.
 
 ---
 
@@ -231,6 +264,8 @@ reports sync and loudness in range, and nothing in `TAKE-2-PLAN.md` §1 has come
   stuck layer in one frame; after this fix, what lights is exactly what the owner's fingers
   would do, and the video can say so ("this panel is not a mock-up").
 - The first flip stays at 0:00. Nothing goes in front of the cold open.
+- The new spoken introduction is over the first clean cold-open shot, not an old terminal or a
+  title card.
 - One full tour (Neovim); the other editors one beat each; no dead air (`dub.py tighten`).
 - The daemon's reason on camera where RAW and OFF look alike (beats 3 and 8): typed `status`
   lines, now with the LED writes beside them.
@@ -243,7 +278,10 @@ reports sync and loudness in range, and nothing in `TAKE-2-PLAN.md` §1 has come
 |---|---|
 | `showcase/rehearsal-feed.py` | the typist model (§2): alpha2 one-shot, magic key, stack-preserving holds, working restore, readiness |
 | `showcase/rehearse.py` | wait for the feed's keymap before typing; beat 3 as a split with the generated Ghostty config; split keycodes |
+| `showcase/record.py` | close stale workspace-8 Ghostty surfaces before each recorded take |
+| `showcase/prepare.sh` | clear the old demo terminal and hot-reload the temporary bar layout without restarting QuickShell |
 | `showcase/env/ghostty-demo.conf` → `run/ghostty.conf` | generated with `command =` so tabs/splits are demo shells |
-| `showcase/SCRIPT.md` | beat 3 Screen/Expect/Cut and shot D; the *Typing in every take* paragraph gains the alpha2 and magic rules |
+| `showcase/SCRIPT.md` | exact spoken opening, cue timing, beat 3 Screen/Expect/Cut, and the alpha2/magic typing rules |
+| `showcase/dub.py` | verify cue points against silence in the tightened output and compute density over kept footage |
 | `showcase/HANDOFF-TAKE-2.md` | supersede the "tabs" note |
-| a feed unit test | the message sequence for `video ever have the kx` |
+| `showcase/rehearsal_feed_test.py` | verify alpha2/magic, number-layer restores and uppercase thumb flashes |

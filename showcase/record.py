@@ -168,9 +168,35 @@ def modeline(action):
 
 
 def park():
-    """Focus workspace 8 before a take: segments never leave workspaces 5–8, but
-    the countdown runs before the first focus call, so park first or the take's
-    head shows wherever the box was parked (nothing below 5, ever, on camera)."""
+    """Clear stale demo terminals and focus workspace 8 before a take.
+
+    A previous attempt can leave its Ghostty surface on workspace 8. Since the
+    recorder starts before the segment opens its fresh demo terminal, that old
+    screen leaks into the head of the take. Workspace 8 is reserved for this
+    showcase terminal, so close only Ghostty windows there before recording.
+    """
+    clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True))
+    for window in clients:
+        workspace = window.get("workspace") or {}
+        if window.get("class") != "com.mitchellh.ghostty" or workspace.get("id") != 8:
+            continue
+        address = window.get("address")
+        if address:
+            subprocess.run(
+                ["hyprctl", "eval",
+                 f"return hl.dispatch(hl.dsp.window.close({{window='address:{address}'}}))"],
+                capture_output=True, check=True)
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True))
+        stale = [w for w in clients
+                 if w.get("class") == "com.mitchellh.ghostty"
+                 and (w.get("workspace") or {}).get("id") == 8]
+        if not stale:
+            break
+        time.sleep(0.1)
+    else:
+        fail("stale Ghostty window is still on workspace 8; refusing a contaminated take")
     subprocess.run(["hyprctl", "dispatch", 'hl.dsp.focus({workspace="8"})'],
                    capture_output=True)
 

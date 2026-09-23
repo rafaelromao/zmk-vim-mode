@@ -8,13 +8,14 @@ A take needs nothing of this: zmk-layer-hud reads the Diamond's HID reports and 
 what it did (`bash showcase/hud.sh`). A rehearsal types with ydotool, which writes to
 /dev/uinput and never reaches the keyboard, so those keys are invisible to that feed. This one
 runs zmk-layer-hud's own reader -- the keymap and its live reload, the device name, and the
-layers the keyboard really is on, which follow `zmk-vim-mode set …` because the daemon writes
+layers the keyboard really is on, which follow `zmk-vim-mode set ...` because the daemon writes
 the mode to the keyboard -- and adds the injected keys read off ydotool's virtual device. The
 pages then light them against the real layer stack, exactly as they light real typing.
-Arrow keys and digits are drawn as held layers (the nav/numbers drawers), never
-as combos — the way the takes type them. The release puts the keyboard's own
-layers back at once (a same-valued heartbeat re-asserts nothing, so the
-restore is the correction, not a speedup).
+Arrow keys and digits are drawn as held layers (the nav/numbers drawers), never as combos -- the
+way the takes type them. Letters on the Diamond's secondary alpha layer are modelled as one-shot
+alpha2 activations, including the adaptive h|v/v|h magic key. The release puts the keyboard's
+own layers back at once (a same-valued heartbeat re-asserts nothing, so the restore is the
+correction, not a speedup).
 
 Everything about the protocol, the keymap and the layers comes from zmk-layer-hud
 ($ZMK_LAYER_HUD, default ~/projects/zmk-layer-hud); this file only adds the evdev half. Port:
@@ -29,6 +30,7 @@ import argparse
 import asyncio
 import os
 import sys
+import unicodedata
 from pathlib import Path
 
 HUD = Path(os.environ.get("ZMK_LAYER_HUD", Path.home() / "projects/zmk-layer-hud")).expanduser()
@@ -77,26 +79,41 @@ MODS = {
     E.KEY_LEFTMETA: "cmd", E.KEY_RIGHTMETA: "cmd",
 }
 # Keys a human never combos: arrows and digits come off held layers, so the
-# rehearsal holds them too — the banner reads the layer, exactly as on camera.
+# rehearsal holds them too -- the banner reads the layer, exactly as on camera.
 NAV_CODES = {E.KEY_UP, E.KEY_DOWN, E.KEY_LEFT, E.KEY_RIGHT,
              E.KEY_HOME, E.KEY_END, E.KEY_PAGEUP, E.KEY_PAGEDOWN}
 DIGIT_CODES = {E.KEY_0, E.KEY_1, E.KEY_2, E.KEY_3, E.KEY_4,
                E.KEY_5, E.KEY_6, E.KEY_7, E.KEY_8, E.KEY_9}
 NAV_DRAWERS = {"nav"}
 DIGIT_DRAWERS = {"numbers"}
+ALPHA2_CHARS = frozenset("qkyzxwj_'") | {
+    chr(n) for n in (0x00f4, 0x00f3, 0x00fa, 0x00e3, 0x00e1, 0x00e9,
+                     0x00ed, 0x00e7, 0x00f5, 0x00e2, 0x00ea)
+}
+VOWELS = frozenset("aeiou") | {
+    chr(n) for n in (0x00e1, 0x00e0, 0x00e2, 0x00e4, 0x00e3, 0x00e5,
+                     0x00e9, 0x00e8, 0x00ea, 0x00eb, 0x00ed, 0x00ec,
+                     0x00ee, 0x00ef, 0x00f3, 0x00f2, 0x00f4, 0x00f6,
+                     0x00f5, 0x00fa, 0x00f9, 0x00fb, 0x00fc, 0x00fd,
+                     0x00ff)
+}
+ALPHA2_THUMB_IDX = 22
+SHIFT_THUMB_IDX = 23
 
 
 class InjectedKeys:
     """Reads one evdev device and emits zmk-layer-hud key messages for what it types."""
 
-    def __init__(self, emit, log, match=DEVICE, keymap=None, true_layers=None):
+    def __init__(self, emit, log, match=DEVICE, keymap=None, true_layers=None, layers=None):
         self.emit, self.log, self.match = emit, log, match
         self.held = {"cmd": 0, "ctrl": 0, "alt": 0, "shift": 0}
         # The keymap message (for drawer -> ZMK layer ids) and the keyboard's
         # own current layer ids (to put back after an emulated hold). Both are
         # best effort: without them the keys still light, just with no banner.
         self.keymap = keymap or (lambda: None)
-        self.true_layers = true_layers or (lambda: None)
+        self.layer_state = layers or true_layers or (lambda: None)
+        self.layer_restore = {}
+        self.previous_char = None
 
     def flags(self):
         return {k: v > 0 for k, v in self.held.items()} | {"fn": False}
@@ -117,33 +134,166 @@ class InjectedKeys:
         return {"kind": "key", "type": "keyDown" if value else "keyUp", "name": name,
                 "chars": chars, "code": code, "flags": flags, "repeat": value == 2}
 
-    def drawer_ids(self, drawers):
+    def drawer_ids(self, drawers, preferred_names=()):
         """ZMK layer ids drawn with one of these drawers, from the keymap message."""
         km = self.keymap() or {}
-        ids = set()
+        found = []
         for lid, info in (km.get("zmk_layers") or {}).items():
             if isinstance(info, dict) and info.get("drawer") in drawers:
                 try:
-                    ids.add(int(info.get("id", lid)))
+                    found.append((info.get("name"), int(info.get("id", lid))))
                 except (TypeError, ValueError):
                     pass
-        return sorted(ids)
+        preferred = [lid for name, lid in found if name in preferred_names]
+        return sorted(preferred or [lid for _, lid in found])
+
+    def current_layers(self):
+        """The last known real layer stack, or None before the feed has reported one."""
+        ids = self.layer_state()
+        if ids is None:
+            return None
+        return list(dict.fromkeys(int(i) for i in ids))
+
+    def stack_with(self, base, drawers, preferred_names=()):
+        ids = list(base or [])
+        for layer in self.drawer_ids(drawers, preferred_names):
+            if layer not in ids:
+                ids.append(layer)
+        return ids
+
+    def command_layers_active(self):
+        """Vim command layers own their letters; alpha2 is for text entry only."""
+        km = self.keymap() or {}
+        current = self.current_layers() or []
+        return any((km.get("zmk_layers") or {}).get(str(i), {}).get("drawer") == "vim"
+                   for i in current)
+
+    def position_for_idx(self, idx):
+        """Reverse the keymap's ZMK-position -> drawer-index map for a thumb flash."""
+        km = self.keymap() or {}
+        for pos, drawer_idx in (km.get("positions") or {}).items():
+            try:
+                if int(drawer_idx) == idx:
+                    return int(pos)
+            except (TypeError, ValueError):
+                pass
+        return None
+
+    def is_vowel(self, char):
+        return bool(char) and char.casefold() in VOWELS
+
+    def remember_char(self, chars):
+        if len(chars) == 1 and chars.isalpha():
+            self.previous_char = unicodedata.normalize("NFC", chars).casefold()
+        else:
+            # The firmware's adaptive key treats punctuation, whitespace and other
+            # non-letters as a new word.
+            self.previous_char = None
+
+    def alpha2_drawer(self, chars):
+        """Return the drawer the Diamond owner would use for this typed character."""
+        if self.command_layers_active():
+            return None
+        lower = chars.casefold()
+        if lower == "h":
+            alpha2 = self.is_vowel(self.previous_char)
+        elif lower == "v":
+            alpha2 = not self.is_vowel(self.previous_char)
+        else:
+            alpha2 = lower in ALPHA2_CHARS
+        if not alpha2:
+            return None
+        return "shifted2" if chars.isalpha() and chars.isupper() else "alpha2"
+
+    def layer_entry(self, code, drawer):
+        """Enter a one-shot layer and remember the exact stack to restore afterward."""
+        restore = self.current_layers()
+        if restore is None:
+            restore = []
+        preferred = {"alpha2": {"ALPHA2"}, "shifted2": {"SHIFTED ALPHA2"}}.get(drawer, set())
+        ids = self.stack_with(restore, {drawer}, preferred)
+        if ids == restore:
+            return []
+        self.layer_restore[code] = list(restore)
+        return [{"kind": "layers", "ids": ids}]
 
     def hold_layers(self, code):
         """The layers message a held layer would have produced for this key."""
         if code in NAV_CODES:
-            ids = self.drawer_ids(NAV_DRAWERS)
+            drawers, preferred = {"nav"}, {"NAVIGATION"}
         elif code in DIGIT_CODES and self.held.get("shift", 0) == 0:
-            ids = self.drawer_ids(DIGIT_DRAWERS)
+            drawers, preferred = {"numbers"}, {"NUMBERS"}
         else:
             return []
-        return [{"kind": "layers", "ids": ids}] if ids else []
+        restore = self.current_layers()
+        if restore is None:
+            restore = []
+        ids = self.stack_with(restore, drawers, preferred)
+        if ids == restore:
+            return []
+        self.layer_restore[code] = list(restore)
+        return [{"kind": "layers", "ids": ids}]
 
-    def restore_layers(self):
-        """The keyboard's own layers again, after an emulated hold. [] is a
-        real state (base layer only), not a missing one — only None skips."""
-        ids = self.true_layers()
-        return [{"kind": "layers", "ids": list(ids)}] if ids is not None else []
+    def restore_layers(self, code=None):
+        """Restore the stack captured before this key's emulated layer hold."""
+        ids = self.layer_restore.pop(code, None) if code is not None else None
+        if ids is None:
+            ids = self.current_layers()
+        # An unknown state still needs an explicit base-layer restore. Omitting it is
+        # what made NUMBERS stick after a missed heartbeat in the previous take.
+        return [{"kind": "layers", "ids": list(ids or [])}]
+
+    def messages(self, code, value):
+        """Translate one evdev event, including the Diamond owner's layer gestures."""
+        if code in MODS:
+            return [self.message(code, value)]
+        if value == 2:
+            return [self.message(code, value)]
+
+        prefix = self.hold_layers(code) if value == 1 else []
+        msg = self.message(code, value)
+        if value == 0:
+            if code in self.layer_restore:
+                return [msg, *self.restore_layers(code)]
+            return [msg]
+
+        chars = msg["chars"]
+        if not chars:
+            self.previous_char = None
+            return prefix + [msg]
+
+        drawer = self.alpha2_drawer(chars)
+        if drawer:
+            entered = self.layer_entry(code, drawer)
+            if not entered:
+                # A real alpha2 stack is already active; do not manufacture a restore.
+                self.remember_char(chars)
+                return prefix + [msg]
+            self.remember_char(chars)
+            out = prefix + entered + [msg]
+            # The layer's activator is the alpha2 thumb. Flash it after the character
+            # resolves so the position freshness guard still lets the alpha2 key light.
+            thumb = self.position_for_idx(ALPHA2_THUMB_IDX)
+            if thumb is not None:
+                out.extend([{"kind": "press", "pos": thumb},
+                            {"kind": "release", "pos": thumb}])
+            if chars.isalpha() and chars.isupper():
+                shift_thumb = self.position_for_idx(SHIFT_THUMB_IDX)
+                if shift_thumb is not None:
+                    out.extend([{"kind": "press", "pos": shift_thumb},
+                                {"kind": "release", "pos": shift_thumb}])
+            return out
+
+        out = prefix + [msg]
+        if chars.isalpha() and chars.isupper():
+            shift_thumb = self.position_for_idx(SHIFT_THUMB_IDX)
+            if shift_thumb is not None:
+                # Sticky shift is a modifier, not a shifted1 layer report. The key
+                # itself is kept in the typed stream; this position flash shows the tap.
+                out.extend([{"kind": "press", "pos": shift_thumb},
+                            {"kind": "release", "pos": shift_thumb}])
+        self.remember_char(chars)
+        return out
 
     def find(self):
         for path in evdev.list_devices():
@@ -165,7 +315,7 @@ class InjectedKeys:
             if dev is None:
                 if not announced:
                     self.log(f"rehearsal-feed: no input device matching {self.match!r} yet; "
-                             "start ydotoold (the rehearsal does) — injected keys stay invisible")
+                             "start ydotoold (the rehearsal does) -- injected keys stay invisible")
                     announced = True
                 await asyncio.sleep(2)
                 continue
@@ -174,18 +324,23 @@ class InjectedKeys:
             try:
                 async for ev in dev.async_read_loop():
                     if ev.type == E.EV_KEY:
-                        if ev.value == 1:
-                            for m in self.hold_layers(ev.code):
-                                self.emit(m)
-                        self.emit(self.message(ev.code, ev.value))
-                        if ev.value == 0 and (ev.code in NAV_CODES or ev.code in DIGIT_CODES):
-                            for m in self.restore_layers():
-                                self.emit(m)
+                        messages = self.messages(ev.code, ev.value)
+                        shift_pos = self.position_for_idx(SHIFT_THUMB_IDX)
+                        for i, msg in enumerate(messages):
+                            self.emit(msg)
+                            # Alpha2 plus sticky shift are two taps, not a thumb combo. Let
+                            # the HUD's combo window close before flashing the second thumb.
+                            if (msg.get("kind") == "release" and i + 1 < len(messages) and
+                                    messages[i + 1].get("kind") == "press" and
+                                    messages[i + 1].get("pos") == shift_pos):
+                                await asyncio.sleep(0.12)
             except OSError as e:
                 self.log(f"rehearsal-feed: {dev.path} gone ({e})")
             finally:
                 dev.close()
                 self.held = {k: 0 for k in self.held}
+                self.layer_restore.clear()
+                self.previous_char = None
 
 
 def parse_args(argv=None):
@@ -212,14 +367,13 @@ async def main(args):
         hub.log("rehearsal-feed: no keyboard reader; the pages infer layers from the keys")
     else:
         # The real thing: keymap (with its live reload), device name, and the layers the
-        # keyboard is actually on — the daemon moves those, so the banner stays ground truth.
+        # keyboard is actually on -- the daemon moves those, so the banner stays ground truth.
         feed = hudfeed.Feed(emit, log=hub.log, config=args.config).start()
 
     def true_layers():
-        # The live layer stack sits on each reader stream's decoder (readers
-        # themselves expose none); first stream that ever reported wins, None
-        # while none has. Reading is exact, so a restore can never stick a
-        # wrong picture (a same-valued heartbeat re-asserts nothing).
+        # The live layer stack sits on each reader stream's decoder (readers themselves expose
+        # none); first stream that ever reported wins, None while none has. Reading is exact, so
+        # a restore can never stick a wrong picture.
         reader = getattr(feed, "reader", None)
         for stream in getattr(reader, "_streams", None) or ():
             ids = getattr(getattr(stream, "decoder", None), "layers", None)
@@ -227,9 +381,15 @@ async def main(args):
                 return list(ids)
         return None
 
+    def cached_layers():
+        # Hub.cache is updated for every message that reaches the pages. It is the stable fallback
+        # between reader heartbeats; the direct decoder is only used before the first layer report.
+        cached = hub.cache.get("layers")
+        return list(cached.get("ids", [])) if cached is not None else true_layers()
+
     injected = InjectedKeys(emit, hub.log, args.device,
                             keymap=lambda: hub.cache.get("keymap"),
-                            true_layers=true_layers)
+                            layers=cached_layers)
     asyncio.ensure_future(injected.run())
 
     try:
