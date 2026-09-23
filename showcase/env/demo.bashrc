@@ -8,6 +8,9 @@ PS1='\[\e[34m\]\W\[\e[0m\] \[\e[32m\]❯\[\e[0m\] '
 PROMPT_COMMAND='printf "\033]0;%s\007" "${PWD##*/}"'
 alias ll='ls -la'
 
+# Showcase buffers are disposable; avoid stale swap prompts after an interrupted take.
+nvim() { command nvim -n "$@"; }
+
 # Cards for the automated beats (env/cards/*.txt): `show title`, `show channel`, ...
 SHOWCASE_CARDS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cards"
 show() { clear; cat "$SHOWCASE_CARDS/$1.txt"; }

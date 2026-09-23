@@ -268,7 +268,8 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
    `omarchy-restart-shell`** as part of this capture (QuickShell has a recurring crash on restart).
    Confirm no `com.mitchellh.ghostty` window is left on workspace 8. `record.py` repeats this
    check before every take. Workspace 6 must contain one `demo-java` IntelliJ window only; all
-   Welcome/untitled IntelliJ surfaces belong on workspace 9.
+   Welcome/untitled IntelliJ surfaces belong on workspace 9. The demo shell runs `nvim -n` so a
+   stale swap file from an interrupted rehearsal cannot stop a take at Neovim's confirmation.
 1. Run one segment per rule with `rehearsal-feed.py --debug` and read the feed log before
    recording anything. `rehearse.py 0` types `ever`: `e` is a vowel, so its `v` must be the
    alpha1 `h|v` key, no thumb. `rehearse.py 7` types `video`: word-start `v`, so alpha2 thumb
@@ -329,6 +330,7 @@ contains only the fresh cold-open shot under the requested introduction, and not
 | `showcase/prepare.sh` | clear old demo terminals, isolate the demo-java window, reset demos and preserve the menu bar |
 | `showcase/typist.py` | share Alpha 2/magic-key classification between the rehearsal feed and slower typing pace |
 | `showcase/typist_test.py` | verify Alpha 2, magic-key, and per-key timing decisions |
+| `showcase/env/demo.bashrc` | disable swap files for disposable demo buffers so stale prompts cannot interrupt a take |
 | `showcase/env/ghostty-demo.conf` → `run/ghostty.conf` | generated with `command =` so tabs/splits are demo shells |
 | `showcase/SCRIPT.md` | exact spoken opening, cue timing, beat 3 Screen/Expect/Cut, and the alpha2/magic typing rules |
 | `showcase/dub.py` | verify cue points against silence in the tightened output and compute density over kept footage |
