@@ -27,8 +27,8 @@ hyprctl eval 'return hl.monitor({output="<NAME>", mode="2560x1440@59.95", positi
 ```
 
 `hyprctl reload` puts your config back afterwards. Start the HUD *after* setting the scale and
-running `prepare.sh` (it strips the codex/weather widgets), so it reserves the rail against
-the final geometry.
+running `prepare.sh`, so it reserves the rail against the final geometry. The existing bar layout
+and all of its icons and widgets remain untouched.
 
 | Setting | Value |
 |---|---|
@@ -81,13 +81,9 @@ For the take, raise `hud.press_ms` from 320 to 500 in `~/.config/zmk-layer-hud/c
   debugging; takes never show it.)
 - **Editors** are maximized on their workspaces by `prepare.sh` — never fullscreen, which hides
   layer-shell surfaces and ignores their reservations.
-- **Bar widgets stripped** for every take (`prepare.sh` does it: the agent-usage pill
-  `romao.agents` and the weather pill `romao.weather` leave `~/.config/omarchy/shell.json`,
-  pre-strip config kept at `showcase/run/shell.json.with-widgets`, shell restarted). They
-  clutter the frame and change between takes. Restore after recording:
-  `cp showcase/run/shell.json.with-widgets ~/.config/omarchy/shell.json &&
-  omarchy-restart-shell`. The clock stays: it is part of the frame, keep takes short
-  rather than hiding it.
+- **Bar layout** stays exactly as the user configured it, including `romao.agents` and
+  `romao.weather`. `prepare.sh` does not edit `~/.config/omarchy/shell.json`, remove icons, or
+  restart QuickShell.
 
 ## Text sizes (everything ≥ 18 pt, on top of the monitor scale)
 
@@ -109,8 +105,8 @@ keyboards repo (`KEYBOARDS_REPO`, default `~/projects/keyboards`) and an image v
 the deliverable:
 
 - `ZMK_RECORD_FPS=60 python3 showcase/record.py all` — the default is 30.
-- Scale the monitor and run `bash showcase/prepare.sh` (it strips the codex/weather bar
-  widgets) **before** starting; the driver parks on workspace 8 before every take and no
+- Scale the monitor and run `bash showcase/prepare.sh` before starting; it preserves all
+  menu-bar icons and widgets. The driver parks on workspace 8 before every take and no
   segment leaves workspaces 5–8, so nothing below workspace 5 is ever on camera. The
   rehearsal HUD reserves its rail against whatever geometry it finds.
 - Stop the take HUD first (`bash showcase/hud.sh stop`): the rehearsal brings its own panel.
@@ -121,8 +117,8 @@ the deliverable:
 
 ## Recording routine by hand (fallback, one beat at a time)
 
-1. Scale the monitor (above), then `bash showcase/prepare.sh`: pristine sources,
-   codex/weather widgets stripped from the bar, editors reopened clean and placed.
+1. Scale the monitor (above), then `bash showcase/prepare.sh`: pristine sources, the entire bar
+   unchanged, editors reopened clean and placed.
 2. Privacy checklist (`privacy-checklist.md`), then `bash showcase/hud.sh`.
 3. Check the HUD is live **before** the first take: type on the Diamond and watch the exact keys
    light. A HUD stuck on *waiting for the keymap…* or *waiting for the keyboard's layers…* means

@@ -30,8 +30,8 @@ number for every beat 0–9, with the rehearsal HUD, and lands `run/take<N>.mp4`
 tables below are what the segments type, so the take shows exactly this. The demo segments run
 longer than the narration on purpose (they exercise every state the rehearsal checks): the
 *Cut* line under each beat says which stretch to keep. Before the run: monitor at scale 1.25,
-bar widgets stripped (`bash showcase/prepare.sh` does it), the take HUD stopped
-(`bash showcase/hud.sh stop`), `bash showcase/prepare.sh` done. The driver parks on
+the complete existing menu-bar layout and icons left unchanged, the take HUD stopped
+(`bash showcase/hud.sh stop`), and `bash showcase/prepare.sh` done. The driver parks on
 workspace 8 before every take and the segments never leave workspaces 5–8, so nothing
 below workspace 5 is ever on camera. `ZMK_RECORD_FPS=60` for the deliverable.
 
@@ -330,7 +330,7 @@ Every shot is a screen recording of the recording monitor, HUD rail included, pr
 
 ## Pre-flight, every run
 
-`bash showcase/prepare.sh` run (it strips the codex/weather bar widgets too) · monitor at
+`bash showcase/prepare.sh` run (it preserves every existing menu-bar icon and widget) · monitor at
 scale 1.25 · take HUD
 stopped (`bash showcase/hud.sh stop`; the rehearsal brings its own) · no daemon override
 (`zmk-vim-mode status` shows none) · `git status` clean in the demo dirs · parked on

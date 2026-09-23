@@ -119,36 +119,8 @@ close_demo_terminal || exit 1
 step "demo content back to the committed state"
 bash "$SHOW/setup.sh" || exit 1
 
-step "hiding the codex and weather bar widgets for the recording"
-# The takes show the menu bar, so the agent-usage pill (romao.agents: Codex, Claude,
-# Fireworks) and the weather pill (romao.weather) leave it for the session: they clutter
-# the frame and change between takes. Stripped from ~/.config/omarchy/shell.json (the
-# pre-strip config is kept at run/shell.json.with-widgets); the Omarchy shell hot-reloads it.
-# `omarchy plugin disable` cannot do this: it needs omarchy-shell IPC, which reports
-# "not running" on this box. Idempotent: a config already stripped is left alone and
-# the shell is not restarted. Restore after recording by copying the saved config back;
-# avoid restarting QuickShell during a capture session.
-bar_state="$(RUN="$RUN" python3 - <<'EOF'
-import json, os, shutil
-cfg = os.path.expanduser("~/.config/omarchy/shell.json")
-d = json.load(open(cfg))
-ids = ("romao.agents", "romao.weather")
-if any(it.get("id") in ids for items in d["bar"]["layout"].values() for it in items):
-    shutil.copy2(cfg, os.path.join(os.environ["RUN"], "shell.json.with-widgets"))
-    for section, items in d["bar"]["layout"].items():
-        d["bar"]["layout"][section] = [it for it in items if it.get("id") not in ids]
-    json.dump(d, open(cfg, "w"), indent=2, ensure_ascii=False)
-    print("STRIPPED")
-else:
-    print("ALREADY_CLEAN")
-EOF
-)"
-if [ "$bar_state" = STRIPPED ]; then
-  sleep 1
-  echo "  bar widgets stripped (romao.agents, romao.weather); shell hot-reloaded"
-else
-  echo "  bar already clean"
-fi
+step "preserving the current menu bar layout"
+echo "  bar config left untouched; all existing icons and widgets remain enabled"
 
 step "forgetting per-project UI state"
 # Preserve VS Code workspace storage: it can contain recovery state for unsaved tabs.

@@ -11,7 +11,8 @@ sliver of the previous attempt. The recording driver focused workspace 8 before 
 its fresh Ghostty; the prior demo terminal was still there during recorder pre-roll. The current
 rerun also adds this spoken opening, verbatim: “Hi, in this video I'm going to show you how I use
 my keyboards with vim editors”. Clean workspace 8 before every take and frame-check the first
-seconds of the tightened master before accepting it.
+seconds of the tightened master before accepting it. Keep the menu bar intact: the user reports
+that stripping the Codex/weather icons removes items they expect to see.
 
 Read first: `SCRIPT.md` (what each segment types), `TAKE-2-PLAN.md` (why the video is shaped
 this way), `HANDOFF-TAKE-2.md` (how the box is set up: scale 1.25, bar widgets, Ghostty tabs,
@@ -224,10 +225,11 @@ scale 1.25, `prepare.sh`, take HUD stopped, `ZMK_RECORD_FPS=60 … record.py all
 `dub.py` (anchors → render → master → pauses → tighten → check). Before pressing record:
 
 0. Confirm the monitor is 2560×1440 at scale 1.25. Run `prepare.sh`; it closes the old demo
-   terminal on workspace 8, resets demo content and editor state, and strips the clutter widgets.
-   The shell config hot-reloads; **do not run `omarchy-restart-shell`** as part of this capture
-   (QuickShell has a recurring crash on restart). Confirm no `com.mitchellh.ghostty` window is
-   left on workspace 8. `record.py` repeats this check before every take.
+   terminal on workspace 8 and resets demo content and editor state. It must leave
+   `~/.config/omarchy/shell.json` untouched so every existing menu-bar icon remains. **Do not run
+   `omarchy-restart-shell`** as part of this capture (QuickShell has a recurring crash on restart).
+   Confirm no `com.mitchellh.ghostty` window is left on workspace 8. `record.py` repeats this
+   check before every take.
 1. Run one segment per rule with `rehearsal-feed.py --debug` and read the feed log before
    recording anything. `rehearse.py 0` types `ever`: `e` is a vowel, so its `v` must be the
    alpha1 `h|v` key, no thumb. `rehearse.py 7` types `video`: word-start `v`, so alpha2 thumb
@@ -269,7 +271,8 @@ contains only the fresh cold-open shot under the requested introduction, and not
 - One full tour (Neovim); the other editors one beat each; no dead air (`dub.py tighten`).
 - The daemon's reason on camera where RAW and OFF look alike (beats 3 and 8): typed `status`
   lines, now with the LED writes beside them.
-- 60 fps, scale 1.25, `press_ms` 500 for the takes (revert to 320 after), bar widgets stripped.
+- 60 fps, scale 1.25, `press_ms` 500 for the takes (revert to 320 after); preserve the full
+  current menu bar, including the Codex and weather icons.
 - Human read against the cut for the deliverable; the TTS is scratch (`YOUTUBE.md` for the rest).
 
 ## 6 · Files this touches
@@ -279,7 +282,7 @@ contains only the fresh cold-open shot under the requested introduction, and not
 | `showcase/rehearsal-feed.py` | the typist model (§2): alpha2 one-shot, magic key, stack-preserving holds, working restore, readiness |
 | `showcase/rehearse.py` | wait for the feed's keymap before typing; beat 3 as a split with the generated Ghostty config; split keycodes |
 | `showcase/record.py` | close stale workspace-8 Ghostty surfaces before each recorded take |
-| `showcase/prepare.sh` | clear the old demo terminal and hot-reload the temporary bar layout without restarting QuickShell |
+| `showcase/prepare.sh` | clear the old demo terminal, reset demos, and leave the menu-bar config untouched |
 | `showcase/env/ghostty-demo.conf` → `run/ghostty.conf` | generated with `command =` so tabs/splits are demo shells |
 | `showcase/SCRIPT.md` | exact spoken opening, cue timing, beat 3 Screen/Expect/Cut, and the alpha2/magic typing rules |
 | `showcase/dub.py` | verify cue points against silence in the tightened output and compute density over kept footage |

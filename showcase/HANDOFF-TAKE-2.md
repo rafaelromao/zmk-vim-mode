@@ -95,14 +95,10 @@ User corrections to the plan above, all applied:
   `seg3`: `ctrl+shift+e`, the lower pane tails the log, and `ctrl+alt+up/down` switches focus).
   The generated `run/ghostty.conf` gives every split the demo Bash prompt. `SCRIPT.md` beat 3
   and shot D are updated.
-- **Codex/agent + weather widgets leave the bar during recording.** `omarchy plugin
-  disable` cannot do it (needs omarchy-shell IPC, reports "not running"); instead
-  `prepare.sh` strips `romao.agents` + `romao.weather` from `~/.config/omarchy/shell.json`
-  (pre-strip backup at `showcase/run/shell.json.with-widgets`) and runs
-  `omarchy-restart-shell` (quickshell's file watcher is off, so edit alone changes
-  nothing). Verified in a frame grab. Restore after recording:
-  `cp showcase/run/shell.json.with-widgets ~/.config/omarchy/shell.json &&
-  omarchy-restart-shell`. `env/obs-scene.md` + `SCRIPT.md` pre-flight updated.
+- **Menu-bar widgets stay as configured.** An earlier take stripped `romao.agents` and
+  `romao.weather`, but the user reported missing icons. `prepare.sh` now leaves
+  `~/.config/omarchy/shell.json` untouched and must not remove or disable any bar item or restart
+  QuickShell.
 - `press_ms` is at 500 (revert to 320 after). Demo terminal font stays 20.
 
 State: `prepare.sh` re-ran at 1.25 but failed on IntelliJ showing no window within a
