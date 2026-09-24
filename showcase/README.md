@@ -140,7 +140,7 @@ the picture waits for the voice instead of the voice running over the next actio
 end of the take. Hold only where nothing moves — a diagram, an end card, finished terminal
 output, a file sitting open — or the resume is a visible jump. The 2026-09-23 takes type at
 60 wpm and run up to 15 s longer than the ones the script was written for, and eight beats
-need holds, 45.6 s in all; SCRIPT.md gives the reason for each.
+need holds, 49.0 s in all; SCRIPT.md gives the reason for each.
 
 **One clock.** Every placement — the bed, `check`, `proof`, the pause finder — goes through
 `dub.py`'s `Edit`, which counts the assembly's own frames through the cuts and the holds. The

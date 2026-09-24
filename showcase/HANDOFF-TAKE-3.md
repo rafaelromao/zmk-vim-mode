@@ -29,16 +29,17 @@ no longer existed. The old assembly's take offsets drifted from 0.05 s at beat 0
 beat 6, and inside a take the two recordings disagreed by up to 15 frames. What changed, all in
 README's *Dubbing* section: `dub.py assemble` rebuilds and proves the assembly and stores hashes
 that `master` and `tighten` check; every beat was re-cued against the 09-23 takes, with the
-measured timeline written above its cues in SCRIPT.md; 13 holds (49.8 s) freeze still frames
+measured timeline written above its cues in SCRIPT.md; 13 holds (49.0 s) freeze still frames
 where a line is longer than its picture; one frame-counting clock replaces the seconds-based
 shift, which had drifted 0.18 s by the end over the recordings' dropped frames. Verified on the
 finished file, not recomputed: each output frame matched to its source by pixels, and every one
-of the 55 lines found in the soundtrack by cross-correlation. Every onset lands on its intended
+of the 56 lines found in the soundtrack by cross-correlation. Every onset lands on its intended
 frame, holds sit on still frames, and every line ends before its take's HUD disappears. The mix
-is −16.0 LUFS, the cut 8:08. Three gaps need a re-record, not a redub. Beat 3 has never shown
-the channel and pipeline cards (see its note in SCRIPT.md). Beat 5's `go run` lost its `g` and
-prints `bash: command not found: o`. VS Code's terminal shows the user's own prompt with git
-status.
+is −16.0 LUFS, the cut 8:07. After the user's review, "Hi." is its own line with a 0.8 s pause
+after it, and the closing "Tell me your layout below." is gone: the video ends on "this is for
+you." Three gaps need a re-record, not a redub. Beat 3 has never shown the channel and pipeline
+cards (see its note in SCRIPT.md). Beat 5's `go run` lost its `g` and prints `bash: command not
+found: o`. VS Code's terminal shows the user's own prompt with git status.
 
 Read first: `SCRIPT.md` (what each segment types), `TAKE-2-PLAN.md` (why the video is shaped
 this way), `HANDOFF-TAKE-2.md` (how the box is set up: scale 1.25, bar widgets, Ghostty tabs,
