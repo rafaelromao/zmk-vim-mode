@@ -21,14 +21,15 @@ its runner and its recording notes — was removed when the HUD moved out; `git 
 | `rehearse.py` | run one segment (or all) with synthesized keystrokes, report to `run/rehearsal.log` |
 | `record.py` | screen-record every beat (0–9) hands-off, one segment each, with a TTS scratch narration → `run/take<N>.mp4` |
 | `narration.py` | parses a beat's narration out of `SCRIPT.md`, cues included — shared by `record.py` and `dub.py` |
-| `dub.py` | post: render the narration, place each cued line on its moment, normalise, mux → `run/showcase-dubbed.mp4` |
+| `dub.py` | post: assemble the takes, render the narration, place each cued line on its moment, hold and cut, normalise, mux → `run/showcase.mp4` |
+| `dub_test.py` | the edit clock and holds, no ffmpeg needed: `python3 -m unittest showcase.dub_test` |
 | `rehearsal-panel.py`, `rehearsal-feed.py` | the rehearsal's own copy of the HUD — see *Rehearsals* below |
 | `setup.sh` | reset the demo content to the committed state, print the one-time GUI steps |
 | `Demo/` | the Obsidian vault used on camera (open it as a vault; its runtime state is ignored) |
 | `demo-go/`, `demo-go.code-workspace` | Go module for Neovim and VS Code |
 | `demo-java/` | plain Java project for IntelliJ IDEA |
 | `env/` | `ghostty-demo.conf` and `demo.bashrc` (demo terminal), `obs-scene.md`, `privacy-checklist.md`, `cards/` (title, channel, pipeline, node, links — printed with `show <card>`) |
-| `run/` | the takes, the assembly, `showcase.mp4` and the two small json files the dub is built from; everything else here is regenerated and ignored |
+| `run/` | the takes, the assembly, `showcase.mp4` and the three small json files the dub is built from (`anchors`, `cuts`, `assembly`); everything else here is regenerated and ignored |
 
 ## Prerequisites
 
@@ -84,6 +85,7 @@ recorder — it is ffmpeg plus a TTS binary, so the dub can be cut on a laptop w
 takes are recorded on the Linux box.
 
 ```bash
+python3 showcase/dub.py assemble  # join the takes into the assembly and prove it matches them
 python3 showcase/dub.py anchors   # measure each take's first on-screen action
 python3 showcase/dub.py hud       # what layer the HUD shows, when
 python3 showcase/dub.py keys N    # the typed-keys strip through take N
@@ -95,13 +97,17 @@ python3 showcase/dub.py tighten   # cut those out, re-place the narration -> run
 python3 showcase/dub.py check     # sync, density and loudness of the result
 ```
 
-**What run/ keeps.** `take<N>.mp4` and `showcase-takes.mp4` are the only things here that
-cannot be made again: the takes came from one session with the demo content, HUD and
-editors in a state that no longer exists, and the assembly is not reproducible either —
-concatenating the takes yields 608.530 s against its 608.483 s and a different bitstream,
-and every cue is placed against that file's timeline. `showcase.mp4` is the deliverable;
-`anchors.json` and `cuts.json` are small and load-bearing. The narration beds, the per-cue
-clips, the silent intermediate and the proof images all come back from `dub.py`.
+**What run/ keeps.** `take<N>.mp4` are the only things here that cannot be made again: they
+came from one session with the demo content, HUD and editors in a state that no longer
+exists. `showcase-takes.mp4`, the assembly, is `dub.py assemble`: a video-only concat copy of
+the ten takes, verified by decoding frames of every take and of the assembly and requiring them
+to be identical, with the takes' and the assembly's hashes written to `assembly.json`.
+**Re-record a take, re-run `assemble`.** On 2026-09-23 all ten takes were re-recorded and the
+assembly was not rebuilt, so the pushed master was dubbed against a recording that no longer
+existed — every beat after the first drifted, up to a second late. `master` and `tighten` now
+refuse to run when the hashes do not match. `showcase.mp4` is the deliverable; `anchors.json`,
+`cuts.json` and `assembly.json` are small and load-bearing. The narration beds, the per-cue
+clips, the encoded intermediates and the proof images all come back from `dub.py`.
 
 **Cues.** A narration line in `SCRIPT.md` may open with `[+12.3]`: speak this line 12.3 s
 after *the take's first on-screen action*, not 12.3 s into the file. The takes open with a
@@ -127,6 +133,27 @@ because each beat was internally consistent: only the relationship to the pictur
 Note that cropping the rail away does not rescue full-frame scene detection here — the
 editor window resizes when the rail appears, so the content pane changes too.
 
+**Holds.** A beat may carry `**Hold** +16.3 for 5.5 s — why` lines outside its narration
+quote. A hold freezes the frame on screen at that cue for that long, and everything after it
+in the take plays that much later. It is the tool for a line that is longer than its picture:
+the picture waits for the voice instead of the voice running over the next action or past the
+end of the take. Hold only where nothing moves — a diagram, an end card, finished terminal
+output, a file sitting open — or the resume is a visible jump. The 2026-09-23 takes type at
+60 wpm and run up to 15 s longer than the ones the script was written for, and eight beats
+need holds, 45.6 s in all; SCRIPT.md gives the reason for each.
+
+**One clock.** Every placement — the bed, `check`, `proof`, the pause finder — goes through
+`dub.py`'s `Edit`, which counts the assembly's own frames through the cuts and the holds. The
+recordings are 60 fps with the odd dropped frame (eleven in the 09-23 assembly), and
+`tighten` renumbers frames at an exact 60, so each drop pulls everything after it one frame
+earlier: a clock in seconds drifts against the picture, 0.18 s by the end of the video.
+Counting frames cannot drift. Note that a filter's `t` is content time — ffmpeg subtracts
+the file's 0.046 s start before the filters see a frame — which `ffprobe` does not show. The picture is built the same way the clock counts it:
+`select` keeps the frames outside the cuts, `setpts` leaves `n` empty slots after each held
+frame and `fps` fills them with copies. (ffmpeg's `loop` filter was the obvious tool and was
+rejected: this build repeats frame `start - 1`, not `start`.) After encoding, `build` checks
+the output's frame count against the clock's and refuses to mux if they differ.
+
 **Never sample these recordings with `-ss` before `-i`.** They carry sparse keyframes and a
 nominal 60 fps that is really 59.99 (`nb_frames` is six short of `duration × 60`), so input
 seeking lands on a keyframe some seconds away and returns that frame without a word of
@@ -134,6 +161,13 @@ complaint. Sample with the `fps` filter in a single decode — `dub.py keys` doe
 `-ss` *after* `-i`. This is not a nicety: it is what put beat 4's cues eight seconds out and
 then made the frame-by-frame check that should have caught it agree with them. Two rounds of
 "it is still out of sync" came from trusting a seek.
+
+Two more traps of the same kind. A coarse `fps=1/N` does not sample at `N·k` seconds: it
+keeps the *last* frame of each N-second bucket, so a sheet sampled every 2 s labels its
+tiles up to a second early. And picking frames with `select` needs `-fps_mode passthrough`
+on the output, or the CLI quietly duplicates the dropped frames back to 60 fps and the
+"selected" frames are simply the first ones. Both returned plausible pictures with wrong
+times.
 
 **The banner is not enough on its own.** `dub.py hud` says which layer is lit, and that is
 the right anchor for a line about a *mode* — insert, normal, raw. It is the wrong anchor for
@@ -151,7 +185,14 @@ was the keyboard doing" into three bytes per sample. Scene detection is not a su
 on the whole frame it only says *something* moved, and on the banner it misses
 insert→normal entirely, because the text is the same length and only the colour changes.
 `dub.py fit` prints the layer each line is spoken over, so a line that talks about the vim
-layer while the HUD reads Alpha 1 is visible before anything is rendered.
+layer while the HUD reads Alpha 1 is visible before anything is rendered, and flags a line
+that would overlap the next or still be talking when the take's HUD disappears.
+
+The underline is rows 130-133 of the 2026-09-23 takes; the rail sits a few pixels lower than
+it did on 09-20, and the old rows caught mostly background, so every normal-mode stretch read
+as raw. The crop must start on an even row with an even height (4:2:0 rounds it), and the
+colour is averaged in Python: this Mac's ffmpeg 9 segfaults writing 1×1 frames and can lose the
+buffered output with it, which silently truncates the timeline.
 
 **Voice.** `dub.py` tries kokoro-onnx first, then piper, both from `~/.cache/zmk-showcase`:
 
@@ -163,6 +204,12 @@ python3.12 -m venv ~/.cache/zmk-showcase/tts-kokoro
 
 `ZMK_DUB_VOICE` picks the voice (default `am_michael`), `ZMK_DUB_SPEED` its pace,
 `ZMK_DUB_LEAD` how far ahead of its action a line starts (default 0.3 s).
+
+The deliverable's voice is kokoro `am_michael` at speed 1.0. Only the Mac has kokoro; a dub
+made on the Linux box falls back to piper, which is the scratch voice, and that is what the
+09-23 push shipped. It is easy to tell from the file: piper's voice has no energy above about
+11 kHz, kokoro's reaches 12 kHz, and a line rendered with `am_michael` cross-correlates at
+1.00 with a kokoro master and near 0.1 with anything else.
 
 **Cutting the dead air.** The segments run longer than their words on purpose, so the
 assembly carries a lot of silence — 608 s of picture under 415 s of narration. `dub.py

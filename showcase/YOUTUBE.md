@@ -24,15 +24,15 @@ keyboard its exact mode over three LED indicator bits no OS ever sets, and a ZMK
 the layer. Works in Neovim, VS Code (vscode-neovim), IntelliJ (IdeaVim) and Obsidian.
 
 0:00 The keyboard follows Escape
-0:36 What this video is about
-1:18 Why alternative layouts break vim
-2:09 How it works: three LED bits
-3:12 Neovim, including raw mode
-4:23 VS Code: four ways to know
-5:31 IntelliJ IDEA
-6:19 Obsidian
-6:57 Everywhere else and the escape hatch
-7:44 Install
+0:38 What this video is about
+1:12 Why alternative layouts break vim
+2:01 How it works: three LED bits
+3:02 Neovim, including raw mode
+4:18 VS Code: four ways to know
+5:22 IntelliJ IDEA
+6:06 Obsidian
+6:45 Everywhere else and the escape hatch
+7:30 Install
 
 zmk-vim-mode   https://github.com/rafaelromao/zmk-vim-mode
 zmk-layer-hud  https://github.com/rafaelromao/zmk-layer-hud   (the live keymap on the right; any ZMK board)
@@ -42,7 +42,7 @@ Romak          https://rafaelromao.github.io/romak
 Hardware: the Diamond, 24 keys, ZMK. Layout: Magic Romak.
 ```
 
-Fill the chapter times from the final cut; the ones above are the script's.
+The chapter times above are the 2026-09-24 cut's own beat starts (`dub.py`'s edit clock); re-derive them after any new `tighten`.
 
 ## Tags
 

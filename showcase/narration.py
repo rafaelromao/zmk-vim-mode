@@ -11,6 +11,15 @@ lines carry no cues at all therefore renders as one clip, the way every beat use
 Cues are relative to the action, not to the file, because the takes open with a few
 seconds of nothing: record.py starts the recorder before it starts the segment. dub.py
 measures that lead-in per take and adds it, so the script never has to know about it.
+
+A beat may also carry holds, one per line outside the quote block:
+
+    **Hold** +16.3 for 5.5 s — why that frame can stand still
+
+A hold freezes the frame on screen at that cue (the same clock as a narration cue) for that
+long, and everything after it in the take plays that much later. It is how a line that is
+longer than its picture keeps its place: the picture waits for the voice instead of the voice
+running over the next action. dub.py applies holds; record.py's scratch track ignores them.
 """
 
 import os
@@ -20,6 +29,7 @@ SHOW = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(SHOW, "SCRIPT.md")
 
 CUE = re.compile(r"^\[\+(\d+(?:\.\d+)?)\]\s*")
+HOLD = re.compile(r"^\*\*Hold\*\*\s+\+(\d+(?:\.\d+)?)\s+for\s+(\d+(?:\.\d+)?)\s*s\b")
 
 
 def _speakable(text):
@@ -62,6 +72,20 @@ def cues(beat, script=SCRIPT):
     return [(c, _speakable(t)) for c, t in chunks if _speakable(t)]
 
 
+def holds(beat, script=SCRIPT):
+    """The beat's still-frame holds as [(cue_seconds, hold_seconds), ...], earliest first."""
+    out, in_beat = [], False
+    with open(script) as f:
+        for line in f:
+            if line.startswith("### "):
+                in_beat = line.startswith(f"### {beat} ")
+            elif in_beat:
+                m = HOLD.match(line.strip())
+                if m:
+                    out.append((float(m.group(1)), float(m.group(2))))
+    return sorted(out)
+
+
 def flat_text(beat, script=SCRIPT):
     """The whole beat as one string, cues stripped — what record.py's scratch track wants."""
     parts = [t for _, t in cues(beat, script)]
@@ -81,3 +105,5 @@ if __name__ == "__main__":
         for cue, text in cs:
             head = f"[+{cue:>5.1f}]" if cue is not None else "[  --- ]"
             print(f"  {head} {text[:96]}{'…' if len(text) > 96 else ''}")
+        for cue, secs in holds(b):
+            print(f"  hold  +{cue:.1f} for {secs:.1f} s")

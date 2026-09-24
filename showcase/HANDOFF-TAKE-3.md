@@ -20,6 +20,26 @@ uses the `.idea/workspace.xml` session, and opens the project once only if no ti
 remains after session restore settles. Beat 2 uses `alphas.png`, showing Alpha 1 and Alpha 2
 together; `alpha1.png` alone is not an acceptable base-layout shot.
 
+**Update 2026-09-24 — redub and resync (on the Mac).** The master pushed on 09-23 had two
+defects. It was voiced by piper, the scratch voice; only the Mac has kokoro, whose `am_michael`
+is the deliverable's voice. And it was cut from a stale assembly: 2daa327 re-recorded all ten
+takes, but `showcase-takes.mp4` and `showcase.mp4` were not rebuilt after 39a2592, while the
+anchors and cuts were measured on the new takes. Every cue was placed against a recording that
+no longer existed. The old assembly's take offsets drifted from 0.05 s at beat 0 to 1.1 s by
+beat 6, and inside a take the two recordings disagreed by up to 15 frames. What changed, all in
+README's *Dubbing* section: `dub.py assemble` rebuilds and proves the assembly and stores hashes
+that `master` and `tighten` check; every beat was re-cued against the 09-23 takes, with the
+measured timeline written above its cues in SCRIPT.md; 13 holds (49.8 s) freeze still frames
+where a line is longer than its picture; one frame-counting clock replaces the seconds-based
+shift, which had drifted 0.18 s by the end over the recordings' dropped frames. Verified on the
+finished file, not recomputed: each output frame matched to its source by pixels, and every one
+of the 55 lines found in the soundtrack by cross-correlation. Every onset lands on its intended
+frame, holds sit on still frames, and every line ends before its take's HUD disappears. The mix
+is −16.0 LUFS, the cut 8:08. Three gaps need a re-record, not a redub. Beat 3 has never shown
+the channel and pipeline cards (see its note in SCRIPT.md). Beat 5's `go run` lost its `g` and
+prints `bash: command not found: o`. VS Code's terminal shows the user's own prompt with git
+status.
+
 Read first: `SCRIPT.md` (what each segment types), `TAKE-2-PLAN.md` (why the video is shaped
 this way), `HANDOFF-TAKE-2.md` (how the box is set up: scale 1.25, bar widgets, Ghostty tabs,
 mode line, TTS), `HANDOFF.md` (everything older). Do not re-derive any of it.

@@ -5,6 +5,7 @@ Unlike record.py and rehearse.py this runs anywhere — it is ffmpeg and a TTS b
 with no gpu-screen-recorder, ydotool or hyprctl — so the dub can be cut on the laptop
 while the takes are recorded on the Linux box.
 
+    dub.py assemble         join the takes into showcase-takes.mp4 and prove it matches them
     dub.py anchors          re-measure each take's first on-screen action
     dub.py render [voice]   render SCRIPT.md's narration through the TTS engine
     dub.py master           lay the bed, normalise it, mux onto showcase-takes.mp4
@@ -24,9 +25,16 @@ The blanket `adelay=9000` this replaces was a take-level delay, and it put every
 3.7-5.2 s behind its own picture because takes 0-3 open with 5.2 s of nothing and
 takes 4-9 with 3.9 s.
 
-The picture is never re-encoded: the master is muxed `-c:v copy`.
+The master is muxed `-c:v copy` unless the script has holds; `tighten` always re-encodes.
+
+Holds (`**Hold** +16.3 for 5.5 s` in a beat of SCRIPT.md) freeze a still frame so a line
+that is longer than its picture keeps its place. Every placement goes through one clock,
+`Edit`, which counts the assembly's real frames through the cuts and the holds, so the voice
+lands on the frame it was written against with no drift from the recordings' 59.99 fps.
 """
 
+import bisect
+import hashlib
 import json
 import os
 import shutil
@@ -36,10 +44,14 @@ import sys
 SHOW = os.path.dirname(os.path.abspath(__file__))
 RUN = os.path.join(SHOW, "run")
 ANCHORS = os.path.join(RUN, "anchors.json")
-# Keep this file: concatenating the takes again does NOT reproduce it (a concat-demuxer
-# copy comes out 608.530 s against its 608.483 s, with a different bitstream), and the
-# cue model rests on frame `offset + t` of the assembly being frame `t` of the take.
+# The ten takes joined by `dub.py assemble`: a video-only concat copy, so frame
+# `offset + t` of the assembly IS frame `t` of the take, decoded bit for bit. It must be
+# rebuilt whenever a take is re-recorded: on 2026-09-23 every take was recorded again but
+# the assembly was not, and the dub was cut against a recording that no longer existed.
+# `assemble` stores the takes' hashes in run/assembly.json and master/tighten refuse to run
+# when they no longer match.
 ASSEMBLY = os.path.join(RUN, "showcase-takes.mp4")
+STAMP = os.path.join(RUN, "assembly.json")
 BED = os.path.join(RUN, "narration.wav")
 OUT = os.path.join(RUN, "showcase-untrimmed.mp4")  # debugging aid, not shipped
 CLIPS = os.path.join(RUN, "clips")
@@ -153,28 +165,40 @@ def anchors():
 # This is what a cue should be placed against. Scene detection on the whole frame finds
 # only that *something* moved; scene detection on the banner misses insert→normal, because
 # the text is the same length and only the colour changes. The colour is the signal.
-HUD_CROP = "crop=700:6:1816:126"
+#
+# The crop is rows 130-133, the underline itself, in the 2026-09-23 takes (the rail sits a
+# few pixels lower than it did on 09-20, and the old rows 126-131 caught mostly background).
+# It must start on an even row with an even height: 4:2:0 video rounds a crop's height, and
+# a 3-row crop silently comes back as 2. The colour is averaged here, not with `scale=1:1`:
+# this Mac's ffmpeg 9 segfaults writing 1x1 frames and can lose the buffered output with it.
+HUD_CROP = "crop=700:4:1820:130"
+HUD_W, HUD_H = 700, 4
 HUD_FPS = 4.0
 
 
 def hud_state(r, g, b):
     s = r + g + b
-    if s < 110:
-        return "none"       # HUD not drawn yet
-    if g >= b:
+    if s < 150:
+        return "none"       # HUD not drawn
+    if g > b + 15 and g > r:
         return "insert"     # green
-    if b >= 115:
-        return "normal"     # bright blue: normal, visual and cmdline all read blue here
-    return "raw"            # dim blue-grey: Alpha 1
+    if b > 175 and b - r > 30 and g > r:
+        return "normal"     # bright blue: normal and visual
+    if r > b + 30 and r > g:
+        return "cmdline"    # orange
+    return "raw"            # dim blue-grey, Alpha 1 (raw and off alike); purple one-key hops
 
 
 def hud_timeline(beat, minhold=0.75):
     """[(start, end, state)] through take<beat>, in take-relative seconds."""
     mp4 = os.path.join(RUN, f"take{beat}.mp4")
     raw = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", mp4, "-vf", f"{HUD_CROP},fps={HUD_FPS:g},scale=1:1",
+        ["ffmpeg", "-v", "error", "-i", mp4, "-vf", f"{HUD_CROP},fps={HUD_FPS:g}",
          "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
-    states = [hud_state(*raw[i:i + 3]) for i in range(0, len(raw), 3)]
+    n, px = HUD_W * HUD_H * 3, HUD_W * HUD_H
+    states = [hud_state(sum(raw[i:i + n:3]) / px, sum(raw[i + 1:i + n:3]) / px,
+                        sum(raw[i + 2:i + n:3]) / px)
+              for i in range(0, len(raw) - n + 1, n)]
     if not states:
         return []
     segs, cur, start = [], states[0], 0.0
@@ -245,10 +269,10 @@ def piper_render(text, wav, voice):
 
 
 def render_one(text, wav, voice):
+    """Render one line; returns the engine that made it ("kokoro" or "piper")."""
     for engine in (kokoro_render, piper_render):
-        got = engine(text, wav, voice)
-        if got:
-            return got
+        if engine(text, wav, voice):
+            return engine.__name__.split("_")[0]
     fail("no TTS engine: install kokoro-onnx or piper (see README 'Dubbing')")
 
 
@@ -257,23 +281,109 @@ def render(voice=None):
     voice = voice or os.environ.get("ZMK_DUB_VOICE", "am_michael")
     shutil.rmtree(CLIPS, ignore_errors=True)
     os.makedirs(CLIPS, exist_ok=True)
-    made = []
+    made, engines = [], set()
     for b in BEATS:
         for i, (cue, text) in enumerate(narration.cues(b)):
             wav = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
-            render_one(text, wav, voice)
+            engines.add(render_one(text, wav, voice))
             made.append((b, i, cue, wav, duration(wav)))
             print(f"  beat {b} cue {i:02d} "
                   f"{'@+%.1f' % cue if cue is not None else '@start'}  "
                   f"{duration(wav):5.1f}s  {text[:60]}")
-    print(f"rendered {len(made)} clips with {voice}")
+    print(f"rendered {len(made)} clips with {voice} ({', '.join(sorted(engines))})")
+    if "piper" in engines:
+        # The 2026-09-23 master shipped with the scratch voice because the Linux box has no
+        # kokoro and this fallback was silent.
+        print("dub: WARNING — piper is the scratch voice; the deliverable is kokoro "
+              "(am_michael). Dub on a machine with the kokoro venv.", file=sys.stderr)
     return made
 
 
-# ---------------------------------------------------------------- the bed
+# ---------------------------------------------------------------- the assembly
 
-def placements(source="clips"):
-    """[(absolute_seconds, wav)] for the whole assembly, one entry per rendered cue."""
+def file_hash(path):
+    h = hashlib.sha1()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def take_hashes():
+    return {b: file_hash(os.path.join(RUN, f"take{b}.mp4")) for b in BEATS}
+
+
+def frame_count(path):
+    return int(probe(path, "stream=nb_frames").split()[0])
+
+
+def thumbs(path, indices, w=64, h=36):
+    """Grey thumbnails of the frames at these display-order indices, one decode, no seeking."""
+    sel = "+".join(f"eq(n\\,{k})" for k in sorted(indices))
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", path, "-vf", f"select='{sel}',scale={w}:{h}",
+         "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True).stdout
+    sz = w * h
+    return [raw[i:i + sz] for i in range(0, len(raw), sz)]
+
+
+def verify_assembly():
+    """Frame n of take b must be frame (frames of the takes before b) + n of the assembly.
+
+    Three frames per take — its first, one from the middle, one near its end — compared
+    after decoding. A stream copy decodes bit for bit, so anything but zero means the
+    assembly is not made of these takes.
+    """
+    wanted, cum = {}, 0
+    for b in BEATS:
+        n = frame_count(os.path.join(RUN, f"take{b}.mp4"))
+        wanted[b] = [(i, cum + i) for i in (0, n // 2, n - 10)]
+        cum += n
+    if frame_count(ASSEMBLY) != cum:
+        fail(f"the assembly has {frame_count(ASSEMBLY)} frames, the takes {cum}")
+    got = thumbs(ASSEMBLY, [j for pairs in wanted.values() for _, j in pairs])
+    k = 0
+    for b in BEATS:
+        mine = thumbs(os.path.join(RUN, f"take{b}.mp4"), [i for i, _ in wanted[b]])
+        for (i, j), frame in zip(wanted[b], mine):
+            diff = sum(abs(x - y) for x, y in zip(frame, got[k])) / len(frame)
+            k += 1
+            if diff > 0.0:
+                fail(f"take{b} frame {i} is not assembly frame {j} (mean diff {diff:.2f})")
+    print(f"assembly verified: {cum} frames, every take where its offset says")
+
+
+def assemble():
+    """Join the takes, video only, by stream copy — then prove the join is exact."""
+    lst = os.path.join(RUN, ".takes.txt")
+    with open(lst, "w") as f:
+        for b in BEATS:
+            f.write(f"file '{os.path.join(RUN, f'take{b}.mp4')}'\n")
+    ff(["-f", "concat", "-safe", "0", "-i", lst, "-map", "0:v", "-c", "copy",
+        "-movflags", "+faststart", ASSEMBLY])
+    os.remove(lst)
+    verify_assembly()
+    json.dump({"takes": take_hashes(), "assembly": file_hash(ASSEMBLY)},
+              open(STAMP, "w"), indent=1)
+    print(f"wrote {ASSEMBLY} ({duration(ASSEMBLY):.3f}s) and {STAMP}")
+
+
+def require_assembly():
+    """Refuse to dub an assembly that is not made of the takes on disk."""
+    if not os.path.isfile(STAMP):
+        fail("no run/assembly.json: run `dub.py assemble` to rebuild and check the assembly")
+    stamp = json.load(open(STAMP))
+    if stamp.get("takes") != take_hashes():
+        fail("a take changed since the assembly was built: run `dub.py assemble`")
+    if stamp.get("assembly") != file_hash(ASSEMBLY):
+        fail("showcase-takes.mp4 changed since `dub.py assemble` checked it: run it again")
+
+
+# ---------------------------------------------------------------- the edit's clock
+
+def line_starts():
+    """[(beat, index, assembly_seconds, wav)] for every rendered cue, in script order."""
     a, out = anchors(), []
     for b in BEATS:
         base = a[b]["offset"] + a[b]["action"] - LEAD
@@ -281,32 +391,150 @@ def placements(source="clips"):
             wav = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
             if not os.path.isfile(wav):
                 fail(f"missing {wav}; run `dub.py render` first")
-            at = base + (cue or 0.0)
-            out.append((max(0.0, at), wav))
-    return sorted(out)
+            out.append((b, i, max(0.0, base + (cue or 0.0)), wav))
+    return out
 
 
-def build_bed(source):
-    """One track the length of the assembly, every clip at its absolute position."""
-    place = placements(source)
-    if not place:
-        fail("nothing to place")
-    total = duration(ASSEMBLY)
+def hold_points():
+    """[(assembly_seconds, hold_seconds)] for every beat's holds, earliest first."""
+    a = anchors()
+    return sorted((a[b]["offset"] + a[b]["action"] + cue, secs)
+                  for b in BEATS for cue, secs in narration.holds(b))
+
+
+def expand(t, holds):
+    """A moment of the assembly → the same moment with the holds played out (no cuts)."""
+    return t + sum(s for h, s in holds if h < t)
+
+
+def contract(x, holds):
+    """The inverse of expand: a moment inside a hold maps to the held frame's time."""
+    shift = 0.0
+    for h, s in holds:
+        if x <= h + shift:
+            break
+        if x < h + shift + s:
+            return h
+        shift += s
+    return x - shift
+
+
+def frame_times(path=ASSEMBLY):
+    """Presentation time of every video frame of `path`, in display order."""
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0",
+                          "-show_entries", "packet=pts_time", "-of", "csv=p=0", path],
+                         capture_output=True, text=True).stdout.split()
+    return sorted(float(x) for x in out if x.strip() and x.strip() != "N/A")
+
+
+class Edit:
+    """The finished video's clock: which frames survive, which repeat, where a moment lands.
+
+    `select` keeps the frames outside the cuts, `setpts` renumbers them at 60 fps leaving
+    `n` empty slots after each held frame, and `fps` fills those slots with copies of it.
+    Output time is therefore a frame count, and `at()` counts frames the same way, so a
+    line placed with it starts on the frame it was written against — through every cut and
+    every hold. The recordings are 60 fps with a dropped frame here and there (eleven in the
+    09-23 assembly), and each drop moves everything after it one frame earlier once the output
+    is renumbered at an exact 60 — the old seconds-based shift drifted 0.18 s by the end;
+    counting frames cannot drift.
+
+    Assembly time t is content time: the frame showing it has pts t + p0, because the concat
+    copy starts the first frame at p0 (0.046 s). ffmpeg subtracts p0 before the filters see a
+    frame, so in `select` the same frame has t = content time. Keep-range edges are moved to
+    the midpoint between two frames, so `select` and this class can never disagree about a
+    frame that sits exactly on an edge — and `build` checks the frame count anyway.
+    """
+    FPS = 60
+
+    def __init__(self, cuts, holds, times=None):
+        times = frame_times() if times is None else times
+        self.p0 = times[0]
+        rel = [t - self.p0 for t in times]
+
+        def snap(x):
+            i = bisect.bisect_left(rel, x)
+            if i <= 0:
+                return rel[0] - 0.5 / self.FPS
+            if i >= len(rel):
+                return rel[-1] + 0.5 / self.FPS
+            return (rel[i - 1] + rel[i]) / 2
+
+        self.keeps = [(snap(s), snap(e)) for s, e in keep_ranges(cuts, rel[-1] + 1.0 / self.FPS)]
+        self.sel = [t for t, r in zip(times, rel) if self.kept(r)]
+        self.holds = []
+        for h, secs in holds:
+            if not self.kept(h):
+                fail(f"a hold at {h:.2f}s falls inside a cut")
+            k = bisect.bisect_right(self.sel, h + self.p0) - 1
+            self.holds.append((k, int(round(secs * self.FPS))))
+        self.holds.sort()
+
+    def kept(self, t):
+        return any(s <= t < e for s, e in self.keeps)
+
+    def frames(self):
+        return len(self.sel) + sum(n for _, n in self.holds)
+
+    def length(self):
+        return self.frames() / self.FPS
+
+    def at(self, t):
+        """Output seconds at which assembly moment t is on screen."""
+        pts = t + self.p0
+        i = bisect.bisect_right(self.sel, pts) - 1
+        if i < 0:
+            return 0.0
+        if self.kept(t):
+            frac = min(max(pts - self.sel[i], 0.0), 1.0 / self.FPS)
+        else:                      # inside a cut: it happens when the picture resumes
+            i, frac = min(i + 1, len(self.sel) - 1), 0.0
+        return (i + sum(n for k, n in self.holds if k < i)) / self.FPS + frac
+
+    def filters(self):
+        # ffmpeg hands the filter graph timestamps minus the file's start time, so a filter's
+        # `t` is already content time — the first frame is t=0, not t=p0.
+        sel = "+".join(f"gte(t,{s:.6f})*lt(t,{e:.6f})" for s, e in self.keeps)
+        gaps = "".join(f"+gt(N,{k})*{n}" for k, n in self.holds)
+        return f"select='{sel}',setpts='(N{gaps})/({self.FPS}*TB)',fps={self.FPS}"
+
+
+def build(cuts, out):
+    """The picture through `Edit`, the narration placed on Edit's clock, one normalised mix."""
+    holds = hold_points()
+    edit = Edit(cuts, holds)
+    starts = line_starts()
+    if cuts or holds:
+        video = os.path.join(RUN, "tight-video.mp4" if cuts else "held-video.mp4")
+        ff(["-i", ASSEMBLY, "-vf", edit.filters(), "-an", "-c:v", "libx264",
+            "-preset", "medium", "-crf", "21", "-pix_fmt", "yuv420p", video])
+        got, want = frame_count(video), edit.frames()
+        if got != want:
+            fail(f"{video} has {got} frames, the edit expects {want}: the filter and the "
+                 "clock disagree, so no line could be trusted")
+    else:
+        video = ASSEMBLY
     args, filters, labels = [], [], []
-    for n, (at, wav) in enumerate(place):
-        args += ["-i", wav]
-        filters.append(
-            f"[{n}:a]aresample={RATE},aformat=channel_layouts=stereo,"
-            f"adelay={int(round(at * 1000))}:all=1[d{n}]")
+    for n, (b, i, at, w) in enumerate(starts):
+        args += ["-i", w]
+        filters.append(f"[{n}:a]aresample={RATE},aformat=channel_layouts=stereo,"
+                       f"adelay={int(round(edit.at(at) * int(RATE)))}S:all=1[d{n}]")
         labels.append(f"[d{n}]")
-    chain = ";".join(filters)
     # normalize=0 keeps a clip at its own level instead of dividing by input count
-    chain += (f";{''.join(labels)}amix=inputs={len(place)}:normalize=0:"
-              f"dropout_transition=0[m];[m]apad,atrim=0:{total}[out]")
+    chain = ";".join(filters) + (
+        f";{''.join(labels)}amix=inputs={len(starts)}:normalize=0:dropout_transition=0[m];"
+        f"[m]apad,atrim=0:{edit.length():.6f}[out]")
     ff([*args, "-filter_complex", chain, "-map", "[out]",
         "-c:a", "pcm_s16le", "-ar", RATE, "-ac", CHANNELS, BED])
-    print(f"bed: {len(place)} clips over {duration(BED):.3f}s (assembly {total:.3f}s)")
-    return BED
+    normed = os.path.join(RUN, "narration-normed.wav")
+    loudnorm(BED, normed)
+    ff(["-i", video, "-i", normed, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k", "-ar", RATE, "-ac", CHANNELS,
+        "-movflags", "+faststart", "-shortest", out])
+    held = sum(s for _, s in holds)
+    print(f"wrote {out} ({duration(out):.3f}s): {len(starts)} lines, {len(holds)} holds "
+          f"({held:.1f}s), {len(cuts)} cuts")
+    return out
 
 
 def loudnorm(src, dst):
@@ -329,15 +557,16 @@ def loudnorm(src, dst):
 
 
 def master(source="clips"):
-    build_bed(source)
-    normed = os.path.join(RUN, "narration-normed.wav")
-    loudnorm(BED, normed)
-    ff(["-i", ASSEMBLY, "-i", normed,
-        "-map", "0:v", "-map", "1:a", "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "192k", "-ar", RATE, "-ac", CHANNELS,
-        "-movflags", "+faststart", "-shortest", OUT])
-    print(f"wrote {OUT} ({duration(OUT):.3f}s)")
-    return OUT
+    """The whole assembly, uncut, with the narration and the holds — a debugging aid."""
+    require_assembly()
+    return build([], OUT)
+
+
+def edit_for(path):
+    """The Edit that produced `path`: the tightened deliverable carries cuts.json's cuts."""
+    tight = os.path.abspath(path) == os.path.abspath(SHOWCASE)
+    cuts = json.load(open(CUTS)) if tight and os.path.isfile(CUTS) else []
+    return Edit(cuts, hold_points())
 
 
 # ---------------------------------------------------------------- check
@@ -346,8 +575,8 @@ def check(path=OUT):
     if not os.path.isfile(path):
         fail(f"no {path}")
     a = anchors()
-    cuts = json.load(open(CUTS)) if os.path.isfile(CUTS) else []
-    shift = shift_for(cuts)
+    edit = edit_for(path)
+    shift = edit.at
     out = subprocess.run(
         ["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-map", "0:a",
          "-af", "silencedetect=noise=-45dB:d=0.6", "-f", "null", "-"],
@@ -362,7 +591,10 @@ def check(path=OUT):
     for b in BEATS:
         first_cue = next((cue for cue, _ in narration.cues(b) if cue is not None), 0.0)
         want = shift(a[b]["offset"] + a[b]["action"] - LEAD + first_cue)
-        silent_at_want = any(s + 0.1 < want < e - 0.1
+        # listen a quarter second in: a clip may open with ~0.1 s of breath, and testing its
+        # very first sample reported beat 8 silent while its voice was 20 ms away
+        probe = want + 0.25
+        silent_at_want = any(s + 0.1 < probe < e - 0.1
                              for s, e in zip(starts, ends + [duration(path)]))
         state = "SILENCE" if silent_at_want else "audible"
         silent_cues += int(silent_at_want)
@@ -372,7 +604,7 @@ def check(path=OUT):
     print("\ndensity — speech vs picture per beat:")
     for b in BEATS:
         lo = shift(a[b]["offset"])
-        hi = shift(a[b]["offset"] + a[b]["video"])
+        hi = shift(a[b]["offset"] + a[b]["video"] - 0.001)
         quiet = 0.0
         for s, e in zip(starts, ends + [duration(path)]):
             if e <= lo or s >= hi:
@@ -452,16 +684,14 @@ PAD_AFTER, PAD_BEFORE = 0.35, 0.25                       # breathing room around
 
 
 def speech_spans():
-    """[(start, end)] of every rendered line, in assembly time."""
-    a, out = anchors(), []
-    for b in BEATS:
-        base = a[b]["offset"] + a[b]["action"] - LEAD
-        for i, (cue, _) in enumerate(narration.cues(b)):
-            w = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
-            if os.path.isfile(w):
-                at = max(0.0, base + (cue or 0.0))
-                out.append((at, at + duration(w)))
-    return sorted(out)
+    """[(start, end)] of every rendered line, in assembly time.
+
+    A line that plays through a hold covers less assembly time than its own length — the
+    held part is spoken over one frame — so its end is found through the holds.
+    """
+    holds = hold_points()
+    return sorted((at, contract(expand(at, holds) + duration(w), holds))
+                  for _, _, at, w in line_starts())
 
 
 def motion(beat, fps=8.0, w=48, h=36):
@@ -527,6 +757,12 @@ def find_pauses(verify=True):
         if run is not None and vid - run >= MINGAP:
             cuts.append((b, off + run + KEEPGAP / 2, off + vid - 0.05))
 
+    # KEEPGAP leaves a little of every pause so a cut does not feel abrupt — but nothing
+    # precedes the video's first frame, and keeping it opened the video on a bare desktop
+    # for a third of a second before the HUD appeared.
+    if cuts and cuts[0][0] == BEATS[0] and cuts[0][1] <= 0.5:
+        cuts[0] = (cuts[0][0], 0.0, cuts[0][2])
+
     if verify:
         kept = []
         for b, s, e in cuts:
@@ -554,6 +790,16 @@ def find_pauses(verify=True):
                       f"picture moves across it (diff {d:.1f})")
         cuts = kept
 
+    # a cut must never swallow a held frame
+    holds, safe = hold_points(), []
+    for b, s, e in cuts:
+        inside = [h for h, _ in holds if s <= h < e]
+        if inside:
+            print(f"  dropped beat {b} {s:.2f}→{e:.2f}: it would cut the frame held at {inside[0]:.2f}")
+        else:
+            safe.append((b, s, e))
+    cuts = safe
+
     json.dump([[b, round(s, 3), round(e, 3)] for b, s, e in cuts],
               open(CUTS, "w"), indent=1)
     return cuts
@@ -570,61 +816,15 @@ def keep_ranges(cuts, total):
     return out
 
 
-def shift_for(cuts):
-    """new_time(t) for a t that is not inside any cut."""
-    ordered = sorted(((s, e) for _, s, e in cuts))
-
-    def f(t):
-        removed = sum(min(e, t) - s for s, e in ordered if s < t)
-        return t - removed
-    return f
-
-
 def tighten():
+    require_assembly()
     cuts = find_pauses()
     total = duration(ASSEMBLY)
-    keeps = keep_ranges(cuts, total)
     removed = sum(e - s for _, s, e in cuts)
-    print(f"{len(cuts)} cuts, {removed:.1f}s removed, "
-          f"{total:.1f}s → {total - removed:.1f}s")
-
-    # one pass, frame accurate: keep only the wanted ranges and restamp
-    sel = "+".join(f"between(t,{s:.3f},{e:.3f})" for s, e in keeps)
-    ff(["-i", ASSEMBLY,
-        "-vf", f"select='{sel}',setpts=N/FRAME_RATE/TB",
-        "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "21",
-        "-pix_fmt", "yuv420p", os.path.join(RUN, "tight-video.mp4")])
-
-    # narration re-placed at its shifted position; cuts never overlap speech
-    shift = shift_for(cuts)
-    a, args, filters, labels, n = anchors(), [], [], [], 0
-    for b in BEATS:
-        base = a[b]["offset"] + a[b]["action"] - LEAD
-        for i, (cue, _) in enumerate(narration.cues(b)):
-            w = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
-            if not os.path.isfile(w):
-                fail(f"missing {w}; run `dub.py render` first")
-            at = shift(max(0.0, base + (cue or 0.0)))
-            args += ["-i", w]
-            filters.append(f"[{n}:a]aresample={RATE},aformat=channel_layouts=stereo,"
-                           f"adelay={int(round(at * 1000))}:all=1[d{n}]")
-            labels.append(f"[d{n}]")
-            n += 1
-    newlen = duration(os.path.join(RUN, "tight-video.mp4"))
-    chain = ";".join(filters)
-    chain += (f";{''.join(labels)}amix=inputs={n}:normalize=0:dropout_transition=0[m];"
-              f"[m]apad,atrim=0:{newlen}[out]")
-    ff([*args, "-filter_complex", chain, "-map", "[out]",
-        "-c:a", "pcm_s16le", "-ar", RATE, "-ac", CHANNELS, BED])
-
-    normed = os.path.join(RUN, "narration-normed.wav")
-    loudnorm(BED, normed)
-    ff(["-i", os.path.join(RUN, "tight-video.mp4"), "-i", normed,
-        "-map", "0:v", "-map", "1:a", "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "192k", "-ar", RATE, "-ac", CHANNELS,
-        "-movflags", "+faststart", "-shortest", SHOWCASE])
-    print(f"wrote {SHOWCASE} ({duration(SHOWCASE):.3f}s)")
-    return SHOWCASE
+    held = sum(s for _, s in hold_points())
+    print(f"{len(cuts)} cuts, {removed:.1f}s removed, {held:.1f}s held, "
+          f"{total:.1f}s → {total - removed + held:.1f}s")
+    return build(cuts, SHOWCASE)
 
 
 # ---------------------------------------------------------------- proof
@@ -641,14 +841,8 @@ def proof(beat, video=None, out=None):
     video = video or SHOWCASE
     if not os.path.isfile(video):
         fail(f"missing {video}")
-    a, cuts = anchors(), json.load(open(CUTS)) if os.path.isfile(CUTS) else []
-    ordered = sorted((s_, e_) for _, s_, e_ in cuts)
-    tight = os.path.abspath(video) == os.path.abspath(SHOWCASE)
-
-    def place(t):
-        if not tight:
-            return t
-        return t - sum(min(e_, t) - s_ for s_, e_ in ordered if s_ < t)
+    a = anchors()
+    place = edit_for(video).at
 
     base = a[beat]["offset"] + a[beat]["action"] - LEAD
     marks, texts = [], []
@@ -718,30 +912,35 @@ def fit(strict=False):
     total_speech = total_video = 0.0
     for b in BEATS:
         cs = narration.cues(b)
+        act = a[b]["action"]
+        hs = [(act + c, s) for c, s in narration.holds(b)]          # take seconds
         tl = hud_timeline(b)
-        usable = a[b]["video"] - a[b]["action"] + LEAD
+        drawn = [e for _, e, st in tl if st != "none"]
+        hud_end = max(drawn) if drawn else a[b]["video"]
+        starts = [act - LEAD + (cue or 0.0) for cue, _ in cs]     # take seconds
         spoken = 0.0
-        print(f"\nbeat {b} — take {a[b]['video']:.1f}s, action at "
-              f"{a[b]['action']:.1f}s, {usable:.1f}s usable")
+        held = ", ".join(f"+{c:.1f} for {s:.1f}s" for c, s in narration.holds(b))
+        print(f"\nbeat {b} — take {a[b]['video']:.1f}s, action at {act:.1f}s, HUD until "
+              f"+{hud_end - act:.1f}" + (f", holds {held}" if held else ""))
         for i, (cue, text) in enumerate(cs):
-            at = (cue or 0.0)
             wav = os.path.join(CLIPS, f"beat{b}-{i:02d}.wav")
             dur = clip_seconds(text, wav)
             spoken += dur
-            end = at + dur
-            nxt = cs[i + 1][0] if i + 1 < len(cs) and cs[i + 1][0] is not None else None
+            # compare lines on the clock the viewer hears them on: holds played out
+            s0 = expand(starts[i], hs)
+            e0 = s0 + dur
+            end = contract(e0, hs)                                  # back to take seconds
             note = ""
-            if nxt is not None and end > nxt + 0.05:
-                note, bad = f"  OVERLAPS next by {end - nxt:.1f}s", bad + 1
-            elif end > usable + 0.05:
-                note, bad = f"  RUNS PAST take end by {end - usable:.1f}s", bad + 1
+            if i + 1 < len(cs) and e0 > expand(starts[i + 1], hs) - 0.05:
+                note, bad = f"  OVERLAPS next by {e0 - expand(starts[i + 1], hs):.1f}s", bad + 1
+            elif end > hud_end - 0.05:
+                note, bad = f"  RUNS PAST the HUD by {end - hud_end:.1f}s", bad + 1
             src = "meas" if os.path.isfile(wav) else "est"
             # the layer the HUD is actually showing while this line is spoken
-            st0 = hud_at(tl, at + a[b]["action"] - LEAD)
-            st1 = hud_at(tl, end + a[b]["action"] - LEAD)
+            st0, st1 = hud_at(tl, starts[i]), hud_at(tl, end)
             span = st0 if st0 == st1 else f"{st0}→{st1}"
-            print(f"  +{at:5.1f} → {end:5.1f}  {dur:4.1f}s ({src}, "
-                  f"{len(text.split()):3d}w)  HUD {span:<14}{note}")
+            print(f"  +{cue or 0.0:5.1f} → {end - act + LEAD:5.1f}  {dur:4.1f}s ({src}, "
+                  f"{len(text.split()):3d}w)  HUD {span:<16}{note}")
         total_speech += spoken
         total_video += a[b]["video"]
         print(f"  spoken {spoken:.1f}s of {a[b]['video']:.1f}s "
@@ -759,7 +958,9 @@ USAGE = __doc__
 
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-    if cmd == "anchors":
+    if cmd == "assemble":
+        assemble()
+    elif cmd == "anchors":
         for b, d in measure_anchors().items():
             print(f"take{b}  action={d['action']:>7.3f}  video={d['video']:>7.3f}  "
                   f"offset={d['offset']:>8.3f}")
