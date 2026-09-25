@@ -4,7 +4,7 @@
 
 ## Context
 
-The user's ZMK keyboards (`/Users/rromao/projects/keyboards`, one shared keymap for 8 boards) have a "VIM Mode":
+The author's ZMK keyboards ([rafaelromao/keyboards](https://github.com/rafaelromao/keyboards), one shared keymap for 8 boards) have a "VIM Mode":
 seven layers `VIM_NORMAL`=3 `VIM_VISUAL`=4 `VIM_CHANGE`=5 `VIM_LEADER`=6 `VIM_INSERT`=7 `VIM_REPLACE`=8
 `VIM_CMDLINE`=9 (`src/definitions/config.dtsi:10-45`). The host tells the keyboard **one bit** (NUM LOCK LED) via
 `ssbb/zmk-listeners` (`src/features/vim.dtsi:1-20`: on → `&vim_mode_on`, off → `&vim_off`); everything else
@@ -12,11 +12,11 @@ seven layers `VIM_NORMAL`=3 `VIM_VISUAL`=4 `VIM_CHANGE`=5 `VIM_LEADER`=6 `VIM_IN
 = ~ J q @` (`vim.dtsi:75-154`). `vim_normal_layer` (`keymap.dtsi:46-54`) remaps physical keys to vim letters and
 has `&none` on ~14 positions, so a wrong NORMAL state *drops keystrokes*.
 
-Host side today = two focus-heuristic scripts (installed copies in `~/dotfiles`):
+Host side today = two focus-heuristic scripts:
 
 | OS | Detect | Signal |
 |---|---|---|
-| macOS | Hammerspoon `~/.hammerspoon/zmk-vim-mode-watcher.lua`: app == Code/Obsidian, or Ghostty title contains `nvim` | `setleds +num/-num` (setledsmac, IOKit) |
+| macOS | a Hammerspoon watcher: app == Code/Obsidian, or Ghostty title contains `nvim` | `setleds +num/-num` (setledsmac, IOKit) |
 | Omarchy/Hyprland | systemd user unit → `socat` on Hyprland `.socket2.sock` `activewindow>>class,title` | `hyprctl keyword input:numlock_by_default` ("only takes effect after next keypress", one-way) |
 
 Problems: mode inferred, not known (plugin mappings, `:startinsert`, pickers, LSP actions desync); one-bit edge
@@ -383,8 +383,7 @@ right pass-through, do not map them to `raw`. Transport: Java 16+ `UnixDomainSoc
   (`uaccess` ACLs need an active logind seat session — fine for a graphical-session unit; installer offers
   `GROUP="input", MODE="0660"` as the deterministic fallback.) `install --nvim/--tmux` *print* the lazy spec and
   `set -g focus-events on` (tmux default off; Ghostty implements DEC 1004 — verified) instead of editing
-  dotfiles. Retire old pieces: `hyprland.conf:24-25` exec-once lines, `systemctl --user disable
-  zmk-vim-mode-watcher`, `~/.hammerspoon/init.lua` `require`.
+  the user's config files.
 - macOS (later phase): launchd agent `~/Library/LaunchAgents/dev.rafaelromao.zmk-vim-mode.plist` with
   `LimitLoadToSessionType=Aqua`, `ProcessType=Interactive`, `KeepAlive`, `RunAtLoad`, absolute
   `StandardErrorPath`, loaded via `launchctl bootstrap gui/$UID`. TCC for `IOHIDDeviceSetValue` is unverified
@@ -635,5 +634,4 @@ Input Monitoring and/or Accessibility if the spike says so. Recurring: none.
 - `/Users/rromao/projects/wayland-setleds/libwayland-setleds.c` (user's, MIT) — evdev probe/ioctl patterns
   (its CLI `-num/-caps` off-forms are broken by `getopt_long`; only 3 LEDs; don't shell out to it).
 - `morph-k/rawtalk` — daemon shape (socket → dedupe → single writer), Neovim `vim.uv` client.
-- Scripts being replaced: `~/.hammerspoon/zmk-vim-mode-watcher.lua`,
-  `~/dotfiles/omarchy/.config/hypr/zmk-vim-mode-watcher.sh`.
+- Scripts being replaced: the two focus-heuristic watchers described at the top.

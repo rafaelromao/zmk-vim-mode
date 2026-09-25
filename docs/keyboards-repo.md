@@ -1,12 +1,16 @@
-# Integrating with the keyboards repo
+# Worked example: the author's keyboards repo
 
-Exact changes for `~/projects/keyboards`. Line references are from the state of
-that repo when this was written (`4ab13206`).
+How [rafaelromao/keyboards](https://github.com/rafaelromao/keyboards), the
+author's ZMK config, takes this module in. It is a reference for wiring the
+module into a config of your own, not something zmk-vim-mode needs: your keymap
+only needs what *The keyboard side* in the [README](../README.md#the-keyboard-side)
+describes. Line references are from the state of that repo when this was
+written (`4ab13206`).
 
 ## 1. Add the module
 
 ```bash
-cd ~/projects/keyboards
+cd keyboards   # a checkout of rafaelromao/keyboards
 git submodule add git@github.com:rafaelromao/zmk-vim-mode modules/rafaelromao/zmk-vim-mode
 ```
 
@@ -131,7 +135,7 @@ the daemon (a Windows box, someone else's laptop).
 Only the central/dongle side needs reflashing:
 
 ```bash
-cd ~/projects/keyboards
+cd keyboards
 ./init.sh
 # inside the container:
 b rommana cl      # central left
@@ -140,7 +144,7 @@ b rommana cd      # dongle, if used
 
 ## 5. Verify without the host daemon
 
-With the keyboard connected to the Omarchy box:
+With the keyboard connected to a Linux host:
 
 ```bash
 # 1 = NORMAL, 2 = INSERT, 3 = VISUAL, 6 = RAW, 0 = off

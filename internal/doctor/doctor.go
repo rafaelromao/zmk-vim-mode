@@ -155,21 +155,7 @@ func Run(w io.Writer, socket, cliVersion string) error {
 		}
 	}
 
-	// 4. old watchers
-	var old []string
-	for _, p := range install.OldWatchers() {
-		if _, err := os.Stat(p); err == nil {
-			old = append(old, install.TrimHome(p))
-		}
-	}
-	if len(old) > 0 {
-		add("old watchers", warn, strings.Join(old, ", "),
-			"retire them: they toggle Num Lock on every focus change for nothing (Hammerspoon require, hyprland.conf exec-once, systemd unit)")
-	} else {
-		add("old watchers", ok, "none found", "")
-	}
-
-	// 5. platform specifics, then the editor setups (VSCode, Obsidian) and the
+	// 4. platform specifics, then the editor setups (VSCode, Obsidian) and the
 	// status bar indicator
 	var daemonAX *bool
 	if status.Status != nil {
@@ -181,7 +167,7 @@ func Run(w io.Writer, socket, cliVersion string) error {
 		checks = append(checks, barChecks(home)...)
 	}
 
-	// 6. tmux focus events
+	// 5. tmux focus events
 	if os.Getenv("TMUX") != "" || hasBinary("tmux") {
 		out, err := exec.Command("tmux", "show", "-gv", "focus-events").Output()
 		switch {
@@ -195,7 +181,7 @@ func Run(w io.Writer, socket, cliVersion string) error {
 		}
 	}
 
-	// 7. Linux specifics. (The numlock_by_default check is gone with the
+	// 6. Linux specifics. (The numlock_by_default check is gone with the
 	// keymap's num-lock listener: Num Lock no longer means anything to it.)
 	if runtime.GOOS == "linux" {
 		if _, err := os.Stat("/etc/udev/rules.d/60-zmk-vim-mode.rules"); err == nil {

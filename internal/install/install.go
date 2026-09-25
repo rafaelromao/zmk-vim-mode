@@ -307,22 +307,6 @@ func Uninstall(w io.Writer) error {
 	return nil
 }
 
-// OldWatchers lists the files of the previous ad-hoc solution, so doctor can
-// tell the user what to retire.
-func OldWatchers() []string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-	return []string{
-		filepath.Join(home, ".hammerspoon", "zmk-vim-mode-watcher.lua"),
-		filepath.Join(home, ".hammerspoon", "zmk-vim-mode.sh"),
-		filepath.Join(home, ".config", "hypr", "zmk-vim-mode-watcher.sh"),
-		filepath.Join(home, ".config", "hypr", "zmk-vim-mode.sh"),
-		filepath.Join(home, ".config", "systemd", "user", "zmk-vim-mode-watcher.service"),
-	}
-}
-
 // TrimHome shortens a path for display.
 func TrimHome(p string) string {
 	home, err := os.UserHomeDir()

@@ -786,7 +786,7 @@ zmk-vim-mode status             current decision, frontmost app, widget focus, c
                                 --json: the daemon's full state; --bar: one line for a status bar
 zmk-vim-mode devices            keyboards the daemon can write to, and the last code sent to each
 zmk-vim-mode set <mode>         manual override; repeating the same mode returns to auto
-zmk-vim-mode doctor             daemon, devices, permissions, old watchers, the editor setups and the status bar indicator
+zmk-vim-mode doctor             daemon, devices, permissions, the editor setups and the status bar indicator
 zmk-vim-mode install [flags]    service, PATH entry, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux,
                                 --hammerspoon (macOS menu bar), --omarchy (Omarchy bar widget)
                                 --no-path keeps your shell profile untouched; --no-open leaves the macOS panes closed

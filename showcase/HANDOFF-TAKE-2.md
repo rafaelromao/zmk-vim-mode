@@ -97,8 +97,8 @@ User corrections to the plan above, all applied:
   `seg3`: `ctrl+shift+e`, the lower pane tails the log, and `ctrl+alt+up/down` switches focus).
   The generated `run/ghostty.conf` gives every split the demo Bash prompt. `SCRIPT.md` beat 3
   and shot D are updated.
-- **Menu-bar widgets stay as configured.** An earlier take stripped `romao.agents` and
-  `romao.weather`, but the user reported missing icons. `prepare.sh` now leaves
+- **Menu-bar widgets stay as configured.** An earlier take stripped two of the user's own
+  bar widgets, but the user reported missing icons. `prepare.sh` now leaves
   `~/.config/omarchy/shell.json` untouched and must not remove or disable any bar item or restart
   QuickShell.
 - The 500 ms take timing above is historical and superseded by the 100 ms Alpha 2-return setting

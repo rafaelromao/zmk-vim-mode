@@ -28,10 +28,11 @@ Chromium-family browser. Run it from a normal shell — a sandbox that denies un
 binds cannot start either the browser or the page's http server.
 
 ```bash
-cd ~/projects/zmk-layer-hud && bash docs/make-gif.sh --config config/diamond.yaml --script docs/demo-vim.json --out ~/projects/zmk-vim-mode/docs/img/vim-layers.gif --framerate 0.9
+cd ../zmk-layer-hud && bash docs/make-gif.sh --config config/diamond.yaml --script docs/demo-vim.json --out ../zmk-vim-mode/docs/img/vim-layers.gif --framerate 0.9
 ```
 
-The keymap itself is read live from `~/projects/keyboards`, so the legends always match the
+The keymap itself is read live from a local checkout of the
+[keyboards repo](https://github.com/rafaelromao/keyboards), so the legends always match the
 published diagrams. The script's shape is documented above `demoFrame` in zmk-layer-hud's
 `hud/hud.js`. The same animation is that repository's own README image, so a change here is
 worth rendering to `docs/hud.gif` there as well.

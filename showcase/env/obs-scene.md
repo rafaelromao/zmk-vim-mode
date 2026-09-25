@@ -82,8 +82,8 @@ Alpha 1 before the next key (about 171 ms later). It restores the saved config a
   debugging; takes never show it.)
 - **Editors** are maximized on their workspaces by `prepare.sh` — never fullscreen, which hides
   layer-shell surfaces and ignores their reservations.
-- **Bar layout** stays exactly as the user configured it, including `romao.agents` and
-  `romao.weather`. `prepare.sh` does not edit `~/.config/omarchy/shell.json`, remove icons, or
+- **Bar layout** stays exactly as the user configured it, custom widgets included.
+  `prepare.sh` does not edit `~/.config/omarchy/shell.json`, remove icons, or
   restart QuickShell.
 
 ## Text sizes (everything ≥ 18 pt, on top of the monitor scale)

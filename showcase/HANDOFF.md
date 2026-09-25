@@ -237,7 +237,7 @@ work from it almost verbatim, which is why its Linux panel behaves the same)*
 - **IntelliJ paint dies ~10–20 min into a session** (window goes fully blank; JVM alive and logging,
   input still processed). Un-maximizing does not restore it; a process restart does. Cause unknown —
   prime suspect is Skiko/GL on NVIDIA Wayland. This is a take-blocker for beat 6, not a rehearsal
-  blocker. Do NOT touch `idea64.vmoptions` (symlink into the user's dotfiles repo); launch-only
+  blocker. Do NOT touch `idea64.vmoptions` (the user's own IDE settings); launch-only
   mitigations (`_JAVA_OPTIONS` software render / XToolkit) are untried.
 - IntelliJ also leaves an untitled empty-title frame beside the project window; the runner prefers
   titled windows, and `demo-java` opens in the titled one.
@@ -501,7 +501,7 @@ Things to verify first on the box, in this order:
   what the daemon reports: reset once with `prepare.sh` rather than sending close commands
   mid-run (those caused their own beeps and errors).
 - Claude Code's sandbox on the Mac could not reach the daemon socket, network sockets, nested
-  `.git` dirs or dotfiles (it refused even to delete `env/.zshrc`); the user ran the scripts and
+  `.git` dirs or hidden files (it refused even to delete `env/.zshrc`); the user ran the scripts and
   pasted output, the agent read `run/rehearsal.log` and the daemon log. Expect similar limits.
 
 ## Suggested next steps

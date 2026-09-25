@@ -50,7 +50,7 @@ Usage:
   zmk-vim-mode uninstall
   zmk-vim-mode atspi-watch              print accessibility-bus focus events with the classifier's verdict (Linux)
   zmk-vim-mode hid-scan [--all]         list the HID keyboards this host sees and the LEDs they expose (macOS)
-  zmk-vim-mode doctor                   check permissions, devices, old watchers, tmux, udev
+  zmk-vim-mode doctor                   check permissions, devices, editors, status bar, tmux, udev
   zmk-vim-mode version
 
 Environment: ZMK_VIM_MODE_SOCKET overrides the socket path (default ~/.local/state/zmk-vim-mode/daemon.sock).

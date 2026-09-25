@@ -418,8 +418,8 @@ PASS: host → hidraw → kernel → HID output report → ZMK all work on this
 transport. Only the choice of *which* bits remains to be proven.
 FAIL: run `caps`, then check the udev rule and that the write reported "ok".
 
-Step 1 — prove the three carrier bits. In ~/projects/keyboards/src/features/
-vim.dtsi, temporarily add inside the existing hid_listeners node:
+Step 1 — prove the three carrier bits. In your keymap, temporarily add inside
+its zmk,hid-listeners node (src/features/vim.dtsi in the author's keyboards repo):
 
        compose_probe { indicator = <HID_USAGE_LED_COMPOSE>; bindings = <&kp A &kp B>; };
        kana_probe    { indicator = <HID_USAGE_LED_KANA>;    bindings = <&kp C &kp D>; };
