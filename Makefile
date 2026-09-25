@@ -38,10 +38,15 @@ SUBMAKE := $(MAKE)
 # What `install` sets up. The editor integrations skip whatever is not
 # installed, so asking for all of them is safe. --intellij is the one that can
 # take a while: with a JetBrains IDE and IdeaVim present it compiles the plugin,
-# and the first run downloads Gradle and the Kotlin compiler.
+# and the first run downloads Gradle and the Kotlin compiler. The status bar
+# indicator is the one for this OS: the Hammerspoon menu bar item on macOS, the
+# Quattro bar widget on Omarchy; each skips itself when its host is missing.
 INSTALL_FLAGS := --nvim --tmux --vscode --obsidian --intellij
 ifeq ($(UNAME_S),Linux)
-INSTALL_FLAGS += --atspi
+INSTALL_FLAGS += --atspi --omarchy
+endif
+ifeq ($(UNAME_S),Darwin)
+INSTALL_FLAGS += --hammerspoon
 endif
 
 build: codesign-ensure ## build the daemon for this platform
@@ -82,7 +87,7 @@ test-firmware: ## host-side tests for the ZMK module's decode/timing policy
 	./build/test_code_policy
 
 fmt: ## format Go sources
-	gofmt -w ./cmd ./internal
+	gofmt -w ./cmd ./internal ./editors ./bars
 
 vet: ## vet for this platform and for Linux
 	$(GO) vet ./...
@@ -90,7 +95,7 @@ vet: ## vet for this platform and for Linux
 
 lint: fmt vet ## format then vet
 
-install: build ## install everything: binary, service, udev rule, editor integrations
+install: build ## install everything: binary, service, udev rule, editor integrations, status bar indicator
 	@mkdir -p $(PREFIX)/bin
 	install -m 0755 $(BIN) $(PREFIX)/bin/$(BIN)
 	@echo "installed $(PREFIX)/bin/$(BIN)"

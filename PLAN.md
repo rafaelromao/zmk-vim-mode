@@ -127,6 +127,7 @@ zmk-vim-mode/
 ├── lua/zmk-vim-mode/{init.lua,modes.lua}, plugin/zmk-vim-mode.lua, tests/lua/   Neovim plugin (repo root = lazy.nvim plugin)
 ├── zephyr/module.yml, firmware/{Kconfig,CMakeLists.txt,dts/bindings/,src/}   ZMK module (repo root = Zephyr module)
 ├── editors/{vscode,intellij,obsidian}/               editor clients speaking the same socket protocol (§4)
+├── bars/{hammerspoon,omarchy}/                       status bar indicators: they render `status --bar`, never talk to the socket
 ├── contrib/{systemd,udev,launchd,nvim-lazy-spec.lua,hyprland-bind.conf}
 ├── Makefile, README.md
 ```

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "rafaelromao.zmk-vim-mode",
+  "name": "ZMK Vim Mode",
+  "version": "1.0.0",
+  "author": "Rafael Romão",
+  "description": "The vim mode your ZMK keyboard is in, as the zmk-vim-mode daemon decided it",
+  "license": "MIT",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "VimMode.qml"
+  },
+  "barWidget": {
+    "displayName": "ZMK Vim Mode",
+    "description": "The vim mode your ZMK keyboard is in; hidden while vim mode is off",
+    "category": "Status",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

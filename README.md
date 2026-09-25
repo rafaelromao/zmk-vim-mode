@@ -554,12 +554,14 @@ One command, both platforms. It builds and installs the binary, adds
 `~/.local/bin` to your shell profile when it is not already on `PATH`, writes
 the user service and starts it, installs the Neovim plugin spec, and sets up
 VSCode and Obsidian — each editor is skipped when it is not installed, and an
-existing Neovim spec is never touched. On Linux it also installs the udev rule
-(the one `sudo` prompt) and enables the accessibility bus; on macOS it creates
-the code-signing certificate if you have none (your login password), signs the
-binary, loads the launchd agent, and opens the two Privacy & Security panes.
-Running it again is how you upgrade: it restarts the service, so it never
-leaves the old binary running.
+existing Neovim spec is never touched. It also puts the
+[status bar indicator](#status-bar-indicator) in your bar: the Omarchy widget on
+Linux, the Hammerspoon menu bar item on macOS, each skipped when its host is
+missing. On Linux it also installs the udev rule (the one `sudo` prompt) and
+enables the accessibility bus; on macOS it creates the code-signing certificate
+if you have none (your login password), signs the binary, loads the launchd
+agent, and opens the two Privacy & Security panes. Running it again is how you
+upgrade: it restarts the service, so it never leaves the old binary running.
 
 The `PATH` line goes in `~/.zshrc`, `~/.bash_profile` or `config.fish`
 depending on `$SHELL`, is marked so a second install never stacks a duplicate,
@@ -631,6 +633,36 @@ Inside an app the sources rank: window title (a focused tool window) →
 accessibility bus (focus anywhere but the text editor) → the app's own client
 saying `raw` → the best client with a real mode → `legacy`. The title wins
 because no client can see focus leave the text editor.
+
+### Status bar indicator
+
+The mode the keyboard is in, where you can see it: NORMAL, INSERT, VISUAL,
+CMDLINE, VIM (legacy) or RAW behind a Neovim glyph, `VIM ?` while the daemon is
+down, and nothing at all while vim mode is off. It is the decision the keyboard
+just acted on, not a second guess at it.
+
+| Bar | What gets installed | Setup |
+|---|---|---|
+| macOS menu bar | a [Hammerspoon](https://www.hammerspoon.org) Spoon, `~/.hammerspoon/Spoons/ZmkVimMode.spoon`, and the lines in `init.lua` that start it | `zmk-vim-mode install --hammerspoon` (also done by `make install`), see [bars/hammerspoon](bars/hammerspoon/README.md) |
+| Omarchy Quattro bar | a bar widget plugin, `~/.config/omarchy/plugins/rafaelromao.zmk-vim-mode`, listed in `bar.layout.right` of `shell.json` | `zmk-vim-mode install --omarchy` (also done by `make install`), see [bars/omarchy](bars/omarchy/README.md) |
+| any other bar | nothing: `zmk-vim-mode status --bar` prints the same answer as one Waybar-style JSON line (`text`, `tooltip`, `class`) | a module that runs it every second, below |
+
+Both widgets only draw what `status --bar` prints, so they always agree, and
+it answers even while the daemon is down. The installers write the binary's
+full path into the widget, since a bar does not see your shell's `PATH`, and
+they only ever add to `init.lua` and `shell.json` (keeping a backup of
+`shell.json`); either file may also be a symlink, which stays one.
+
+A Waybar module, for instance:
+
+```jsonc
+"custom/vim-mode": {
+  "exec": "zmk-vim-mode status --bar",
+  "return-type": "json",
+  "interval": 1,
+  "format": " {}"
+}
+```
 
 #### Neovim plugin options
 
@@ -751,10 +783,12 @@ Root*, Certificate Type *Code Signing* (the dialog opens on *SSL Client*).
 ```
 zmk-vim-mode daemon [--atspi]   run the daemon (normally via the user service)
 zmk-vim-mode status             current decision, frontmost app, widget focus, clients, devices
+                                --json: the daemon's full state; --bar: one line for a status bar
 zmk-vim-mode devices            keyboards the daemon can write to, and the last code sent to each
 zmk-vim-mode set <mode>         manual override; repeating the same mode returns to auto
-zmk-vim-mode doctor             daemon, devices, permissions, old watchers, and the editor setups
-zmk-vim-mode install [flags]    service, PATH entry, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux
+zmk-vim-mode doctor             daemon, devices, permissions, old watchers, the editor setups and the status bar indicator
+zmk-vim-mode install [flags]    service, PATH entry, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux,
+                                --hammerspoon (macOS menu bar), --omarchy (Omarchy bar widget)
                                 --no-path keeps your shell profile untouched; --no-open leaves the macOS panes closed
 zmk-vim-mode uninstall          remove the service (config is left alone)
 zmk-vim-mode atspi-watch        Linux: accessibility-bus focus events with the classifier's verdict

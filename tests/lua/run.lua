@@ -3,6 +3,8 @@
 local root = vim.fn.fnamemodify(vim.fn.resolve(debug.getinfo(1, "S").source:sub(2)), ":h:h:h")
 vim.opt.runtimepath:prepend(root)
 package.path = root .. "/lua/?.lua;" .. root .. "/lua/?/init.lua;" .. package.path
+-- The Hammerspoon Spoon, found the way Hammerspoon finds Spoons.
+package.path = root .. "/bars/hammerspoon/?.spoon/init.lua;" .. package.path
 
 local failures, checks = 0, 0
 
@@ -26,7 +28,7 @@ end
 
 _G.T = T
 
-for _, spec in ipairs({ "modes_spec", "context_spec", "vscode_spec" }) do
+for _, spec in ipairs({ "modes_spec", "context_spec", "vscode_spec", "spoon_spec" }) do
   dofile(root .. "/tests/lua/" .. spec .. ".lua")
 end
 

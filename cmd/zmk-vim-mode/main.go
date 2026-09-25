@@ -18,6 +18,7 @@ import (
 
 	"github.com/rafaelromao/zmk-vim-mode/internal/daemon"
 	"github.com/rafaelromao/zmk-vim-mode/internal/doctor"
+	"github.com/rafaelromao/zmk-vim-mode/internal/indicator"
 	"github.com/rafaelromao/zmk-vim-mode/internal/install"
 	"github.com/rafaelromao/zmk-vim-mode/internal/proto"
 	"github.com/rafaelromao/zmk-vim-mode/internal/server"
@@ -34,14 +35,18 @@ Usage:
   zmk-vim-mode set <mode> [--ttl 30s] [--sticky]
                                         manual override: off|normal|insert|visual|cmdline|raw|legacy|auto
                                         (re-issuing the same mode toggles back to auto)
-  zmk-vim-mode status [--json]          show decision, frontmost app, clients, devices
+  zmk-vim-mode status [--json|--bar]    show decision, frontmost app, clients, devices;
+                                        --bar prints one JSON line for a status bar (Waybar-style)
   zmk-vim-mode devices                  list keyboards the daemon can write to
   zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode] [--obsidian] [--intellij] [--atspi]
+                       [--hammerspoon] [--omarchy]
                                         install the user service; print editor/tmux snippets;
                                         --vscode writes settings.json and installs the extensions;
                                         --obsidian installs the plugin into your vaults;
                                         --intellij builds and installs the plugin for your JetBrains IDEs;
-                                        --atspi makes the service follow focus inside VSCode
+                                        --atspi makes the service follow focus inside VSCode;
+                                        --hammerspoon installs the menu bar indicator (macOS);
+                                        --omarchy installs the bar widget (Omarchy Quattro)
   zmk-vim-mode uninstall
   zmk-vim-mode atspi-watch              print accessibility-bus focus events with the classifier's verdict (Linux)
   zmk-vim-mode hid-scan [--all]         list the HID keyboards this host sees and the LEDs they expose (macOS)
@@ -231,12 +236,24 @@ func runSet(args []string) error {
 	return nil
 }
 
+// barTimeout bounds a `status --bar` request. Bars poll once a second, and a
+// request keeps redialling a missing socket until its deadline, so with the
+// daemon down every poll would otherwise take the full two seconds.
+const barTimeout = 700 * time.Millisecond
+
 func runStatus(args []string) error {
 	fs := flag.NewFlagSet("status", flag.ContinueOnError)
 	asJSON := fs.Bool("json", false, "print raw JSON")
+	asBar := fs.Bool("bar", false, "print one JSON line for a status bar: text (empty while vim mode is off), tooltip, class")
 	sock := fs.String("socket", server.DefaultSocketPath(), "unix socket path")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *asBar {
+		// Failures are printed, not returned: a bar reads stdout only, and would
+		// show nothing where it should show that the daemon is down.
+		reply, err := server.Request(*sock, proto.Msg{V: proto.Version, T: proto.TStatus}, barTimeout)
+		return json.NewEncoder(os.Stdout).Encode(indicator.FromReply(reply, err))
 	}
 	reply, err := server.Request(*sock, proto.Msg{V: proto.Version, T: proto.TStatus}, 2*time.Second)
 	if err != nil {
@@ -356,10 +373,12 @@ func runInstall(args []string) error {
 	intellij := fs.Bool("intellij", false, "build the IntelliJ plugin against each installed JetBrains IDE and install it (needs IdeaVim)")
 	noPath := fs.Bool("no-path", false, "do not add the binary's directory to PATH in your shell profile")
 	noOpen := fs.Bool("no-open", false, "do not open the macOS Privacy & Security panes that need a manual grant")
+	hammerspoon := fs.Bool("hammerspoon", false, "install the menu bar indicator as a Hammerspoon Spoon and start it from init.lua (macOS)")
+	omarchy := fs.Bool("omarchy", false, "install the bar widget plugin into Omarchy's Quattro shell and put it in the bar (Linux)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Obsidian: *obsidian, IntelliJ: *intellij, ATSPI: *atspiOn, Service: !*noService, PathEntry: !*noPath, OpenPrivacy: !*noOpen, Version: Version})
+	return install.Run(os.Stdout, install.Options{Nvim: *nvim, Tmux: *tmux, Udev: *udev, VSCode: *vscode, Obsidian: *obsidian, IntelliJ: *intellij, Hammerspoon: *hammerspoon, Omarchy: *omarchy, ATSPI: *atspiOn, Service: !*noService, PathEntry: !*noPath, OpenPrivacy: !*noOpen, Version: Version})
 }
 
 func deref(p *uint8) uint8 {

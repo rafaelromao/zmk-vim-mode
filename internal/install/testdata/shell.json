@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "bar": {
+    "position": "top",
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.menu"
+        },
+        {
+          "id": "omarchy.workspaces"
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.clock",
+          "format": "ddd · d MMM",
+          "verticalFormat": "HH\nmm"
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.tray"
+        },
+        {
+          "id": "uptime",
+          "type": "command",
+          "exec": "uptime -p",
+          "interval": 60,
+          "tooltip": "Uptime"
+        },
+        {
+          "id": "omarchy.network"
+        }
+      ]
+    }
+  },
+  "plugins": []
+}

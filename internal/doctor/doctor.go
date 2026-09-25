@@ -169,7 +169,8 @@ func Run(w io.Writer, socket, cliVersion string) error {
 		add("old watchers", ok, "none found", "")
 	}
 
-	// 5. platform specifics, then the editor setups (VSCode, Obsidian)
+	// 5. platform specifics, then the editor setups (VSCode, Obsidian) and the
+	// status bar indicator
 	var daemonAX *bool
 	if status.Status != nil {
 		daemonAX = status.Status.AXTrusted
@@ -177,6 +178,7 @@ func Run(w io.Writer, socket, cliVersion string) error {
 	checks = append(checks, platformChecks(daemonAX)...)
 	if home, err := os.UserHomeDir(); err == nil {
 		checks = append(checks, editorChecks(home)...)
+		checks = append(checks, barChecks(home)...)
 	}
 
 	// 6. tmux focus events

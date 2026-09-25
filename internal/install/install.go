@@ -27,6 +27,12 @@ type Options struct {
 	// IntelliJ builds the plugin against each installed JetBrains IDE and
 	// unpacks it where that IDE loads plugins from.
 	IntelliJ bool
+	// Hammerspoon installs the menu bar indicator as a Spoon and has init.lua
+	// start it (macOS).
+	Hammerspoon bool
+	// Omarchy installs the bar widget plugin into Omarchy's Quattro shell and
+	// puts it in the bar (Linux).
+	Omarchy bool
 	// ATSPI starts the service with --atspi.
 	ATSPI bool
 	// PathEntry appends the binary's directory to the login shell's profile
@@ -257,11 +263,27 @@ func Run(w io.Writer, o Options) error {
 			return err
 		}
 	}
-	if !o.Nvim && !o.Tmux && !o.Udev && !o.VSCode && !o.Obsidian && !o.IntelliJ {
+	// The status bar indicators come last and do not fail the install: they
+	// are a convenience, and `make install` still has the udev rule and the
+	// service to set up after this returns.
+	if o.Hammerspoon {
+		fmt.Fprintln(w, "\n--- Hammerspoon (menu bar) ---")
+		if err := InstallHammerspoon(w, exe); err != nil {
+			fmt.Fprintf(w, "hammerspoon: %v\n", err)
+		}
+	}
+	if o.Omarchy {
+		fmt.Fprintln(w, "\n--- Omarchy (bar widget) ---")
+		if err := InstallOmarchy(w, exe); err != nil {
+			fmt.Fprintf(w, "omarchy    : %v\n", err)
+		}
+	}
+	if !o.Nvim && !o.Tmux && !o.Udev && !o.VSCode && !o.Obsidian && !o.IntelliJ && !o.Hammerspoon && !o.Omarchy {
 		fmt.Fprintln(w, "\nrun with --nvim --tmux --udev to print the editor, tmux and udev snippets,")
 		fmt.Fprintln(w, "--vscode to apply the VSCode settings and install the companion extension,")
 		fmt.Fprintln(w, "--obsidian to install the plugin into your vaults,")
-		fmt.Fprintln(w, "--intellij to build and install the plugin for your JetBrains IDEs.")
+		fmt.Fprintln(w, "--intellij to build and install the plugin for your JetBrains IDEs,")
+		fmt.Fprintln(w, "--hammerspoon (macOS) or --omarchy (Omarchy Quattro) to install the status bar indicator.")
 	}
 	return nil
 }
