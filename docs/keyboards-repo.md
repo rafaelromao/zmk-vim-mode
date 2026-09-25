@@ -3,7 +3,7 @@
 How [rafaelromao/keyboards](https://github.com/rafaelromao/keyboards), the
 author's ZMK config, takes this module in. It is a reference for wiring the
 module into a config of your own, not something zmk-vim-mode needs: your keymap
-only needs what *The keyboard side* in the [README](../README.md#the-keyboard-side)
+only needs what *Keyboard setup* in the [README](../README.md#keyboard-setup)
 describes. Line references are from the state of that repo when this was
 written (`4ab13206`).
 
