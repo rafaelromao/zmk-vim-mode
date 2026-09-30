@@ -105,13 +105,14 @@ all: they name keycodes, not positions on your alpha layout.
             >;
         };
 
-        // Commands, not letters: motions on the right home row, operators on
-        // the left, ":" and "/" on the pinkies where they are cheap to reach.
+        // Commands, not letters: h j k l under the four fingers of the right
+        // home row with ":" beside them on the inner column, operators on the
+        // left.
         vim_normal_layer {
             display-name = "NORMAL";
             bindings = <
    &kp ESC      &vim_c       &vim_o        &vim_i        &vim_a       &kp LC(U)  &kp W          &kp E         &kp B        &kp DLLR
-   &kp LC(R)    &kp U        &vim_v        &vim_dd       &vim_yy      &kp H      &kp J          &kp K         &kp L        &vim_colon
+   &kp LC(R)    &kp U        &vim_v        &vim_dd       &vim_yy      &vim_colon &kp H          &kp J         &kp K        &kp L
    &kp DOT      &vim_x       &kp P         &vim_slash    &kp N        &kp LC(D)  &vim_gg        &kp LS(G)     &kp CARET    &kp PRCNT
                                            &trans        &trans       &trans     &trans
             >;
@@ -123,7 +124,7 @@ all: they name keycodes, not positions on your alpha layout.
             display-name = "VISUAL";
             bindings = <
    &trans       &vim_c       &trans        &trans        &trans       &trans     &trans         &trans        &trans       &trans
-   &trans       &trans       &vim_v        &vim_d        &vim_y       &trans     &trans         &trans        &trans       &vim_colon
+   &trans       &trans       &vim_v        &vim_d        &vim_y       &vim_colon &trans         &trans        &trans       &trans
    &trans       &vim_x       &vim_p        &trans        &trans       &trans     &trans         &trans        &trans       &trans
                                            &trans        &trans       &trans     &trans
             >;
