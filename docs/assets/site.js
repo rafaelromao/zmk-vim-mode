@@ -86,6 +86,8 @@
   }
 
   const LAYERS = {
+    off: { name: "OFF", under: "no vim layers: the Gallium base", keys: base(),
+      label: "The example keymap with vim mode off: only its base layer" },
     normal: { name: "NORMAL", under: "commands, not letters", keys: normal() },
     insert: { name: "INSERT", under: "transparent: the Gallium base", keys: insert() },
     visual: { name: "VISUAL", under: "on top of NORMAL", keys: visual() },
@@ -148,7 +150,7 @@
     });
     $("#layer-name").textContent = layer.name;
     $("#layer-under").textContent = layer.under;
-    board.setAttribute("aria-label", "The " + layer.name + " layer of the example keymap");
+    board.setAttribute("aria-label", layer.label || "The " + layer.name + " layer of the example keymap");
   }
 
   const NAMED = { Escape: "Esc", " ": "Spc", Enter: "Ret", Backspace: "Bksp" };
@@ -191,7 +193,7 @@
   const lastline = $("#lastline");
   const msgEl = $("#msg");
   const live = $("#live");
-  const MODE_MSG = { insert: "-- INSERT --", visual: "-- VISUAL --" };
+  const MODE_MSG = { insert: "-- INSERT --", visual: "-- VISUAL --", off: "vim mode off: Esc turns it back on" };
   let msgTimer = 0;
   let liveTimer = 0;
 
@@ -221,7 +223,7 @@
 
   let mode = "normal";
   const modeEl = $("#mode");
-  const LABEL = { normal: "NORMAL", insert: "INSERT", visual: "VISUAL", cmdline: "COMMAND" };
+  const LABEL = { off: "OFF", normal: "NORMAL", insert: "INSERT", visual: "VISUAL", cmdline: "COMMAND" };
 
   function setMode(next) {
     if (!LAYERS[next]) return;
@@ -232,7 +234,15 @@
     $$(".modebar button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.set === next)));
     paint(next);
     if (next !== "cmdline") showMode();
-    if (changed) announce(LABEL[next].toLowerCase() + " mode");
+    if (changed) announce(next === "off" ? "vim mode off" : LABEL[next].toLowerCase() + " mode");
+  }
+
+  // Quitting vim is when the host sends code 0 and the keyboard drops every
+  // vim layer (README: "that is the host's job, and it sends code 0").
+  function quitVim() {
+    setPending("");
+    setMode("off");
+    say("vim closed: code 0, no vim layers. Esc starts it again.");
   }
 
   /* ---- moving around ------------------------------------------------------ */
@@ -366,7 +376,7 @@
       jump($(TOPICS[topic]));
       say(":help " + (arg || "zmk-vim-mode-keys"));
     } else if (/^(q|qa|qa?!|wq|wqa|x|xa|quit|qall|exit)$/.test(cmd)) {
-      say("Nothing to quit: this is a web page. Close the tab, or :help install first.");
+      quitVim();
     } else if (/^w!?$/.test(cmd)) {
       say("E45: 'readonly' option is set (add ! to override)", "err");
     } else if ((m = cmd.match(/^se(?:t)?\s+(bg|background)(?:=(\S*)|(\?))?$/))) {
@@ -445,11 +455,11 @@
     const k = e.key;
     if (k === "g" || k === "Z") {
       if (k === "g" && pending === "g") { setPending(""); toTop(); return true; }
-      if (k === "Z" && pending === "Z") { setPending(""); say("Nothing to quit: this is a web page. Close the tab, or :help install first."); return true; }
+      if (k === "Z" && pending === "Z") { quitVim(); return true; }
       setPending(k);
       return true;
     }
-    if (pending === "Z" && k === "Q") { setPending(""); say("Nothing to quit: this is a web page. Close the tab, or :help install first."); return true; }
+    if (pending === "Z" && k === "Q") { quitVim(); return true; }
     setPending("");
     if (k === "j") scrollLines(1, e.repeat);
     else if (k === "k") scrollLines(-1, e.repeat);
@@ -477,16 +487,23 @@
     // Space and Enter keep their meaning on links and buttons.
     if ((k === " " || k === "Enter") && t && t.closest(INTERACTIVE)) return;
     const printable = k.length === 1;
-    const typed = mode === "insert" && (k === "Enter" || k === "Backspace");
+    const typing = mode === "insert" || mode === "off";
+    const typed = typing && (k === "Enter" || k === "Backspace");
     if (!printable && k !== "Escape" && !typed) return;
     // A held key repeats only the motions: holding v must not flicker VISUAL.
-    if (e.repeat && mode !== "insert" && k !== "j" && k !== "k") {
+    if (e.repeat && !typing && k !== "j" && k !== "k") {
       if (printable) e.preventDefault();
       return;
     }
 
     light(cellFor(e));
     logKey(e);
+    // Vim mode off: the keyboard is just a keyboard, and the page lets every
+    // key through untouched. Esc turns vim mode on, as focusing an editor would.
+    if (mode === "off") {
+      if (k === "Escape") setMode("normal");
+      return;
+    }
     // Space still pages down outside insert mode.
     if (k === " " && mode !== "insert") return;
 

@@ -144,10 +144,13 @@ x q m w z   <b>k</b> f ' ; .</pre>
     <div class="prose">
       <p>Press <kbd>Esc</kbd>, then <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>.
         <kbd>i</kbd> to type, <kbd>v</kbd> to select, <kbd>:</kbd> for the command line, and
-        watch the board change layers. On a touch screen, use the buttons.</p>
+        watch the board change layers. OFF is the keyboard with vim mode off, as in any app that
+        isn't vim: the base layout and nothing else. <code>:q</code> gets you there, and
+        <kbd>Esc</kbd> turns vim mode back on. On a touch screen, use the buttons.</p>
     </div>
     <div class="board-wrap">
       <div class="modebar" role="group" aria-label="Mode">
+        <button type="button" data-set="off" aria-pressed="false">OFF</button>
         <button type="button" data-set="normal" aria-pressed="true">NORMAL</button>
         <button type="button" data-set="insert" aria-pressed="false">INSERT</button>
         <button type="button" data-set="visual" aria-pressed="false">VISUAL</button>
@@ -193,9 +196,9 @@ x q m w z   <b>k</b> f ' ; .</pre>
       <table>
         <tbody>
           <tr><th scope="row">move</th><td><kbd>j</kbd> <kbd>k</kbd> scroll, <kbd>g</kbd><kbd>g</kbd> <kbd>G</kbd> top and bottom, <kbd>{</kbd> <kbd>}</kbd> previous and next section</td></tr>
-          <tr><th scope="row">modes</th><td><kbd>i</kbd> <kbd>a</kbd> <kbd>o</kbd> <kbd>c</kbd> <kbd>s</kbd> <kbd>R</kbd> INSERT, <kbd>v</kbd> VISUAL, <kbd>:</kbd> <kbd>/</kbd> <kbd>?</kbd> the command line, <kbd>Esc</kbd> NORMAL</td></tr>
+          <tr><th scope="row">modes</th><td><kbd>i</kbd> <kbd>a</kbd> <kbd>o</kbd> <kbd>c</kbd> <kbd>s</kbd> <kbd>R</kbd> INSERT, <kbd>v</kbd> VISUAL, <kbd>:</kbd> <kbd>/</kbd> <kbd>?</kbd> the command line, <kbd>Esc</kbd> NORMAL, <code>:q</code> or <kbd>Z</kbd><kbd>Z</kbd> OFF (vim closed, no vim layers)</td></tr>
           <tr><th scope="row">search</th><td><code>/text</code> or <code>?text</code>, then <kbd>n</kbd> <kbd>N</kbd> for the next and previous match</td></tr>
-          <tr><th scope="row">commands</th><td><code>:help {topic}</code> jumps to <code>why</code>, <code>try</code>, <code>modes</code>, <code>editors</code>, <code>how</code>, <code>install</code> or <code>bar</code>; <code>:set background=light</code> or <code>dark</code>; <code>:github</code>; <code>:q</code></td></tr>
+          <tr><th scope="row">commands</th><td><code>:help {topic}</code> jumps to <code>why</code>, <code>try</code>, <code>modes</code>, <code>editors</code>, <code>how</code>, <code>install</code> or <code>bar</code>; <code>:set background=light</code> or <code>dark</code>; <code>:github</code></td></tr>
         </tbody>
       </table>
     </div>

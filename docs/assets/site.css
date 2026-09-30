@@ -220,6 +220,7 @@ img { max-width: 100%; }
 [data-mode="insert"] .statusline .mode { background: var(--chip-insert); }
 [data-mode="visual"] .statusline .mode { background: var(--chip-visual); }
 [data-mode="cmdline"] .statusline .mode { background: var(--chip-command); }
+[data-mode="off"] .statusline .mode { background: var(--dim); }
 
 .statusline .name {
   display: flex;
@@ -501,6 +502,8 @@ td.num, th.num { text-align: right; }
 [data-mode="visual"] .banner .layer { color: var(--magenta); }
 [data-mode="cmdline"] .banner { border-color: var(--yellow); }
 [data-mode="cmdline"] .banner .layer { color: var(--yellow); }
+[data-mode="off"] .banner { border-color: var(--dim); }
+[data-mode="off"] .banner .layer { color: var(--dim); }
 
 .board {
   --k: clamp(22px, 7.1vw, 50px);
@@ -586,6 +589,7 @@ td.num, th.num { text-align: right; }
 .modebar button[data-set="insert"][aria-pressed="true"] { background: var(--chip-insert); }
 .modebar button[data-set="visual"][aria-pressed="true"] { background: var(--chip-visual); }
 .modebar button[data-set="cmdline"][aria-pressed="true"] { background: var(--chip-command); }
+.modebar button[data-set="off"][aria-pressed="true"] { background: var(--dim); }
 
 .keylegend { display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; margin: 0 0 1rem; padding: 0; list-style: none; font-size: 0.8rem; color: var(--dim); }
 .keylegend li { margin: 0; }
