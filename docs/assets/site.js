@@ -57,13 +57,15 @@
   }
 
   function visual() {
-    // VIM_VISUAL's own keys; every other key falls through to NORMAL underneath.
-    const own = { 1: ["c", "insert"], 12: ["v", "normal"], 13: ["d", "normal"], 14: ["y", "normal"],
-      15: [":", "cmdline"], 21: ["x", "normal"], 22: ["p", "normal"] };
+    // VIM_VISUAL's own keys, both Escs among them (the thumb still holds NAV);
+    // every other key falls through to NORMAL underneath.
+    const own = { 0: ["Esc", "normal"], 1: ["c", "insert"], 12: ["v", "normal"], 13: ["d", "normal"],
+      14: ["y", "normal"], 15: [":", "cmdline"], 21: ["x", "normal"], 22: ["p", "normal"],
+      30: ["Esc", "normal", "nav"] };
     const keys = normal();
     Object.keys(own).forEach((i) => {
-      const [t, to] = own[i];
-      keys[i] = Object.assign({}, keys[i], { t, to, own: true, motion: false });
+      const [t, to, h = ""] = own[i];
+      keys[i] = Object.assign({}, keys[i], { t, h, to, vim: true, own: true, motion: false, trans: false });
     });
     return keys;
   }
@@ -559,8 +561,10 @@
 
   $$(".modebar button").forEach((b) => {
     b.addEventListener("click", () => {
-      if (b.dataset.set === "cmdline") openCmd(":");
-      else setMode(b.dataset.set);
+      if (b.dataset.set === "cmdline") { openCmd(":"); return; }
+      // Leaving the command line by button must not depend on the input's blur.
+      if (cmdOpen) closeCmd();
+      setMode(b.dataset.set);
     });
   });
 

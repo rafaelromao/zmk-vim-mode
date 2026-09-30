@@ -119,14 +119,15 @@ all: they name keycodes, not positions on your alpha layout.
         };
 
         // Sits on top of NORMAL: only the keys that end the selection differ,
-        // every motion falls through to the layer underneath.
+        // both Escs among them; every motion falls through to the layer
+        // underneath.
         vim_visual_layer {
             display-name = "VISUAL";
             bindings = <
-   &trans       &vim_c       &trans        &trans        &trans       &trans     &trans         &trans        &trans       &trans
+   &vim_esc     &vim_c       &trans        &trans        &trans       &trans     &trans         &trans        &trans       &trans
    &trans       &trans       &vim_v        &vim_d        &vim_y       &vim_colon &trans         &trans        &trans       &trans
    &trans       &vim_x       &vim_p        &trans        &trans       &trans     &trans         &trans        &trans       &trans
-                                           &trans        &trans       &trans     &trans
+                                           &esc_nav NAV 0 &trans      &trans     &trans
             >;
         };
 
@@ -177,11 +178,11 @@ all: they name keycodes, not positions on your alpha layout.
 ```
 
 Reading it as a vim user: `i a o c` enter insert from the left hand, `v` opens
-visual and closes it again, `dd`/`yy`/`gg` are single keys, `:` and `/` open
-the command line, and the right hand keeps `h j k l` on home with `w e b` above
-and `^D`/`^U` for paging. Everything not listed falls through to the base
-layer, so counts, registers and the commands you use once a month still work
-exactly as they do in vim.
+visual and `v` or `Esc` closes it again, `dd`/`yy`/`gg` are single keys, `:`
+and `/` open the command line, and the right hand keeps `h j k l` on home with
+`w e b` above and `^D`/`^U` for paging. Everything not listed falls through to
+the base layer, so counts, registers and the commands you use once a month
+still work exactly as they do in vim.
 
 Compare the two right hands. On the Gallium base, `h j k l` are `h`, an
 up-reach, a down-reach and a key on the left hand. On the normal layer they are
