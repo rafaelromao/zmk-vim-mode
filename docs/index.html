@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en" data-mode="normal">
+<head>
+  <meta charset="utf-8">
+  <!-- Nothing leaves the site: own scripts, styles and images only. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zmk-vim-mode — your keyboard knows which vim mode you're in</title>
+  <meta name="description" content="A ZMK module, a host daemon and editor plugins that keep your keyboard's layers in sync with the editor's real vim mode: NORMAL in normal mode, INSERT while you type, out of the way when keys must pass through. Neovim, VS Code, IntelliJ and Obsidian. Stock vim, no remaps.">
+  <link rel="canonical" href="https://rafaelromao.github.io/zmk-vim-mode/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="zmk-vim-mode">
+  <meta property="og:title" content="zmk-vim-mode — your keyboard knows which vim mode you're in">
+  <meta property="og:description" content="The editor tells the keyboard its exact vim mode over three LED indicator bits, and a ZMK module switches layers. Stock vim, no remaps.">
+  <meta property="og:url" content="https://rafaelromao.github.io/zmk-vim-mode/">
+  <meta property="og:image" content="https://rafaelromao.github.io/zmk-vim-mode/img/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Neovim in normal mode beside a keyboard layer panel reading VIM NORMAL, with h lit on the right hand's home row">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#d9dbe4" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/site.css">
+  <script src="assets/theme.js"></script>
+  <script src="assets/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="statusline">
+  <span class="mode" id="mode" aria-hidden="true">NORMAL</span>
+  <a class="name" href="#main">zmk-vim-mode</a>
+  <nav aria-label="Sections">
+    <a href="#why">why</a>
+    <a href="#try">try it</a>
+    <a href="#modes">modes</a>
+    <a href="#editors">editors</a>
+    <a href="#how">how it works</a>
+    <a href="#install">install</a>
+  </nav>
+  <div class="right">
+    <button type="button" id="keys-toggle" aria-pressed="true" hidden title="The single-key vim shortcuts on this page">vim keys <span class="state">on</span></button>
+    <button type="button" id="theme-toggle" hidden>theme</button>
+    <a class="gh" href="https://github.com/rafaelromao/zmk-vim-mode">GitHub</a>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+<section class="hero">
+  <div class="wrap">
+    <p class="kicker"><span class="p">:</span>help zmk-vim-mode</p>
+    <h1>Your keyboard knows which <em>vim mode</em> you're in.</h1>
+    <p class="lede">zmk-vim-mode keeps a ZMK keyboard's layers in sync with the editor's real vim
+      state, so the keyboard is in <span class="chip">NORMAL</span> when the editor is in normal
+      mode, in <span class="chip insert">INSERT</span> when you are typing, and out of vim layers
+      entirely when keys must pass through untouched. Stock vim, no remaps: the editor tells the
+      keyboard, and the keyboard changes layers.</p>
+    <div class="cta">
+      <pre class="term copyable"><code><span class="p">$ </span>git clone https://github.com/rafaelromao/zmk-vim-mode
+<span class="p">$ </span>cd zmk-vim-mode
+<span class="p">$ </span>make install</code></pre>
+      <a class="btn" href="#install">Quick start</a>
+      <a class="btn ghost" href="https://github.com/rafaelromao/zmk-vim-mode">Source on GitHub</a>
+    </div>
+    <figure class="shot anim">
+      <picture>
+        <source media="(prefers-reduced-motion: reduce)" srcset="img/showcase-hero.png">
+        <img src="img/showcase-hero.gif" data-gif="img/showcase-hero.gif" data-still="img/showcase-hero.png"
+             width="1280" height="720" fetchpriority="high"
+             alt="Neovim on the left, a keyboard layer panel on the right. :21 jumps to a line; A enters insert mode and the panel switches to the base layout while a comment is typed; Escape returns to the vim normal layer and h, j, k and l light up on the right hand's home row.">
+      </picture>
+      <button class="anim-toggle" type="button" hidden>pause</button>
+      <figcaption>Neovim on the left. On the right,
+        <a href="https://github.com/rafaelromao/zmk-layer-hud">zmk-layer-hud</a> draws the author's
+        24-key <a href="https://github.com/rafaelromao/keyboards">Diamond</a> and the layer it is on.
+        <kbd>A</kbd>, and the keyboard is in
+        <span class="chip insert">INSERT</span>: the base layout is back for typing.
+        <kbd>Esc</kbd>, and <code>h j k l</code> sit under the right hand. Nothing in vim was
+        remapped.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="sec" id="why" aria-labelledby="why-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="why-h">Stock vim, on any layout</h2>
+      <a class="tag" href="#why">zmk-vim-mode-why</a>
+    </div>
+    <div class="prose">
+      <p><code>hjkl</code> sits on QWERTY's home row by accident of history. Move to a modern
+        alternative layout and those four letters scatter. On Gallium, for instance,
+        <code>j</code> and <code>k</code> share the right index finger's inner column and
+        <code>l</code> moves to the left hand:</p>
+    </div>
+    <pre class="rows" aria-label="The Gallium layout, with h, j, k and l highlighted">b <b>l</b> d c v   <b>j</b> y o u ,
+n r t s g   p <b>h</b> a e i
+x q m w z   <b>k</b> f ' ; .</pre>
+    <div class="prose">
+      <p>Colemak, Dvorak and Graphite each scatter them differently; none of them keeps the row.
+        Remapping vim to match means fighting every plugin, tutorial and machine you ssh into;
+        learning the scattered positions makes your layout worse at the thing you do most.</p>
+      <p>A vim layer removes the compromise. While the editor is in normal mode the keyboard is
+        issuing commands, not typing letters, so that layer can be a map chosen for how vim is
+        actually used:</p>
+      <ul>
+        <li><strong>motions on the home row</strong>, <code>h j k l</code> under your strongest
+          fingers, whatever your base layout does with those letters;</li>
+        <li><strong>operators under the other hand</strong>, so <code>d</code>, <code>y</code>,
+          <code>c</code>, <code>v</code> are one comfortable key each;</li>
+        <li><strong>two-key commands as one key</strong>: <code>dd</code>, <code>yy</code>,
+          <code>gg</code> as macros, <code>^D</code>/<code>^U</code> with no modifier;</li>
+        <li><strong>prime positions for <code>:</code> and <code>/</code></strong>, far more
+          frequent than <code>;</code> or <code>'</code> in normal mode.</li>
+      </ul>
+      <p>None of it costs you anything while typing: the layer is gone the moment the editor goes
+        back to insert.</p>
+    </div>
+    <div class="note">
+      <p><span class="label">Vim itself needs no configuration.</span> The keyboard sends real
+        <code>h</code>, <code>j</code>, <code>k</code>, <code>l</code> keycodes; the layer only
+        decides which physical key produces them. There is no <code>noremap</code> to maintain,
+        nothing that breaks when a plugin expects <code>dw</code> to work, and nothing to install
+        on the servers you ssh into.</p>
+    </div>
+    <div class="prose">
+      <p>The hard part is knowing which mode the editor is in. A keyboard that guesses from
+        keystrokes goes wrong as soon as a plugin, a mouse click or <code>:startinsert</code>
+        changes the mode behind its back. zmk-vim-mode asks the editor instead, and tells the
+        keyboard.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="try" aria-labelledby="try-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="try-h">Try it: this page has a vim mode</h2>
+      <a class="tag" href="#try">zmk-vim-mode-try</a>
+    </div>
+    <div class="prose">
+      <p>Press <kbd>Esc</kbd>, then <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>.
+        <kbd>i</kbd> to type, <kbd>v</kbd> to select, <kbd>:</kbd> for the command line, and
+        watch the board change layers. On a touch screen, use the buttons.</p>
+    </div>
+    <div class="board-wrap">
+      <div class="modebar" role="group" aria-label="Mode">
+        <button type="button" data-set="normal" aria-pressed="true">NORMAL</button>
+        <button type="button" data-set="insert" aria-pressed="false">INSERT</button>
+        <button type="button" data-set="visual" aria-pressed="false">VISUAL</button>
+        <button type="button" data-set="cmdline" aria-pressed="false">COMMAND</button>
+      </div>
+      <div class="banner">
+        <span class="layer" id="layer-name">NORMAL</span>
+        <span class="under" id="layer-under">commands, not letters</span>
+      </div>
+      <div class="board" id="board" role="img" aria-label="The NORMAL layer of the example keymap"></div>
+      <div class="strip" id="strip" aria-hidden="true"></div>
+    </div>
+    <ul class="keylegend" aria-label="Key colours">
+      <li><span class="sw motion">w</span>motion</li>
+      <li><span class="sw hjkl">j</span>h j k l</li>
+      <li><span class="sw to-insert">i</span>enters INSERT</li>
+      <li><span class="sw to-visual">v</span>enters VISUAL</li>
+      <li><span class="sw to-cmdline">:</span>opens the command line</li>
+      <li><span class="sw own">d</span>VISUAL's own keys</li>
+    </ul>
+    <div class="prose">
+      <p>The board is the 34-key example keymap in
+        <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/docs/example-keymap.md">docs/example-keymap.md</a>:
+        a Gallium base with home-row mods, and the four vim layers. Its NORMAL layer puts
+        <code>h j k l</code> under the four fingers of the right home row, <code>w e b</code> above
+        them and <code>:</code> beside them, and makes <code>dd</code>, <code>yy</code> and
+        <code>gg</code> single keys.</p>
+      <p>This page is guessing its mode from your keys, with the same table a keyboard uses for
+        an editor that cannot report its mode. With zmk-vim-mode the keyboard does not have to
+        guess: the editor says it.</p>
+    </div>
+    <div class="note">
+      <p><span class="label">A real config.</span> The author's
+        <a href="https://github.com/rafaelromao/keyboards">keyboards</a> repo is the one in the
+        video: the 24-key Diamond on the Romak layout, with zmk-vim-mode as a submodule and its
+        <code>vim_sync</code> node in
+        <a href="https://github.com/rafaelromao/keyboards/blob/main/zmk/features/vim.dtsi">zmk/features/vim.dtsi</a>.
+        It goes further than the example: six vim layers, among them change and replace layers of
+        its own.</p>
+    </div>
+    <h3 id="keys">Keys on this page</h3>
+    <div class="table">
+      <table>
+        <tbody>
+          <tr><th scope="row">move</th><td><kbd>j</kbd> <kbd>k</kbd> scroll, <kbd>g</kbd><kbd>g</kbd> <kbd>G</kbd> top and bottom, <kbd>{</kbd> <kbd>}</kbd> previous and next section</td></tr>
+          <tr><th scope="row">modes</th><td><kbd>i</kbd> <kbd>a</kbd> <kbd>o</kbd> <kbd>c</kbd> <kbd>s</kbd> <kbd>R</kbd> INSERT, <kbd>v</kbd> VISUAL, <kbd>:</kbd> <kbd>/</kbd> <kbd>?</kbd> the command line, <kbd>Esc</kbd> NORMAL</td></tr>
+          <tr><th scope="row">search</th><td><code>/text</code> or <code>?text</code>, then <kbd>n</kbd> <kbd>N</kbd> for the next and previous match</td></tr>
+          <tr><th scope="row">commands</th><td><code>:help {topic}</code> jumps to <code>why</code>, <code>try</code>, <code>modes</code>, <code>editors</code>, <code>how</code>, <code>install</code> or <code>bar</code>; <code>:set background=light</code> or <code>dark</code>; <code>:github</code>; <code>:q</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <noscript>
+      <div class="note"><p>The board needs JavaScript. Its layers are listed in
+        <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/docs/example-keymap.md">docs/example-keymap.md</a>.</p></div>
+    </noscript>
+  </div>
+</section>
+
+<section class="sec" id="modes" aria-labelledby="modes-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="modes-h">One mode at a time</h2>
+      <a class="tag" href="#modes">zmk-vim-mode-modes</a>
+    </div>
+    <div class="prose">
+      <p>The daemon picks one mode at a time, from the focused app and what its editor reports,
+        and the keyboard switches layers to match:</p>
+    </div>
+    <div class="table">
+      <table>
+        <thead><tr><th scope="col">mode</th><th scope="col">when</th><th scope="col">the keyboard</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip">normal</span></td><td>the editor is in normal mode</td><td><code>VIM_NORMAL</code></td></tr>
+          <tr><td><span class="chip insert">insert</span></td><td>typing (Neovim's Replace counts as insert)</td><td><code>VIM_INSERT</code>, usually transparent: your base layout</td></tr>
+          <tr><td><span class="chip visual">visual</span></td><td>selecting</td><td><code>VIM_VISUAL</code> on top of <code>VIM_NORMAL</code></td></tr>
+          <tr><td><span class="chip command">cmdline</span></td><td>typing a <code>:</code> command or a search</td><td><code>VIM_CMDLINE</code></td></tr>
+          <tr><td><span class="chip plain">raw</span></td><td>the letters are commands of something else: a file explorer, a picker's result list, a terminal job, a pending <code>&lt;leader&gt;</code></td><td>no vim layers: keys pass through untouched</td></tr>
+          <tr><td><span class="chip plain">legacy</span></td><td>a vim-like app that reports nothing, such as an IDE without its plugin</td><td><code>VIM_NORMAL</code>, and the keyboard follows the mode itself</td></tr>
+          <tr><td><span class="chip plain">off</span></td><td>any other app</td><td>no vim layers</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p><code>zmk-vim-mode status</code> shows the current mode and why, and
+        <code>zmk-vim-mode set &lt;mode&gt;</code> overrides it by hand.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="editors" aria-labelledby="editors-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="editors-h">Four editors report their exact mode</h2>
+      <a class="tag" href="#editors">zmk-vim-mode-editors</a>
+    </div>
+    <div class="prose">
+      <p>Neovim, VS Code with vscode-neovim, IntelliJ with IdeaVim and Obsidian with vim key
+        bindings tell the daemon their exact mode. Any other vim-like app works too, with the
+        keyboard following the mode itself.</p>
+    </div>
+
+    <h3>Neovim, and <em>raw</em></h3>
+    <div class="prose">
+      <p>The plugin reports Neovim's effective mode over a unix socket, and it knows when a letter
+        is not a vim command at all. Dashboards, file explorers (neo-tree, NvimTree, oil, the snacks
+        explorer), picker result lists, lazy, mason and trouble, <code>:terminal</code> job mode and
+        a pending <code>&lt;leader&gt;</code> all report <span class="chip plain">raw</span>: no vim
+        layers, so the keys reach them untouched. Without it, the NORMAL layer would remap those
+        letters and the UI would be unusable.</p>
+    </div>
+    <figure class="shot anim">
+      <picture>
+        <source media="(prefers-reduced-motion: reduce)" srcset="img/showcase-raw.png">
+        <img src="img/showcase-raw.gif" data-gif="img/showcase-raw.gif" data-still="img/showcase-raw.png"
+             width="1280" height="720" loading="lazy" decoding="async"
+             alt="Neovim with the keyboard panel on the right. Space opens the which-key menu and the panel drops from the vim normal layer to the base layer; the file explorer opens and j, j, k move its cursor while the panel stays on the base layer; closing the explorer brings the vim normal layer back.">
+      </picture>
+      <button class="anim-toggle" type="button" hidden>pause</button>
+      <figcaption><kbd>Space</kbd> is the leader: which-key opens and the keyboard drops its vim
+        layers, down to the base layer. <kbd>Space</kbd> <kbd>e</kbd> opens the explorer, where
+        <code>j j k</code> move the tree and the bar at the top reads RAW. Closing it brings
+        <span class="chip">NORMAL</span> back.</figcaption>
+    </figure>
+    <div class="prose">
+      <p><code>make install</code> writes this lazy.nvim spec when your config has none, and never
+        touches an existing one:</p>
+    </div>
+    <pre class="copyable"><code><span class="c">-- ~/.config/nvim/lua/plugins/zmk-vim-mode.lua</span>
+<span class="kw">return</span> {
+  {
+    <span class="s">"rafaelromao/zmk-vim-mode"</span>,
+    lazy = <span class="n">false</span>,
+    vscode = <span class="n">true</span>, <span class="c">-- LazyVim disables every other plugin inside vscode-neovim</span>
+    opts = {},
+  },
+}</code></pre>
+    <div class="prose">
+      <p>Every option has a working default; these three are shown with theirs.
+        <code>:ZmkVimMode status</code> shows the socket, the connection, the state last sent and
+        whether a leader or VS Code hint is active. The full list is in the
+        <a href="https://github.com/rafaelromao/zmk-vim-mode#neovim-plugin-options">README</a>.</p>
+    </div>
+    <pre class="copyable"><code>opts = {
+  terminal_state = <span class="s">"raw"</span>, <span class="c">-- what :terminal job mode reports; "insert" keeps the vim layers there</span>
+  leader_raw = <span class="n">true</span>,      <span class="c">-- raw while a &lt;leader&gt; sequence is pending (which-key menus)</span>
+  debug = <span class="n">false</span>,          <span class="c">-- log every state change with vim.notify</span>
+},</code></pre>
+
+    <div class="cards">
+      <div class="card">
+        <h3>VS Code</h3>
+        <p><a href="https://github.com/vscode-neovim/vscode-neovim">vscode-neovim</a> runs a real
+          Neovim inside VS Code, which loads your config, which loads the same plugin, so the mode
+          is exact. No extension API reports focus moving to the terminal or the sidebar, so the
+          window title carries a <code>[${focusedView}]</code> marker. A companion extension covers
+          quick inputs, and on Linux the accessibility bus catches whatever you open with the
+          mouse.</p>
+        <p class="setup"><code>zmk-vim-mode install --vscode</code>, part of <code>make install</code>.
+          VSCodeVim reports no modes, so it has to be vscode-neovim.
+          <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/editors/vscode/README.md">More</a></p>
+      </div>
+      <div class="card">
+        <h3>IntelliJ</h3>
+        <p>Its plugin subscribes to IdeaVim's mode listener. The terminal and the consoles are
+          editors too, so the plugin tells them apart by kind and reports them as raw.</p>
+        <p class="setup"><code>zmk-vim-mode install --intellij</code> builds the plugin against your
+          IDE, and needs IdeaVim.
+          <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/editors/intellij/README.md">More</a></p>
+      </div>
+      <div class="card">
+        <h3>Obsidian</h3>
+        <p>Obsidian runs CodeMirror's vim, and its plugin listens to that. The <code>:</code> dialog
+          is the command line, exactly as in Neovim. Reading view has no vim at all, so the
+          keyboard goes back to the base layer.</p>
+        <p class="setup"><code>zmk-vim-mode install --obsidian</code>; if Obsidian was running,
+          enable <em>ZMK Vim Mode</em> under Community plugins.
+          <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/editors/obsidian/README.md">More</a></p>
+      </div>
+      <div class="card">
+        <h3>Everything else</h3>
+        <p>A vim-like app that reports nothing, such as a JetBrains IDE without the plugin, gets
+          <span class="chip plain">legacy</span>: the keyboard turns NORMAL on and follows the mode
+          itself, from the keys that change it. For what nothing can detect, like vim over ssh or a
+          shared screen, <code>zmk-vim-mode set</code> pins the mode by hand, and setting the same
+          mode again hands it back to the daemon.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="how-h">Three LED bits no OS drives on its own</h2>
+      <a class="tag" href="#how">zmk-vim-mode-how</a>
+    </div>
+    <div class="prose">
+      <p>The editor knows its mode, so the editor says it. Three parts carry it: a plugin in the
+        editor, a daemon on the host, and a module in the keyboard's firmware. Everything is in
+        this repository:</p>
+    </div>
+    <div class="table">
+      <table>
+        <thead><tr><th scope="col">part</th><th scope="col">path</th><th scope="col">role</th></tr></thead>
+        <tbody>
+          <tr><td>ZMK module</td><td><code>firmware/</code>, <code>zephyr/</code></td><td>decodes the mode on the keyboard and switches layers</td></tr>
+          <tr><td>host daemon</td><td><code>cmd/</code>, <code>internal/</code></td><td>decides the mode from the focused app and the editors, and writes it to the keyboard</td></tr>
+          <tr><td>Neovim plugin</td><td><code>lua/</code>, <code>plugin/</code></td><td>reports Neovim's effective mode over a unix socket</td></tr>
+          <tr><td>editor plugins</td><td><code>editors/</code></td><td>the VS Code companion and the Obsidian and IntelliJ plugins, speaking the same protocol</td></tr>
+          <tr><td>status bar indicators</td><td><code>bars/</code></td><td>show the mode in the macOS menu bar or the Omarchy bar</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>The channel between host and keyboard is one every keyboard already has. A HID keyboard
+        has an <em>output</em> report, a byte the host sends to it to light the Caps Lock and Num
+        Lock lamps. It is the only standard host-to-keyboard channel that works identically over
+        USB and Bluetooth with stock ZMK, needs no pairing or custom protocol, and requires nothing
+        of the firmware beyond <code>CONFIG_ZMK_HID_INDICATORS=y</code>.</p>
+      <p>ZMK declares five indicator bits, which your own keyboard's report descriptor
+        confirms:</p>
+    </div>
+    <pre><code>05 08  19 01  29 05  75 01  95 05  91 02
+│      │      │      │      │      └─ output: data, variable, absolute
+│      │      │      │      └──────── five of them
+│      │      │      └─────────────── one bit each
+│      │      └────────────────────── usage max = Kana      (0x05)
+│      └───────────────────────────── usage min = Num Lock  (0x01)
+└──────────────────────────────────── usage page = LED</code></pre>
+    <div class="prose">
+      <p>Three of those five are free, as long as the operating system never sets
+        <strong>Compose</strong>, <strong>Kana</strong> or <strong>Scroll Lock</strong>. Num Lock
+        and Caps Lock are left alone, because the OS owns them. The three free bits are read as one
+        3-bit number:</p>
+    </div>
+    <div class="table">
+      <table>
+        <thead><tr><th scope="col" class="num">code</th><th scope="col">state</th><th scope="col">Scroll · Kana · Compose</th><th scope="col">byte</th><th scope="col">keyboard</th></tr></thead>
+        <tbody>
+          <tr><td class="num">0</td><td>off</td><td class="bits">· · ·</td><td><code>0x00</code></td><td>no vim layers</td></tr>
+          <tr><td class="num">1</td><td>normal</td><td class="bits">· · ●</td><td><code>0x08</code></td><td><code>VIM_NORMAL</code></td></tr>
+          <tr><td class="num">2</td><td>insert</td><td class="bits">· ● ·</td><td><code>0x10</code></td><td><code>VIM_INSERT</code> (Neovim's Replace maps here too)</td></tr>
+          <tr><td class="num">3</td><td>visual</td><td class="bits">· ● ●</td><td><code>0x18</code></td><td><code>VIM_NORMAL</code> + <code>VIM_VISUAL</code></td></tr>
+          <tr><td class="num">4</td><td>legacy</td><td class="bits">● · ·</td><td><code>0x04</code></td><td>vim-like app with no mode feed; the keyboard infers modes itself</td></tr>
+          <tr><td class="num">5</td><td>cmdline</td><td class="bits">● · ●</td><td><code>0x0c</code></td><td><code>VIM_CMDLINE</code></td></tr>
+          <tr><td class="num">6</td><td>raw</td><td class="bits">● ● ·</td><td><code>0x14</code></td><td>no vim layers: keys pass through untouched</td></tr>
+          <tr><td class="num">7</td><td>legacy silent</td><td class="bits">● ● ●</td><td><code>0x1c</code></td><td>same state as 4, re-asserted without re-injecting Esc</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>The lamps stay dark: unless the keymap has a <code>zmk,indicator-leds</code> node, nothing
+        physically lights up. It is a silent side channel that happens to travel on the LED wire.
+        On Linux, pressing <kbd>i</kbd> in Neovim travels like this (macOS writes through IOKit
+        instead):</p>
+    </div>
+    <pre><code>nvim ModeChanged ──► plugin ──► unix socket ──► daemon
+                                                  │ decides code 2 (insert)
+                                                  ▼
+                              write [0x01, 0x10] to /dev/hidrawN
+                                                  │  report id, LED byte
+                     kernel ──► USB SET_REPORT  /  BLE GATT write
+                                                  ▼
+                     ZMK zmk_hid_indicators_process_report()
+                                                  ▼
+                       event: zmk_hid_indicators_changed
+                                                  ▼
+                       this module: decode 0x10 → code 2
+                                                  ▼
+             deactivate the managed layers, activate VIM_INSERT</code></pre>
+    <div class="prose">
+      <p>The firmware side does no scanning and types no keys: it tests three bits, rebuilds the
+        integer, and if it differs from the last one, switches the layer set. The keyboard keeps its
+        own local inference and the host only corrects it, with two timing rules that keep the
+        hybrid honest:</p>
+      <ul>
+        <li><strong>OFF hold-off, 60 ms.</strong> When the kernel sends its own LED report, it
+          sends the whole byte and zeroes these bits, so code 0 applies only after it has been
+          stable for 60 ms. The daemon rewrites within about a millisecond, and the blip never
+          reaches your layers.</li>
+        <li><strong>Local guard, 150 ms.</strong> A host code describes the editor as of an earlier
+          keystroke. After any keyboard-driven layer change, host codes are parked and only the
+          newest is applied, so a stale one cannot undo a fast <kbd>Esc</kbd> <kbd>i</kbd>. The
+          keyboard wins in motion, the host wins at rest.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="install" aria-labelledby="install-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="install-h">Quick start</h2>
+      <a class="tag" href="#install">zmk-vim-mode-install</a>
+    </div>
+    <div class="prose">
+      <p>You need:</p>
+    </div>
+    <ul class="req">
+      <li><strong>A ZMK keyboard whose firmware you build</strong>, from a zmk-config of your own,
+        locally or with GitHub Actions. USB and Bluetooth both work. On a split keyboard only the
+        central half, or the dongle, needs the module.</li>
+      <li><strong>macOS or Linux.</strong> On Linux, following the focused window needs
+        <a href="https://hyprland.org">Hyprland</a> (Omarchy ships it); under another compositor the
+        daemon still runs, but only editors with a plugin report their mode.</li>
+      <li><strong>Go 1.26 or newer and <code>make</code></strong> to build the daemon; on macOS also
+        the Xcode Command Line Tools, for cgo.</li>
+      <li><strong>An editor:</strong> Neovim, VS Code with vscode-neovim, Obsidian with vim key
+        bindings, or IntelliJ with IdeaVim.</li>
+    </ul>
+    <ol class="steps">
+      <li>
+        <h3>The keyboard</h3>
+        <p>zmk-vim-mode is a Zephyr module. Add it to <code>config/west.yml</code> in your
+          zmk-config, next to ZMK itself:</p>
+        <pre class="copyable"><code>manifest:
+  remotes:
+    - name: zmkfirmware
+      url-base: https://github.com/zmkfirmware
+    - name: rafaelromao
+      url-base: https://github.com/rafaelromao
+  projects:
+    - name: zmk
+      remote: zmkfirmware
+      revision: main
+      import: app/west.yml
+    - name: zmk-vim-mode
+      remote: rafaelromao
+      revision: main
+  self:
+    path: config</code></pre>
+        <p>Then four layers and one node in your keymap. The layers may be entirely
+          <code>&amp;trans</code> to begin with: nothing breaks while they are empty. Keep them
+          below your other layers, so a held nav key still works.</p>
+        <pre class="copyable"><code>#include &lt;dt-bindings/zmk/hid_usage.h&gt;
+
+#define BASE        0
+#define VIM_NORMAL  1
+#define VIM_VISUAL  2
+#define VIM_INSERT  3
+#define VIM_CMDLINE 4
+
+/ {
+    vim_sync {
+        compatible = <span class="s">"zmk,hid-indicator-code-listener"</span>;
+        indicators = &lt;HID_USAGE_LED_COMPOSE HID_USAGE_LED_KANA HID_USAGE_LED_SCROLL_LOCK&gt;;
+        managed-layers = &lt;VIM_NORMAL VIM_VISUAL VIM_INSERT VIM_CMDLINE&gt;;
+
+        normal        { code = &lt;1&gt;; layers = &lt;VIM_NORMAL&gt;; };
+        insert        { code = &lt;2&gt;; layers = &lt;VIM_INSERT&gt;; };
+        visual        { code = &lt;3&gt;; layers = &lt;VIM_NORMAL VIM_VISUAL&gt;; };
+        legacy        { code = &lt;4&gt;; layers = &lt;VIM_NORMAL&gt;; bindings = &lt;&amp;kp ESC&gt;; };
+        cmdline       { code = &lt;5&gt;; layers = &lt;VIM_CMDLINE&gt;; };
+        raw           { code = &lt;6&gt;; };
+        legacy_silent { code = &lt;7&gt;; layers = &lt;VIM_NORMAL&gt;; };
+        <span class="c">// code 0 is implicit: every managed layer off.</span>
+    };
+};</code></pre>
+        <p>Build and flash (on a split, the central half or the dongle). The
+          <a href="https://github.com/rafaelromao/zmk-vim-mode#keyboard-setup">keyboard setup</a>
+          explains each part, <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/docs/example-keymap.md">docs/example-keymap.md</a>
+          is a complete keymap built this way, and the author's
+          <a href="https://github.com/rafaelromao/keyboards">keyboards</a> repo is a real config that
+          uses it, with the node in
+          <a href="https://github.com/rafaelromao/keyboards/blob/main/zmk/features/vim.dtsi">zmk/features/vim.dtsi</a>.</p>
+      </li>
+      <li>
+        <h3>The computer</h3>
+        <pre class="copyable"><code><span class="p">$ </span>git clone https://github.com/rafaelromao/zmk-vim-mode
+<span class="p">$ </span>cd zmk-vim-mode
+<span class="p">$ </span>make install</code></pre>
+        <p>That builds the daemon, runs it as a user service, and sets up the editors and the status
+          bar it finds. On macOS, add the daemon under Input Monitoring and Accessibility: both
+          panes open at the end of <code>make install</code>.</p>
+      </li>
+      <li>
+        <h3>Check, then drive it by hand</h3>
+        <pre class="copyable"><code><span class="p">$ </span>zmk-vim-mode doctor
+<span class="p">$ </span>zmk-vim-mode set normal   <span class="c"># the keyboard switches to its NORMAL layer</span>
+<span class="p">$ </span>zmk-vim-mode set auto     <span class="c"># back to following the editor</span></code></pre>
+        <p>Then open Neovim and press <kbd>i</kbd>, <kbd>Esc</kbd> and <kbd>v</kbd>: the keyboard's
+          layers follow. <code>doctor</code> prints a fix for each problem it finds, and the
+          <a href="https://github.com/rafaelromao/zmk-vim-mode#troubleshooting">troubleshooting</a>
+          tables cover the rest.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="bar" aria-labelledby="bar-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="bar-h">The mode, where you can see it</h2>
+      <a class="tag" href="#bar">zmk-vim-mode-bar</a>
+    </div>
+    <div class="prose">
+      <p>A status bar indicator shows the mode the keyboard is in: NORMAL, INSERT, VISUAL, CMDLINE,
+        VIM (legacy) or RAW behind a Neovim glyph, <code>VIM ?</code> while the daemon is down, and
+        nothing at all while vim mode is off. It is the decision the keyboard just acted on, not a
+        second guess at it.</p>
+      <ul>
+        <li><strong>macOS menu bar:</strong> a <a href="https://www.hammerspoon.org">Hammerspoon</a>
+          Spoon, <code>zmk-vim-mode install --hammerspoon</code>.</li>
+        <li><strong>Omarchy bar:</strong> a bar widget plugin, <code>zmk-vim-mode install --omarchy</code>.</li>
+        <li><strong>Any other bar:</strong> <code>zmk-vim-mode status --bar</code> prints the same
+          answer as one Waybar-style JSON line.</li>
+      </ul>
+      <p><code>make install</code> sets up whichever of the first two it finds. A Waybar module,
+        for instance:</p>
+    </div>
+    <pre class="copyable"><code><span class="s">"custom/vim-mode"</span>: {
+  <span class="s">"exec"</span>: <span class="s">"zmk-vim-mode status --bar"</span>,
+  <span class="s">"return-type"</span>: <span class="s">"json"</span>,
+  <span class="s">"interval"</span>: <span class="n">1</span>,
+  <span class="s">"format"</span>: <span class="s">" {}"</span>
+}</code></pre>
+  </div>
+</section>
+
+<div class="wrap">
+  <ul class="tildes" aria-hidden="true"><li>~</li><li>~</li><li>~</li></ul>
+</div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>If you type on an alternative layout and live in vim, this is for you.</p>
+    <nav aria-label="Links">
+      <a href="https://github.com/rafaelromao/zmk-vim-mode">zmk-vim-mode</a>
+      <a href="https://github.com/rafaelromao/zmk-vim-mode#readme">README</a>
+      <a href="https://github.com/rafaelromao/zmk-layer-hud">zmk-layer-hud</a>
+      <a href="https://github.com/rafaelromao/keyboards">the author's keyboards</a>
+      <a href="https://rafaelromao.github.io/romak">the Romak layout</a>
+      <a href="https://zmk.dev">ZMK</a>
+    </nav>
+    <p>MIT licence.</p>
+  </div>
+</footer>
+
+<div class="lastline" id="lastline" hidden>
+  <span class="msg" id="msg" aria-hidden="true"></span>
+  <form id="cmdform" hidden>
+    <label for="cmd" id="cmdprefix">:</label>
+    <input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Command line">
+  </form>
+  <span class="showcmd" id="showcmd" aria-hidden="true"></span>
+  <span class="ruler" id="ruler" aria-hidden="true">Top</span>
+</div>
+<div class="sr-only" id="live" role="status" aria-live="polite"></div>
+</body>
+</html>
