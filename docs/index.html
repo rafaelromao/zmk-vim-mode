@@ -146,9 +146,17 @@ x q m w z   <b>k</b> f ' ; .</pre>
         <kbd>i</kbd> to type, <kbd>v</kbd> to select, <kbd>:</kbd> for the command line, and
         watch the board change layers. OFF is the keyboard with vim mode off, as in any app that
         isn't vim: the base layout and nothing else. <code>:q</code> gets you there, and
-        <kbd>Esc</kbd> turns vim mode back on. On a touch screen, use the buttons.</p>
+        <kbd>Esc</kbd> turns vim mode back on. On a touch screen, use the buttons. Pick the
+        layout you type on under <em>base</em>, then compare OFF with NORMAL: each base puts
+        <code>h j k l</code> somewhere else, and NORMAL puts them under the same four fingers
+        every time.</p>
     </div>
     <div class="board-wrap">
+      <div class="bases" hidden>
+        <label for="base">base</label>
+        <select id="base" aria-describedby="base-note"></select>
+        <span class="caveat" id="base-note"></span>
+      </div>
       <div class="modebar" role="group" aria-label="Mode">
         <button type="button" data-set="off" aria-pressed="false">OFF</button>
         <button type="button" data-set="normal" aria-pressed="true">NORMAL</button>
@@ -178,6 +186,12 @@ x q m w z   <b>k</b> f ' ; .</pre>
         <code>h j k l</code> under the four fingers of the right home row, <code>w e b</code> above
         them and <code>:</code> beside them, and makes <code>dd</code>, <code>yy</code> and
         <code>gg</code> single keys.</p>
+      <p>The other bases are every layout in the table of Pascal Getreuer's
+        <a href="https://getreuer.info/posts/keyboards/alt-layouts/">guide to alt keyboard layouts</a>,
+        and the author's <a href="https://rafaelromao.github.io/romak">Romak</a> in its 34-key
+        version. The board is column-staggered, so each layout is in its column-staggered
+        version, and Stand, published only for row stagger, loses its angle mod. Swapping the
+        base changes nothing else: the vim layers name keycodes, not positions.</p>
       <p>This page is guessing its mode from your keys, with the same table a keyboard uses for
         an editor that cannot report its mode. With zmk-vim-mode the keyboard does not have to
         guess: the editor says it.</p>

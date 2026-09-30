@@ -35,10 +35,54 @@
   const MOTIONS = new Set(["h", "j", "k", "l", "w", "e", "b", "$", "^", "%", "gg", "G", "^U", "^D"]);
   const isHjkl = (t) => t.length === 1 && "hjkl".includes(t);
 
+  // The bases the board can show: every layout in the table of Pascal Getreuer's
+  // guide to alt keyboard layouts, in his order, then the author's Romak. Each is
+  // the 30 keys of a columnar 3x5, left hand then right, so every layout is in its
+  // column-staggered version: Gallium's Colstag, Canary's Ortho, Colemak-DH's matrix,
+  // Recurva's colstag, Arensito's Kinesis one. Stand is published for row stagger
+  // with the angle mod, so its bottom-left row is rotated back, the way Canary's
+  // README turns Canary into its Ortho. Only these keys change: the thumbs and the
+  // home-row mods are the example keymap's on every base.
+  // [id, name, year, top row, home row, bottom row, a note where the board departs from it]
+  const GETREUER = [
+    ["qwerty", "QWERTY", "1873", "q w e r t y u i o p", "a s d f g h j k l ;", "z x c v b n m , . /"],
+    ["dvorak", "Dvorak", "1936", "' , . p y f g c r l", "a o e u i d h t n s", "; q j k x b m w v z"],
+    ["arensito", "Arensito", "2001", "q l , p @ | f u d k", "a r e n b g s i t o", "z w . h j v c y m x"],
+    ["colemak", "Colemak", "2006", "q w f p g j l u y ;", "a r s t d h n e i o", "z x c v b k m , . /"],
+    ["mtgap", "MTGAP", "2010", "y p o u j k d l c w", "i n e a , m h t s r", "q z / . : b f g v x"],
+    ["workman", "Workman", "2010", "q d r w b j f u p ;", "a s h t g y n e o i", "z x m c v k l , . /"],
+    ["colemak-dh", "Colemak-DH", "2014", "q w f p b j l u y ;", "a r s t g m n e i o", "z x c d v k h , . /"],
+    ["halmak", "Halmak", "2016", "w l r b z ; q u d j", "s h n t , . a e o i", "f m v c / g p x k y"],
+    ["beakl19bis", "BEAKL19bis", "2020", "q y o u z w d n c k", "h i e a , g t r s p", "j ' / . x v m l f b"],
+    ["aptv3", "APTv3", "2021", "w g d f b q l u o y", "r s t h k j n e a i", "x c m p v z , . ' /"],
+    ["engram", "Engram", "2021", "b y o u ' \" l d w v", "c i e a , . h t s n", "g x j k - ? r m f p",
+      "z and q sit on an 11th column"],
+    ["hands-down-neu", "Hands Down Neu", "2021", "w f m p v / . q \" '", "r s n t b , a e i h", "x c l d g - u o y k",
+      "z and j sit on an 11th column"],
+    ["pine", "Pine v4", "2021", "q l c m k ' f u o y", "n r s t w p h e a i", "j x z g v b d ; , ."],
+    ["semimak", "Semimak", "2021", "f l h v z q w u o y", "s r n t k c d e a i", "x ' b m j p g , . /"],
+    ["canary", "Canary", "2022", "w l y p b z f o u '", "c r s t g m n e i a", "q j v d k x h / , ."],
+    ["nerps", "Nerps", "2022", "x l d p v z k o u ;", "n r t s g y h e i a", "q j m c w b f ' , ."],
+    ["sturdy", "Sturdy", "2022", "v m l c p x f o u j", "s t r d y . n a e i", "z k q g w b h ' ; ,"],
+    ["gallium", "Gallium", "2023", "b l d c v j y o u ,", "n r t s g p h a e i", "x q m w z k f ' ; ."],
+    ["graphite", "Graphite", "2023", "b l d w z ' f o u j", "n r t s g y h a e i", "q x m c v k p . - /"],
+    ["recurva", "Recurva", "2023", "f r d p v q m u o y", "s n t c b . h e a i", "z x k g w j l ; ' ,"],
+    ["focal", "Focal", "2024", "v l h g k q f o u j", "s r n t b y c a e i", "z x m d p ' w . ; ,"],
+    ["stand", "Stand", "2026", "f m p w q z j o u .", "s t n d y x r a e i", "v k b c g l h ' / ,",
+      "the bottom row without its angle mod"],
+  ];
+  // The author's Romak, in its 34-key version.
+  const ROMAK = ["romak", "Romak", "2023", "q b m g k x l o u ;", "d n s t w z r a e i", "y f c p v j h , . /"];
+  const BASES = new Map(GETREUER.concat([ROMAK]).map(([id, name, year, top, home, bottom, note = ""]) =>
+    [id, { name, year, note, keys: [top, home, bottom].join(" ").split(" ") }]));
+
+  // Gallium, the example keymap's own base, unless the visitor picked another.
+  const savedBase = load("zvm-base");
+  let baseId = BASES.has(savedBase) ? savedBase : "gallium";
+
   function base() {
-    const rows = ["b l d c v j y o u ,", "n r t s g p h a e i", "x q m w z k f ' ; ."];
     const hold = { 10: "gui", 11: "alt", 12: "ctl", 13: "sft", 16: "sft", 17: "ctl", 18: "alt", 19: "gui" };
-    const keys = rows.join(" ").split(" ").map((t, i) => ({ t, h: hold[i] || "", hjkl: isHjkl(t) }));
+    const keys = BASES.get(baseId).keys.map((t, i) => ({ t, h: hold[i] || "", hjkl: isHjkl(t) }));
     keys.push({ t: "Esc", h: "nav" }, { t: "Spc" }, { t: "Ret" }, { t: "Bksp", h: "sym" });
     return keys;
   }
@@ -85,14 +129,19 @@
     return keys;
   }
 
-  const LAYERS = {
-    off: { name: "OFF", under: "no vim layers: the Gallium base", keys: base(),
-      label: "The example keymap with vim mode off: only its base layer" },
-    normal: { name: "NORMAL", under: "commands, not letters", keys: normal() },
-    insert: { name: "INSERT", under: "transparent: the Gallium base", keys: insert() },
-    visual: { name: "VISUAL", under: "on top of NORMAL", keys: visual() },
-    cmdline: { name: "CMDLINE", under: "the base, with Esc and Enter", keys: cmdline() },
-  };
+  // Rebuilt whenever the base changes; the vim layers come out the same each time.
+  function layers() {
+    const name = BASES.get(baseId).name;
+    return {
+      off: { name: "OFF", under: "no vim layers: the " + name + " base", keys: base(),
+        label: "The example keymap with vim mode off: only its " + name + " base layer" },
+      normal: { name: "NORMAL", under: "commands, not letters", keys: normal() },
+      insert: { name: "INSERT", under: "transparent: the " + name + " base", keys: insert() },
+      visual: { name: "VISUAL", under: "on top of NORMAL", keys: visual() },
+      cmdline: { name: "CMDLINE", under: "the base, with Esc and Enter", keys: cmdline() },
+    };
+  }
+  let LAYERS = layers();
 
   const board = $("#board");
   const cells = [];
@@ -438,8 +487,9 @@
   // mode (README, "Inferring modes on the keyboard"), plus page motions.
   const TO_INSERT = new Set(["i", "a", "o", "s", "c", "I", "A", "O", "S", "C", "R"]);
   const VISUAL_TO_NORMAL = new Set(["Escape", "v", "d", "x", "y", "p", "J", "=", "~", "u"]);
-  const EDITABLE = "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
-  const INTERACTIVE = "a[href], button, summary, [tabindex]:not([tabindex='-1'])";
+  // The base picker is a select, yet it isn't a place to type: letters stay the page's.
+  const EDITABLE = "input, textarea, select:not(#base), [contenteditable]:not([contenteditable='false'])";
+  const INTERACTIVE = "a[href], button, summary, select, [tabindex]:not([tabindex='-1'])";
 
   let pending = "";
   let pendingTimer = 0;
@@ -487,6 +537,9 @@
     // Space and Enter keep their meaning on links and buttons.
     if ((k === " " || k === "Enter") && t && t.closest(INTERACTIVE)) return;
     const printable = k.length === 1;
+    // A focused select jumps to the option a letter starts, so s would swap the base
+    // for Semimak mid-word. Arrows, Space and Enter still work it.
+    if (printable && t && t.closest("#base")) e.preventDefault();
     const typing = mode === "insert" || mode === "off";
     const typed = typing && (k === "Enter" || k === "Backspace");
     if (!printable && k !== "Escape" && !typed) return;
@@ -573,6 +626,46 @@
   syncThemeButton();
   themeBtn.addEventListener("click", () => setTheme(currentTheme() === "dark" ? "light" : "dark"));
   if (prefersLight.addEventListener) prefersLight.addEventListener("change", syncThemeButton);
+
+  /* ---- the base picker ---------------------------------------------------- */
+
+  const picker = $("#base");
+  const baseNote = $("#base-note");
+
+  function setBase(id) {
+    if (!BASES.has(id)) return;
+    baseId = id;
+    LAYERS = layers();
+    paint(mode);
+    picker.value = id;
+    baseNote.textContent = BASES.get(id).note;
+  }
+
+  if (picker) {
+    const group = (label, rows) => {
+      const g = document.createElement("optgroup");
+      g.label = label;
+      rows.forEach(([id]) => {
+        const o = document.createElement("option");
+        o.value = id;
+        o.textContent = BASES.get(id).name + " (" + BASES.get(id).year + ")";
+        g.appendChild(o);
+      });
+      return g;
+    };
+    picker.append(group("Pascal Getreuer's table", GETREUER), group("the author's", [ROMAK]));
+    picker.value = baseId;
+    baseNote.textContent = BASES.get(baseId).note;
+    picker.closest(".bases").hidden = false;
+    picker.addEventListener("change", () => {
+      setBase(picker.value);
+      save("zvm-base", baseId);
+      // NORMAL and VISUAL look the same on every base, which is the point, but a
+      // pick made there would otherwise look like it did nothing.
+      const same = mode === "normal" || mode === "visual";
+      say(BASES.get(baseId).name + " base" + (same ? ": i or OFF shows it" : ""));
+    });
+  }
 
   /* ---- mode buttons and taps on the board ---------------------------------- */
 

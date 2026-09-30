@@ -571,6 +571,22 @@ td.num, th.num { text-align: right; }
 .strip:empty::before { content: "keys you press appear here"; color: var(--dim); font-size: 0.8rem; }
 .strip span { padding: 0.05rem 0.45rem; color: var(--fg); background: var(--bg-hl); border-radius: 4px; }
 
+.bases { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--dim); }
+.bases select {
+  max-width: 100%;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.bases select:hover { border-color: var(--dim); }
+.bases .caveat:empty { display: none; }
+/* 16px or more, or iOS zooms the page when the picker takes focus. */
+@media (pointer: coarse) { .bases select { font-size: 16px; } }
+
 .modebar { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.9rem; }
 .modebar button {
   padding: 0.3rem 0.7rem;
