@@ -61,6 +61,26 @@ all: they name keycodes, not positions on your alpha layout.
             tapping-term-ms = <200>;
             bindings = <&mo>, <&vim_esc>;
         };
+
+        // In visual, i and a start a text object (viw, va") and visual goes
+        // on, so they are plain keys there. Shifted, I and A insert at the
+        // edges of the selection, which is INSERT: Shift is kept, so the
+        // macro still types the capital.
+        vis_i: vis_i {
+            compatible = "zmk,behavior-mod-morph";
+            #binding-cells = <0>;
+            bindings = <&kp I>, <&vim_i>;
+            mods = <(MOD_LSFT|MOD_RSFT)>;
+            keep-mods = <(MOD_LSFT|MOD_RSFT)>;
+        };
+
+        vis_a: vis_a {
+            compatible = "zmk,behavior-mod-morph";
+            #binding-cells = <0>;
+            bindings = <&kp A>, <&vim_a>;
+            mods = <(MOD_LSFT|MOD_RSFT)>;
+            keep-mods = <(MOD_LSFT|MOD_RSFT)>;
+        };
     };
 
     macros {
@@ -72,6 +92,7 @@ all: they name keycodes, not positions on your alpha layout.
         VIM_KEY(vim_p,     P,     VIM_NORMAL)
         VIM_KEY(vim_d,     D,     VIM_NORMAL)
         VIM_KEY(vim_y,     Y,     VIM_NORMAL)
+        VIM_KEY(vim_u,     U,     VIM_NORMAL)
         VIM_KEY(vim_esc,   ESC,   VIM_NORMAL)
         VIM_KEY(vim_enter, RET,   VIM_NORMAL)
         VIM_KEY(vim_colon, COLON, VIM_CMDLINE)
@@ -119,13 +140,15 @@ all: they name keycodes, not positions on your alpha layout.
         };
 
         // Sits on top of NORMAL: only the keys that end the selection differ,
-        // both Escs among them; every motion falls through to the layer
+        // both Escs among them, and the three that NORMAL sends to INSERT but
+        // visual keeps: i and a start a text object (viw) and o jumps to the
+        // selection's other end. Every motion falls through to the layer
         // underneath.
         vim_visual_layer {
             display-name = "VISUAL";
             bindings = <
-   &vim_esc     &vim_c       &trans        &trans        &trans       &trans     &trans         &trans        &trans       &trans
-   &trans       &trans       &vim_v        &vim_d        &vim_y       &vim_colon &trans         &trans        &trans       &trans
+   &vim_esc     &vim_c       &kp O         &vis_i        &vis_a       &trans     &trans         &trans        &trans       &trans
+   &trans       &vim_u       &vim_v        &vim_d        &vim_y       &vim_colon &trans         &trans        &trans       &trans
    &trans       &vim_x       &vim_p        &trans        &trans       &trans     &trans         &trans        &trans       &trans
                                            &esc_nav NAV 0 &trans      &trans     &trans
             >;
@@ -178,7 +201,8 @@ all: they name keycodes, not positions on your alpha layout.
 ```
 
 Reading it as a vim user: `i a o c` enter insert from the left hand, `v` opens
-visual and `v` or `Esc` closes it again, `dd`/`yy`/`gg` are single keys, `:`
+visual and `v` or `Esc` closes it again (inside it, `i a o` stay there, so
+`viw` selects a word), `dd`/`yy`/`gg` are single keys, `:`
 and `/` open the command line, and the right hand keeps `h j k l` on home with
 `w e b` above and `^D`/`^U` for paging. Everything not listed falls through to
 the base layer, so counts, registers and the commands you use once a month

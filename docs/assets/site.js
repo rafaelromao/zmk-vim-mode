@@ -101,11 +101,13 @@
   }
 
   function visual() {
-    // VIM_VISUAL's own keys, both Escs among them (the thumb still holds NAV);
-    // every other key falls through to NORMAL underneath.
-    const own = { 0: ["Esc", "normal"], 1: ["c", "insert"], 12: ["v", "normal"], 13: ["d", "normal"],
-      14: ["y", "normal"], 15: [":", "cmdline"], 21: ["x", "normal"], 22: ["p", "normal"],
-      30: ["Esc", "normal", "nav"] };
+    // VIM_VISUAL's own keys: the ones that end the selection, both Escs among
+    // them (the thumb still holds NAV), and o, i and a, which NORMAL sends to
+    // INSERT but visual keeps (the selection's other end, a text object as in
+    // viw). Every other key falls through to NORMAL underneath.
+    const own = { 0: ["Esc", "normal"], 1: ["c", "insert"], 2: ["o", ""], 3: ["i", ""], 4: ["a", ""],
+      11: ["u", "normal"], 12: ["v", "normal"], 13: ["d", "normal"], 14: ["y", "normal"], 15: [":", "cmdline"],
+      21: ["x", "normal"], 22: ["p", "normal"], 30: ["Esc", "normal", "nav"] };
     const keys = normal();
     Object.keys(own).forEach((i) => {
       const [t, to, h = ""] = own[i];
@@ -563,8 +565,9 @@
     if (mode === "insert") {
       if (k === "Escape") setMode("normal");
     } else if (mode === "visual") {
+      // i, a and o stay: they fall through to motion(), which ignores them.
       if (VISUAL_TO_NORMAL.has(k)) setMode("normal");
-      else if (k === "c" || k === "s") setMode("insert");
+      else if (k === "c" || k === "s" || k === "I" || k === "A") setMode("insert");
       else if (k === ":") openCmd(":");
       else motion(e);
     } else if (TO_INSERT.has(k)) {

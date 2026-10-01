@@ -235,6 +235,8 @@ throughout; `I A O S C` are the shifted forms of the letters beside them.
 | VISUAL | `Esc` | NORMAL | |
 | VISUAL | `v` | NORMAL | pressing `v` again leaves visual |
 | VISUAL | `c` `s` | INSERT | change the selection |
+| VISUAL | `I` `A` | INSERT | insert at the edges of the selection |
+| VISUAL | `i` `a` `o` | stays VISUAL | a text object (`viw`), the selection's other end: a VISUAL layer over NORMAL must not let them reach its insert keys |
 | VISUAL | `d` `x` `y` `p` `J` `=` `~` `u` | NORMAL | operators that consume the selection |
 | VISUAL | `:` | CMDLINE | `:'<,'>` |
 | CMDLINE | `Enter` `Esc` | NORMAL | the line is submitted or abandoned |
@@ -275,6 +277,7 @@ it.
         VIM_KEY(vim_y,     Y,     VIM_NORMAL)
         VIM_KEY(vim_p,     P,     VIM_NORMAL)
         VIM_KEY(vim_x,     X,     VIM_NORMAL)
+        VIM_KEY(vim_u,     U,     VIM_NORMAL)
 
         // Visual sits *on top of* normal, the way code 3 does, so it toggles
         // rather than replaces. The same macro serves both rows of the table:
@@ -315,7 +318,10 @@ vim_visual_layer {
     bindings = <
         // sits over VIM_NORMAL, so it only needs the keys that leave visual;
         // motions fall through to the layer underneath:
-        &vim_esc    &vim_v     &vim_c     &vim_d    &vim_y    &vim_p   &vim_x
+        &vim_esc    &vim_v     &vim_c     &vim_d    &vim_y    &vim_p   &vim_x   &vim_u
+        // ...and plain keys where NORMAL has &vim_i, &vim_a and &vim_o, which
+        // would otherwise fall through and switch to INSERT mid-selection:
+        &kp I       &kp A      &kp O
     >;
 };
 
@@ -330,7 +336,9 @@ vim_cmdline_layer {
 
 Shifted variants (`I`, `A`, `O`, `C`, `V`) are the same macros behind a
 mod-morph, or simply the same key: `&vim_i` with Shift held already sends `I`
-and lands in INSERT, which is the correct outcome.
+and lands in INSERT, which is the correct outcome. VISUAL's plain `i` and `a`
+need the mod-morph, since there Shift makes the difference: `I` and `A` insert,
+`i` and `a` stay. The [example keymap](docs/example-keymap.md) has it.
 
 Two things this simple version gets wrong, both survivable:
 
