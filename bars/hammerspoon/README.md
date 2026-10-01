@@ -7,6 +7,18 @@ off. Once a second it runs `zmk-vim-mode status --bar`, the same answer the
 Omarchy widget draws, and renders it; the wording lives in the daemon, not
 here.
 
+It also passes on the two chords a keymap sends when vim mode is entered or
+left by hand on the keyboard, so the daemon follows that decision instead of
+overruling it:
+
+| Chord | Sent when | Runs |
+|---|---|---|
+| Hyper+Esc (⌘⌃⌥⇧ Esc) | vim mode entered with a combo | `zmk-vim-mode set legacy --sticky --no-toggle` |
+| Meh+Esc (⌃⌥⇧ Esc) | vim mode left, cancel included | `zmk-vim-mode set auto` |
+
+Both are idempotent, so a chord sent twice never undoes the other one. On
+Linux a compositor binding does the same job (`contrib/hyprland-bind.conf`).
+
 ## Install
 
 `make install` does it on macOS; `zmk-vim-mode install --hammerspoon` does it
@@ -46,6 +58,7 @@ local vim = hs.loadSpoon("ZmkVimMode")
 vim.interval = 1      -- seconds between looks at the daemon
 vim.iconFont = nil    -- a Nerd Font family; nil takes the first one installed
 vim.socket = nil      -- the daemon's socket; Hammerspoon does not see ZMK_VIM_MODE_SOCKET
+vim.chords = true     -- pass Hyper+Esc / Meh+Esc on to the daemon; false if something else binds them
 vim:start()
 ```
 

@@ -11,6 +11,11 @@
 --- for bars (the Omarchy widget renders the same answer); this Spoon only draws
 --- it.
 ---
+--- It also catches the two chords a keymap sends when vim mode is entered or
+--- left by hand on the keyboard, Hyper+Esc and Meh+Esc, and passes them on to
+--- the daemon, which would otherwise overrule the keyboard at its next decision.
+--- On Hyprland a compositor binding does the same job.
+---
 --- `zmk-vim-mode install --hammerspoon`, part of `make install`, installs the
 --- Spoon and adds the line that starts it to init.lua:
 ---
@@ -56,9 +61,24 @@ obj.socket = nil
 --- label alone.
 obj.iconFont = nil
 
+--- ZmkVimMode.chords
+--- Variable
+--- Whether to follow the keyboard's vim-mode chords. Defaults to true: Hyper+Esc
+--- (vim mode entered by hand) runs `zmk-vim-mode set legacy --sticky
+--- --no-toggle`, Meh+Esc (left by hand, cancel included) runs `zmk-vim-mode set
+--- auto`. Both are idempotent, so a repeated chord never undoes the other. Set
+--- it to false when something else already binds them.
+obj.chords = true
+
 -- nf-custom-neovim, U+E6AE, written as raw UTF-8 so the file stays Lua 5.1
 -- readable (the tests run it under Neovim's LuaJIT).
 local ICON = "\238\154\174"
+
+-- The keyboard's chords and what each asks of the daemon.
+local CHORDS = {
+  { mods = { "cmd", "alt", "ctrl", "shift" }, key = "escape", args = { "set", "legacy", "--sticky", "--no-toggle" } },
+  { mods = { "alt", "ctrl", "shift" }, key = "escape", args = { "set", "auto" } },
+}
 
 -- Where make install and Homebrew put the binary. Hammerspoon does not inherit
 -- the login shell's PATH, so a bare name would not resolve.
@@ -198,20 +218,58 @@ function obj:_poll()
   self._task = task
 end
 
+-- Passes one chord on to the daemon, then looks again at once so the item
+-- follows the keyboard instead of the next tick. Every task is held until it
+-- ends: one with no reference left can be collected while it still runs.
+function obj:_send(args)
+  local argv = {}
+  for _, arg in ipairs(args) do argv[#argv + 1] = arg end
+  if self.socket then
+    argv[#argv + 1] = "--socket"
+    argv[#argv + 1] = self.socket
+  end
+  local generation = self._generation
+  local task
+  task = hs.task.new(self._binary, function(exitCode, _, stderr)
+    self._sends[task] = nil
+    if generation ~= self._generation then return end
+    if exitCode ~= 0 then
+      self:_log().w(table.concat(args, " ") .. " failed: " .. tostring(stderr))
+    end
+    self:_poll()
+  end, argv)
+  if not task or not task:start() then
+    self:_log().e("cannot run " .. tostring(self._binary))
+    return
+  end
+  self._sends[task] = true
+end
+
+function obj:_bindChords()
+  for _, chord in ipairs(CHORDS) do
+    self._hotkeys[#self._hotkeys + 1] = hs.hotkey.bind(chord.mods, chord.key, function()
+      self:_send(chord.args)
+    end)
+  end
+end
+
 --- ZmkVimMode:init() -> self
 --- Method
 --- Called by hs.loadSpoon. Does nothing until :start().
 function obj:init()
   self._generation = 0
   self._visible = false
+  self._hotkeys = {}
+  self._sends = {}
   return self
 end
 
 --- ZmkVimMode:start() -> self
 --- Method
---- Starts watching the daemon; the item appears whenever vim mode is on. When
---- the binary is not installed the item stays out of the menu bar, and the
---- console says why.
+--- Starts watching the daemon; the item appears whenever vim mode is on. With
+--- `chords` it also passes the keyboard's vim-mode chords on. When the binary
+--- is not installed the item stays out of the menu bar, no chord is caught,
+--- and the console says why.
 function obj:start()
   self:stop()
   self._binary = self:_resolveBinary()
@@ -223,19 +281,24 @@ function obj:start()
   -- The autosave name lets macOS keep the item where you dragged it.
   self._menu = self._menu or hs.menubar.new(false, "ZmkVimMode")
   self._timer = hs.timer.doEvery(self.interval, function() self:_poll() end)
+  if self.chords then self:_bindChords() end
   self:_poll()
   return self
 end
 
 --- ZmkVimMode:stop() -> self
 --- Method
---- Stops watching the daemon and removes the item from the menu bar.
+--- Stops watching the daemon, releases the chords and removes the item from the
+--- menu bar.
 function obj:stop()
   self._generation = (self._generation or 0) + 1
   if self._timer then
     self._timer:stop()
     self._timer = nil
   end
+  for _, hotkey in ipairs(self._hotkeys or {}) do hotkey:delete() end
+  self._hotkeys = {}
+  self._sends = self._sends or {}
   if self._task and self._task:isRunning() then self._task:terminate() end
   self._task = nil
   self:_hide()

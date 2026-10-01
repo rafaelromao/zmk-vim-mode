@@ -85,6 +85,8 @@ tells the keyboard.
   [Modes](#modes)).
 - **Optionally**, [Hammerspoon](https://www.hammerspoon.org) on macOS or
   Omarchy 4 on Linux, for the [status bar indicator](#status-bar-indicator).
+  On macOS the same Spoon passes on the chords a keymap sends when you
+  [enter or leave vim mode by hand](#entering-and-leaving-vim-mode-by-hand).
 
 ## Quick start
 
@@ -348,6 +350,37 @@ A complete, compilable 34-key keymap built this way, with a Gallium base,
 home-row mods and the four vim layers, is in
 [docs/example-keymap.md](docs/example-keymap.md).
 
+### Entering and leaving vim mode by hand
+
+A combo that turns NORMAL on is legacy mode entered from the keyboard, and the
+host has to hear about it. Otherwise the daemon's next decision, made when focus
+moves to another app for instance, switches the layers back. The keymap
+announces it with two chords, which the host binds:
+
+| Chord | The keymap sends it | The host runs |
+|---|---|---|
+| Hyper+Esc | after turning NORMAL on by hand | `zmk-vim-mode set legacy --sticky --no-toggle` |
+| Meh+Esc | after leaving by hand, cancel included | `zmk-vim-mode set auto` |
+
+On macOS the [menu bar Spoon](#status-bar-indicator) binds both; on Hyprland,
+`contrib/hyprland-bind.conf` does.
+
+Neither may toggle. The keyboard only announces a state it is already in, so a
+repeated chord must confirm that state: `--no-toggle` keeps an override already
+in legacy, and `auto` does nothing when there is none. That makes it safe for a
+cancel key to send Meh+Esc whenever it drops the vim layers.
+
+Two details keep the chords honest:
+
+- **Guard the entry** with a layer-morph, so the combo does nothing, and sends
+  nothing, while a vim layer is already on.
+- **Don't give code 4 that guard.** The module clears every managed layer
+  before it runs a code's bindings, so the guard would always find vim mode off
+  and send Hyper+Esc straight back to the host. Code 4 taps a plain Esc, as in
+  the node above.
+
+[docs/keyboards-repo.md](docs/keyboards-repo.md) shows a keymap that does both.
+
 ## Host setup
 
 ### Install
@@ -475,7 +508,7 @@ just acted on, not a second guess at it.
 
 | Bar | What gets installed | Setup |
 |---|---|---|
-| macOS menu bar | a [Hammerspoon](https://www.hammerspoon.org) Spoon, `~/.hammerspoon/Spoons/ZmkVimMode.spoon`, and the lines in `init.lua` that start it | `zmk-vim-mode install --hammerspoon` (also done by `make install`), see [bars/hammerspoon](bars/hammerspoon/README.md) |
+| macOS menu bar | a [Hammerspoon](https://www.hammerspoon.org) Spoon, `~/.hammerspoon/Spoons/ZmkVimMode.spoon`, and the lines in `init.lua` that start it; the Spoon also passes the keyboard's [vim-mode chords](#entering-and-leaving-vim-mode-by-hand) on to the daemon | `zmk-vim-mode install --hammerspoon` (also done by `make install`), see [bars/hammerspoon](bars/hammerspoon/README.md) |
 | Omarchy Quattro bar | a bar widget plugin, `~/.config/omarchy/plugins/rafaelromao.zmk-vim-mode`, listed in `bar.layout.right` of `shell.json` | `zmk-vim-mode install --omarchy` (also done by `make install`), see [bars/omarchy](bars/omarchy/README.md) |
 | any other bar | nothing: `zmk-vim-mode status --bar` prints the same answer as one Waybar-style JSON line (`text`, `tooltip`, `class`) | a module that runs it every second, below |
 

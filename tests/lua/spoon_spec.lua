@@ -105,6 +105,15 @@ hs.styledtext = {
   new = function(text) return setmetatable({ text = text }, styled) end,
 }
 hs.logger = { new = function() return { w = function() end, e = function() end } end }
+local hotkeys = {}
+hs.hotkey = {
+  bind = function(mods, key, pressedfn)
+    local h = { mods = table.concat(mods, "+"), key = key, press = pressedfn }
+    function h:delete() self.deleted = true end
+    hotkeys[#hotkeys + 1] = h
+    return h
+  end,
+}
 
 files = { ["/opt/zmk/bin/zmk-vim-mode"] = true }
 local s = setmetatable({ binary = "/opt/zmk/bin/zmk-vim-mode" }, spoon):init()
@@ -166,6 +175,64 @@ fonts = { "Menlo" }
 f:start()
 T.eq(f._iconFont, nil, "no Nerd Font at all: the label alone")
 f:stop()
+
+T.section("ZmkVimMode chords")
+-- What the Spoon has bound and not released yet.
+local function live()
+  local out = {}
+  for _, h in ipairs(hotkeys) do
+    if not h.deleted then out[#out + 1] = h end
+  end
+  return out
+end
+T.eq(#live(), 0, "every Spoon stopped above released its chords")
+files = { ["/opt/zmk/bin/zmk-vim-mode"] = true }
+fonts = { "Hack Nerd Font" }
+local c = setmetatable({ binary = "/opt/zmk/bin/zmk-vim-mode" }, spoon):init()
+c:start()
+local bound = live()
+T.eq(#bound, 2, "start binds the two chords")
+T.eq(bound[1] and (bound[1].mods .. " " .. bound[1].key), "cmd+alt+ctrl+shift escape", "Hyper+Esc: vim mode entered by hand")
+T.eq(bound[2] and (bound[2].mods .. " " .. bound[2].key), "alt+ctrl+shift escape", "Meh+Esc: vim mode left by hand")
+
+tasks[#tasks]:finish(0, '{"text":""}\n', "") -- start's own look
+local n = #tasks
+bound[1].press()
+T.eq(#tasks, n + 1, "Hyper+Esc runs the binary")
+T.eq(table.concat(tasks[#tasks].args, " "), "set legacy --sticky --no-toggle", "pinning legacy without toggling it off again")
+T.eq(tasks[#tasks].path, "/opt/zmk/bin/zmk-vim-mode", "with the binary start resolved")
+tasks[#tasks]:finish(0, "code=4 mode=legacy (override)\n", "")
+T.eq(#tasks, n + 2, "once the daemon has it, the item looks again at once")
+T.eq(table.concat(tasks[#tasks].args, " "), "status --bar", "with status --bar")
+tasks[#tasks]:finish(0, '{"text":"VIM","tooltip":"Vim mode: legacy (code 4)"}\n', "")
+T.eq(menu.title and menu.title.text, ICON .. " VIM", "and shows the manual vim mode")
+
+bound[2].press()
+T.eq(table.concat(tasks[#tasks].args, " "), "set auto", "Meh+Esc hands the mode back to the daemon")
+
+c:stop()
+T.eq(#live(), 0, "stop releases both chords")
+local before_late = #tasks
+tasks[#tasks]:finish(0, "code=0 mode=off (non-editor app)\n", "")
+T.eq(#tasks, before_late, "a chord that lands after stop starts no look")
+
+c.socket = "/tmp/zmk.sock"
+c:start()
+c:start()
+T.eq(#live(), 2, "starting twice still binds each chord once")
+live()[1].press()
+T.eq(table.concat(tasks[#tasks].args, " "), "set legacy --sticky --no-toggle --socket /tmp/zmk.sock", "a socket setting reaches the chords too")
+c:stop()
+
+local quiet = setmetatable({ binary = "/opt/zmk/bin/zmk-vim-mode", chords = false }, spoon):init()
+quiet:start()
+T.eq(#live(), 0, "chords = false binds nothing")
+quiet:stop()
+
+files = {}
+local missing = setmetatable({}, spoon):init()
+missing:start()
+T.eq(#live(), 0, "without a binary no chord is caught")
 
 _G.hs = saved_hs
 package.loaded.ZmkVimMode = nil
