@@ -183,17 +183,22 @@ zmk mabroum/rommana cd -e dongle_display -m englmaxi/zmk-dongle-display   # dong
 (`b.sh:18`), without rebuilding the two peripherals too. The `.uf2` files land
 in `build/artifacts/`.
 
-## 5. Verify without the host daemon
+## 5. Verify without an editor
 
-With the keyboard connected to a Linux host:
+With the daemon running and the keyboard connected, drive the codes by hand:
 
 ```bash
 # 1 = NORMAL, 2 = INSERT, 3 = VISUAL, 6 = RAW, 0 = off
 zmk-vim-mode set normal
 zmk-vim-mode set insert
 zmk-vim-mode set off
+zmk-vim-mode set auto    # hand the mode back to the daemon
 ```
 
 If a dongle display is attached it shows the layer name; otherwise type a key
 that differs between layers. `zmk-vim-mode devices` must list the keyboard
-first; if it does not, see `scripts/spike-linux.sh`.
+first; if it does not, see `scripts/spike-linux.sh` on Linux and
+`zmk-vim-mode hid-scan` on macOS.
+
+Then the chords: the vim-mode combo makes `zmk-vim-mode status` show
+`override : legacy sticky`, and cancel takes the override away again.

@@ -479,7 +479,12 @@ Deviations from the design above, all in the keyboards repo:
   state and the chords exist so the host agrees — and vim over SSH, recognised by window title alone, has no
   plugin on the remote side. The split only bought indirection.
 - `tc_cancel` uses `&vim_off` instead of `&vim_mode_off`: a panic key must not
-  toggle a sticky `off` override on the host.
+  toggle a sticky `off` override on the host. *Superseded 2026-10-01:* silent, cancel left the host's sticky
+  legacy override in place (the bar kept VIM, a Caps Lock clobber put NORMAL back, the next combo toggled it
+  off). Both chords are idempotent now (`set legacy --sticky --no-toggle`, `set auto`), so cancel and the
+  leader key announce leaving through `vim_leave_notify`, which sends Meh+Esc only while a vim layer is on;
+  an echo repair writes back the clobbered code instead of the silent alias; and the macOS Spoon binds the
+  chords too.
 - The old `scripts/vimmode/` watchers, `listeners.dtsi` and the
   `ssbb/zmk-listeners` module are gone from the keyboards repo.
 

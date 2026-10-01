@@ -349,7 +349,10 @@ x q m w z   <b>k</b> f ' ; .</pre>
           <span class="chip plain">legacy</span>: the keyboard turns NORMAL on and follows the mode
           itself, from the keys that change it. For what nothing can detect, like vim over ssh or a
           shared screen, <code>zmk-vim-mode set</code> pins the mode by hand, and setting the same
-          mode again hands it back to the daemon.</p>
+          mode again hands it back to the daemon. A combo on the keyboard can do the same from the
+          other end: it turns NORMAL on and
+          <a href="https://github.com/rafaelromao/zmk-vim-mode#entering-and-leaving-vim-mode-by-hand">tells the host</a>,
+          and cancel hands the mode back.</p>
       </div>
     </div>
   </div>
@@ -567,7 +570,10 @@ x q m w z   <b>k</b> f ' ; .</pre>
         second guess at it.</p>
       <ul>
         <li><strong>macOS menu bar:</strong> a <a href="https://www.hammerspoon.org">Hammerspoon</a>
-          Spoon, <code>zmk-vim-mode install --hammerspoon</code>.</li>
+          Spoon, <code>zmk-vim-mode install --hammerspoon</code>. It also passes on the chords a
+          keymap sends when vim mode is
+          <a href="https://github.com/rafaelromao/zmk-vim-mode#entering-and-leaving-vim-mode-by-hand">entered or left by hand</a>,
+          which Hyprland binds on Linux.</li>
         <li><strong>Omarchy bar:</strong> a bar widget plugin, <code>zmk-vim-mode install --omarchy</code>.</li>
         <li><strong>Any other bar:</strong> <code>zmk-vim-mode status --bar</code> prints the same
           answer as one Waybar-style JSON line.</li>

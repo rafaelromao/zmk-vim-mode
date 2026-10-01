@@ -7,6 +7,10 @@ is off. Once a second it runs `zmk-vim-mode status --bar`, the same answer the
 macOS menu bar item draws, and renders it; the wording lives in the daemon, not
 here.
 
+Unlike the macOS Spoon, the widget does not catch the chords a keymap sends when
+vim mode is entered or left by hand: on Omarchy that is a Hyprland binding,
+`contrib/hyprland-bind.conf` or the same two lines in your own bindings.
+
 ## Install
 
 `make install` does it on Omarchy; `zmk-vim-mode install --omarchy` does it

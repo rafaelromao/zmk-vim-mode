@@ -370,8 +370,10 @@ announces it with two chords, which the host binds:
 | Hyper+Esc | after turning NORMAL on by hand | `zmk-vim-mode set legacy --sticky --no-toggle` |
 | Meh+Esc | after leaving by hand, cancel included | `zmk-vim-mode set auto` |
 
-On macOS the [menu bar Spoon](#status-bar-indicator) binds both; on Hyprland,
-`contrib/hyprland-bind.conf` does.
+On macOS the [menu bar Spoon](#status-bar-indicator) binds both, and
+`make install` sets it up. On Hyprland, `contrib/hyprland-bind.conf` does,
+once your config sources it; `make install` leaves the compositor's config
+alone.
 
 Neither may toggle. The keyboard only announces a state it is already in, so a
 repeated chord must confirm that state: `--no-toggle` keeps an override already
@@ -380,8 +382,9 @@ cancel key to send Meh+Esc whenever it drops the vim layers.
 
 Two details keep the chords honest:
 
-- **Guard the entry** with a layer-morph, so the combo does nothing, and sends
-  nothing, while a vim layer is already on.
+- **Guard the entry** with a layer-morph (a module:
+  [zmk-layer-morph](https://github.com/rafaelromao/zmk-layer-morph)), so the
+  combo does nothing, and sends nothing, while a vim layer is already on.
 - **Don't give code 4 that guard.** The module clears every managed layer
   before it runs a code's bindings, so the guard would always find vim mode off
   and send Hyper+Esc straight back to the host. Code 4 taps a plain Esc, as in
@@ -411,7 +414,8 @@ One command, both platforms. It:
   Gradle, so it takes a while;
 - puts the [status bar indicator](#status-bar-indicator) in your bar: the
   Omarchy widget on Linux, the Hammerspoon menu bar item on macOS, each
-  skipped when its host is missing;
+  skipped when its host is missing. On macOS the same Spoon also catches the
+  keyboard's [vim-mode chords](#entering-and-leaving-vim-mode-by-hand);
 - on Linux, installs the udev rule (the one `sudo` prompt) and enables the
   accessibility bus;
 - on macOS, creates the code-signing certificate if you have none (your login
@@ -423,12 +427,16 @@ stacks a duplicate, and only takes effect in a **new** shell — no process can
 change the `PATH` of the shell that started it. Opt out with `--no-path`, and
 out of the panes with `--no-open`.
 
-Four things it cannot do for you:
+Five things it cannot do for you:
 
 - **flash the firmware module**;
 - **restart the editors**, so they load their new plugins;
 - **`set -g focus-events on`** in `~/.tmux.conf`, or Neovim never sees
   `FocusLost` inside tmux;
+- on Linux, **bind the keyboard's
+  [vim-mode chords](#entering-and-leaving-vim-mode-by-hand)** in Hyprland:
+  source `contrib/hyprland-bind.conf` from your config, or copy its two
+  `bind` lines;
 - on macOS, **grant the two permissions** below — it opens the panes, but only
   System Settings itself may write TCC.
 
