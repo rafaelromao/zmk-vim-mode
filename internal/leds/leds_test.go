@@ -110,6 +110,37 @@ func TestReassertUsesSilentAlias(t *testing.T) {
 	}
 }
 
+// An echo means the OS overwrote the LED bits, and the repair puts back what
+// the device showed. After a transition into legacy that is 4, not the silent
+// 7: the firmware last applied 4, so 7 would read as a new code and reset a
+// mode the keyboard inferred since (INSERT after an `i`) to NORMAL.
+func TestEchoRestoresTheClobberedCode(t *testing.T) {
+	f := newFake("kb")
+	r := NewReconciler(f, nil)
+	r.Coalesce = 0
+	r.EchoMinGap = 0
+	r.RetryDelays = nil
+	r.SetDesired(state.CodeLegacy)
+	r.echo("kb")
+	if w := f.got(); len(w) != 2 || w[1].code != state.CodeLegacy {
+		t.Fatalf("echo after a transition into legacy writes 4 back: %v", w)
+	}
+	// After a reconnect the device shows the silent alias, and an echo restores that.
+	r.Reassert("kb", true, "device added")
+	r.echo("kb")
+	if w := f.got(); len(w) != 4 || w[2].code != state.CodeLegacySilent || w[3].code != state.CodeLegacySilent {
+		t.Fatalf("echo after a re-assert writes 7 back: %v", w)
+	}
+	// A transition that never reached the device is no state to restore: the
+	// echo writes the desired code, as a reconnect would.
+	f.failFor["kb"] = 1
+	r.SetDesired(state.CodeInsert)
+	r.echo("kb")
+	if w := f.got(); len(w) != 5 || w[4].code != state.CodeInsert {
+		t.Fatalf("echo after a failed transition writes the desired code: %v", w)
+	}
+}
+
 func TestEventsAddedEchoRemoved(t *testing.T) {
 	f := newFake("kb")
 	r := NewReconciler(f, nil)

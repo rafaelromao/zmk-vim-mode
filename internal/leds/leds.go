@@ -129,8 +129,9 @@ func (r *Reconciler) applyDesiredLocked() {
 }
 
 // Reassert re-writes the desired code to one device using the silent alias
-// (Legacy → LegacySilent). force bypasses the per-device dedupe (used after an
-// echo showed the OS overwrote our bits).
+// (Legacy → LegacySilent). force bypasses the per-device dedupe: a device that
+// was just added, or a system that just woke, may have lost its state. A
+// clobber seen as an echo is repaired by echo() instead.
 func (r *Reconciler) Reassert(dev DeviceID, force bool, reason string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -244,7 +245,7 @@ func (r *Reconciler) handle(ev Event) {
 	}
 }
 
-// echo schedules a forced re-assert, rate-limited per device.
+// echo schedules a forced repair, rate-limited per device.
 func (r *Reconciler) echo(dev DeviceID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -260,14 +261,30 @@ func (r *Reconciler) echo(dev DeviceID) {
 		defer r.mu.Unlock()
 		delete(r.pendingEcho, dev)
 		r.lastReassert[dev] = time.Now()
-		r.writeLocked(dev, state.SilentAlias(r.desired), true, "echo")
+		r.writeLocked(dev, r.repairCodeLocked(dev), true, "echo")
 	}
 	if wait <= 0 {
 		r.lastReassert[dev] = time.Now()
-		r.writeLocked(dev, state.SilentAlias(r.desired), true, "echo")
+		r.writeLocked(dev, r.repairCodeLocked(dev), true, "echo")
 		return
 	}
 	r.pendingEcho[dev] = time.AfterFunc(wait, fire)
+}
+
+// repairCodeLocked is the code to write back after the OS clobbered dev's LED
+// bits: the very code it showed, whenever that still stands for the desired
+// state. The firmware then receives the code it last applied and drops the
+// zero it parked, so the keyboard keeps whatever it inferred on its own since
+// -- the INSERT of a legacy app, or vim mode cancelled by hand. Writing the
+// silent alias instead would read as a new code after a transition into
+// legacy (4 then 7) and put NORMAL back on the first Caps Lock press.
+// Anything else (nothing written yet, a transition still being retried) gets
+// the silent alias, as a reconnect does.
+func (r *Reconciler) repairCodeLocked(dev DeviceID) uint8 {
+	if last, ok := r.last[dev]; ok && (last == r.desired || last == state.SilentAlias(r.desired)) {
+		return last
+	}
+	return state.SilentAlias(r.desired)
 }
 
 // Devices returns the backend devices decorated with the last written code.
