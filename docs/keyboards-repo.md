@@ -6,7 +6,7 @@ module into a config of your own, not something zmk-vim-mode needs: your keymap
 only needs what *Keyboard setup* in the
 [README](https://github.com/rafaelromao/zmk-vim-mode#keyboard-setup) describes.
 Line references are from the state of that repo when this was last checked
-(`68d98586`).
+(`8293d532`).
 
 ## 1. Add the module
 
@@ -30,21 +30,22 @@ into `modules/`, which inside the container is the `zmk-modules-cache` volume
 `ssbb/zmk-listeners` is no longer listed; it went with the `num_lock` node
 (section 3).
 
-`CONFIG_ZMK_HID_INDICATORS=y` is already set in twelve `.conf` files, though
-not in the Zen dongle's `corneish_zen_dongle.conf`, and the module `select`s it
-anyway on any central whose keymap has the node. Peripherals need no change.
+No `.conf` file sets `CONFIG_ZMK_HID_INDICATORS=y`: the module `select`s it on
+any central whose keymap has the node. Twelve of them used to, a leftover of
+the `num_lock` listener that needed it, until they were cleared along with the
+rest of it. Peripherals need no change.
 
 ## 2. Add the sync node to `zmk/features/vim.dtsi`
 
 Only one new macro (`vim_mode_on_host`, see below); every other host-driven
-state is a plain layer set. The node is at `vim.dtsi:32-47`; the include it
+state is a plain layer set. The node is at `vim.dtsi:29-44`; the include it
 needs is at `:8`.
 
 ```c
 #include <dt-bindings/zmk/hid_usage.h>
 
 / {
-    vim_sync: vim_sync {
+    vim_sync {
         compatible = "zmk,hid-indicator-code-listener";
         indicators = <HID_USAGE_LED_COMPOSE HID_USAGE_LED_KANA HID_USAGE_LED_SCROLL_LOCK>;
         managed-layers = <VIM_NORMAL VIM_VISUAL VIM_CHANGE VIM_INSERT VIM_REPLACE VIM_CMDLINE>;
@@ -96,29 +97,48 @@ Notes on the choices:
   every managed layer *before* invoking a code's bindings, so from code 4 the
   guard can never fire: it would always take the notify branch and send
   Esc **and** Hyper+Esc. Since the host binds Hyper+Esc to
-  `zmk-vim-mode set legacy --sticky`, the keyboard would then cancel the very
-  override the host had just set. Code 4 therefore selects `VIM_NORMAL`
+  `zmk-vim-mode set legacy --sticky --no-toggle`, every automatic legacy
+  decision (focusing VSCode without its plugin, say) would come straight back
+  as a sticky manual override. Code 4 therefore selects `VIM_NORMAL`
   declaratively and binds a plain `&kp ESC` (`&vim_mode_on_host`);
   `&vim_mode_on` stays for the combos, where nothing has pre-cleared the layers
   and the guard does work. Code 7 is the same state with no binding at all, so
-  a re-assert after a reconnect or a clobber never re-types Esc.
+  a re-assert after a reconnect never re-types Esc. (A clobber is repaired with
+  the code the keyboard showed before it, 4 included, which the firmware
+  already applied and ignores.)
 - **There is no `VIM_LEADER` layer any more.** It was an all-`&trans` layer
   entered on `<space>` so the keys after a leader reached the editor untouched.
   The plugin now reports a pending leader as `raw`, which does the same from the
   host, and legacy apps never had leader tracking. Removing it renumbered every
   layer above it in `config.dtsi`.
-- **`tc_cancel` no longer notifies the host.** It used `&vim_mode_off`, whose
-  Meh+Esc is now bound to `set off --sticky`; a panic key that toggles a sticky
-  override on every press is wrong, so it clears the vim layers locally instead:
-  it runs `&mc_base_reset`, which starts with `&vim_off`
-  (`zmk/features/smart.dtsi:21`, `:44`).
+- **The two chords are idempotent.** The host binds Hyper+Esc to
+  `zmk-vim-mode set legacy --sticky --no-toggle` and Meh+Esc to
+  `zmk-vim-mode set auto`: the keyboard only announces a state it is already
+  in, so a repeated chord confirms it and never flips it. The Hyprland binds
+  live in the author's dotfiles (`contrib/hyprland-bind.conf` is the same pair);
+  on macOS the [ZmkVimMode Spoon](../bars/hammerspoon/README.md) binds them.
+- **Every exit by hand tells the host.** `tc_cancel` runs `&vim_leave_notify`
+  before `&mc_base_reset` and its `&vim_off` (`zmk/features/smart.dtsi:23`,
+  `:46`), and the leader key does the same before `&leader`
+  (`zmk/features/shortcuts.dtsi:101`). `vim_leave_notify`
+  (`zmk/features/vim.dtsi:130`) is a layer-morph that sends Meh+Esc only while
+  a vim layer is on, so a cancel outside vim mode sends nothing; the MACROS
+  leave chord (`vim_mode_off`, `:128`) always sends it. Cancel used to stay
+  silent, because Meh+Esc meant a toggling `set off --sticky`, and a vim mode
+  entered by hand then outlived the cancel on the host: the bar kept showing
+  it, a Caps Lock press brought NORMAL back, and the next combo press turned
+  it off.
+- **Num word keeps vim mode.** NUM sits above every vim layer and the ones num
+  word starts from type the base layout anyway, so `tc_num_word` no longer runs
+  `&vim_off` (`zmk/features/smart.dtsi:73`, `:81`); dropping the layers left a
+  legacy vim mode behind for good.
 - **Code 6 (raw) lists no layers.** Keys reach the host untouched. Bind a tool
   layer here later if you want one.
 
 ## 3. Remove the num-lock listener (recommended)
 
-Done on keyboards `main`: a comment at `zmk/features/vim.dtsi:22-23` is all
-that is left of the node that mapped NUM LOCK to vim mode:
+Done on keyboards `main`, down to the comment that remembered it. This was the
+node that mapped NUM LOCK to vim mode:
 
 ```c
         num_lock {
