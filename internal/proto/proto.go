@@ -64,6 +64,9 @@ type Msg struct {
 	Plugin  string `json:"plugin,omitempty"`
 	TTLMs   int    `json:"ttl_ms,omitempty"` // mode: the report expires after this, leaving the client with no opinion; set: override expiry
 	Sticky  bool   `json:"sticky,omitempty"` // set: keep override across frontmost changes
+	// NoToggle (set): re-issuing the active override keeps it instead of
+	// returning to auto, so a repeated keyboard notification is harmless.
+	NoToggle bool `json:"no_toggle,omitempty"`
 
 	// Daemon → client / CLI.
 	Daemon  string   `json:"daemon,omitempty"`

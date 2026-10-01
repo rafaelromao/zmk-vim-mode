@@ -216,7 +216,7 @@ func TestStore(t *testing.T) {
 		t.Fatalf("back to first client: %+v", d)
 	}
 	// override, then frontmost change clears it
-	s.SetOverride(&Override{Mode: Raw})
+	s.SetOverride(&Override{Mode: Raw}, true)
 	if d := s.Decision(); d.Mode != Raw {
 		t.Fatalf("override: %+v", d)
 	}
@@ -225,12 +225,20 @@ func TestStore(t *testing.T) {
 		t.Fatalf("override should clear on app change: %+v", d)
 	}
 	// sticky override survives, same-mode re-issue toggles off
-	s.SetOverride(&Override{Mode: Legacy, Sticky: true})
+	s.SetOverride(&Override{Mode: Legacy, Sticky: true}, true)
 	s.SetFrontmost(app("ghostty"))
 	if d := s.Decision(); d.Mode != Legacy {
 		t.Fatalf("sticky override should survive: %+v", d)
 	}
-	if active := s.SetOverride(&Override{Mode: Legacy, Sticky: true}); active {
+	// ...unless the re-issue asks not to toggle: the keyboard announcing a
+	// manual entry it already made must never cancel it.
+	if active := s.SetOverride(&Override{Mode: Legacy, Sticky: true}, false); !active {
+		t.Fatal("a no-toggle re-issue must keep the override")
+	}
+	if d := s.Decision(); d.Mode != Legacy {
+		t.Fatalf("still legacy after a no-toggle re-issue: %+v", d)
+	}
+	if active := s.SetOverride(&Override{Mode: Legacy, Sticky: true}, true); active {
 		t.Fatal("re-issuing same override should toggle back to auto")
 	}
 	if d := s.Decision(); d.Mode != Insert {

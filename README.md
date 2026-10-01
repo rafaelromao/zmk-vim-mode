@@ -565,7 +565,7 @@ zmk-vim-mode status             current decision, frontmost app, widget focus, c
 zmk-vim-mode devices            keyboards the daemon can write to, and the last code sent to each
 zmk-vim-mode set <mode>         manual override: off, normal, insert, visual, cmdline, raw, legacy or auto;
                                 --ttl 30s lets it lapse, --sticky keeps it when another app takes focus,
-                                repeating the same mode returns to auto
+                                repeating the same mode returns to auto, unless --no-toggle
 zmk-vim-mode doctor             daemon, devices, permissions, the editor setups and the status bar indicator
 zmk-vim-mode install [flags]    service, PATH entry, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux,
                                 --hammerspoon (macOS menu bar), --omarchy (Omarchy bar widget)

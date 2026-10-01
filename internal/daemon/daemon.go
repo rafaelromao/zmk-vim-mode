@@ -301,7 +301,7 @@ func (d *Daemon) handleSet(m proto.Msg) *proto.Msg {
 	var active bool
 	switch mode := m.Mode; mode {
 	case "auto", "":
-		d.store.SetOverride(nil)
+		d.store.SetOverride(nil, false)
 	default:
 		mm, ok := state.ParseMode(mode)
 		if !ok || mm == state.None {
@@ -311,7 +311,7 @@ func (d *Daemon) handleSet(m proto.Msg) *proto.Msg {
 		if m.TTLMs > 0 {
 			o.Until = time.Now().Add(time.Duration(m.TTLMs) * time.Millisecond)
 		}
-		active = d.store.SetOverride(o)
+		active = d.store.SetOverride(o, !m.NoToggle)
 	}
 	dec := d.store.Decision()
 	reason := dec.Reason

@@ -15,6 +15,7 @@ func TestRoundTrip(t *testing.T) {
 		{T: TResync},
 		{T: TError, Err: ErrUnsupportedVersion, Message: "daemon speaks v1"},
 		{V: 1, T: TSet, Mode: "legacy", TTLMs: 30000, Sticky: true},
+		{V: 1, T: TSet, Mode: "legacy", Sticky: true, NoToggle: true},
 		{T: TOK, Code: U8(4), Mode: "legacy", Reason: "override"},
 	}
 	for _, in := range cases {
@@ -30,7 +31,7 @@ func TestRoundTrip(t *testing.T) {
 			t.Fatalf("decode %q: %v", b, err)
 		}
 		if out.T != in.T || out.Mode != in.Mode || out.Client != in.Client || out.PID != in.PID ||
-			out.TTLMs != in.TTLMs || out.Sticky != in.Sticky || out.Err != in.Err || out.V != in.V {
+			out.TTLMs != in.TTLMs || out.Sticky != in.Sticky || out.NoToggle != in.NoToggle || out.Err != in.Err || out.V != in.V {
 			t.Fatalf("round trip mismatch:\n in=%+v\nout=%+v", in, out)
 		}
 		if (in.Focused == nil) != (out.Focused == nil) || (in.Focused != nil && *in.Focused != *out.Focused) {

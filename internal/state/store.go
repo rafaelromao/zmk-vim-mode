@@ -151,11 +151,13 @@ func (s *Store) SetFrontmost(a focus.App) {
 }
 
 // SetOverride installs a manual override; nil returns to automatic mode.
-// Re-issuing an override with the same mode toggles back to automatic so a
-// single hotkey can flip it.
-func (s *Store) SetOverride(o *Override) (nowActive bool) {
+// With toggle, re-issuing an override with the same mode toggles back to
+// automatic so a single hotkey can flip it. Without it the call is idempotent,
+// which is what a notification needs: the keyboard announcing a state it is
+// already in must never undo it.
+func (s *Store) SetOverride(o *Override, toggle bool) (nowActive bool) {
 	s.mu.Lock()
-	if o != nil && s.override.Active(s.now()) && s.override.Mode == o.Mode {
+	if toggle && o != nil && s.override.Active(s.now()) && s.override.Mode == o.Mode {
 		s.override = nil
 	} else {
 		s.override = o

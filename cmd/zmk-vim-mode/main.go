@@ -32,9 +32,9 @@ const usageText = `zmk-vim-mode — sync ZMK keyboard layers with the editor's v
 
 Usage:
   zmk-vim-mode daemon [flags]           run the daemon (normally via systemd/launchd)
-  zmk-vim-mode set <mode> [--ttl 30s] [--sticky]
+  zmk-vim-mode set <mode> [--ttl 30s] [--sticky] [--no-toggle]
                                         manual override: off|normal|insert|visual|cmdline|raw|legacy|auto
-                                        (re-issuing the same mode toggles back to auto)
+                                        (re-issuing the same mode toggles back to auto, unless --no-toggle)
   zmk-vim-mode status [--json|--bar]    show decision, frontmost app, clients, devices;
                                         --bar prints one JSON line for a status bar (Waybar-style)
   zmk-vim-mode devices                  list keyboards the daemon can write to
@@ -208,6 +208,7 @@ func runSet(args []string) error {
 	fs := flag.NewFlagSet("set", flag.ContinueOnError)
 	ttl := fs.Duration("ttl", 0, "expire the override after this duration")
 	sticky := fs.Bool("sticky", false, "keep the override when the frontmost app changes")
+	noToggle := fs.Bool("no-toggle", false, "keep an override already in this mode instead of returning to auto")
 	sock := fs.String("socket", server.DefaultSocketPath(), "unix socket path")
 	// allow "set insert --ttl 5s" as well as "set --ttl 5s insert"
 	var mode string
@@ -222,10 +223,10 @@ func runSet(args []string) error {
 		mode = fs.Arg(0)
 	}
 	if mode == "" {
-		return errors.New("usage: zmk-vim-mode set <off|normal|insert|visual|cmdline|raw|legacy|auto> [--ttl 30s] [--sticky]")
+		return errors.New("usage: zmk-vim-mode set <off|normal|insert|visual|cmdline|raw|legacy|auto> [--ttl 30s] [--sticky] [--no-toggle]")
 	}
 	reply, err := server.Request(*sock, proto.Msg{V: proto.Version, T: proto.TSet, Mode: mode,
-		TTLMs: int(ttl.Milliseconds()), Sticky: *sticky}, 2*time.Second)
+		TTLMs: int(ttl.Milliseconds()), Sticky: *sticky, NoToggle: *noToggle}, 2*time.Second)
 	if err != nil {
 		return err
 	}
