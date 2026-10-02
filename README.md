@@ -104,7 +104,12 @@ tells the keyboard.
    That builds the daemon, runs it as a user service, and sets up the editors
    and the status bar it finds. [Host setup](#host-setup) has the details.
 3. **macOS only:** add the daemon under Input Monitoring and Accessibility. Both
-   panes open at the end of `make install` ([why](#macos-permissions)).
+   panes open at the end of `make install` ([why](#macos-permissions)). Then
+   restart the daemon, so it picks the grants up:
+
+   ```bash
+   zmk-vim-mode restart
+   ```
 4. **Check** the setup, then drive the keyboard by hand:
 
    ```bash
@@ -462,7 +467,16 @@ only thing allowed to write it:
   the editors' own plugins report.
 
 A background agent is never prompted for either, which is why they have to be
-added manually. `zmk-vim-mode doctor` reports what the **daemon** was granted —
+added manually. After adding or re-adding either one, restart the daemon so it
+picks the grant up:
+
+```bash
+zmk-vim-mode restart
+```
+
+It waits for the daemon to come back and lists the keyboards: `writable`
+means Input Monitoring took effect, `NOT writable` with *not permitted* means
+it did not. `zmk-vim-mode doctor` reports what the **daemon** was granted —
 the only answer that counts, since macOS judges such a request by the
 responsible process, and a CLI run from a terminal is judged on that
 terminal's permissions.
@@ -480,6 +494,30 @@ make codesign-cert
 Without a certificate the binary is signed ad-hoc and both permissions must be
 removed and re-added after every rebuild; that is what happens in CI, or in any
 build with no terminal to ask on. `make build` says which of the two it used.
+
+The certificate is meant to keep both grants across rebuilds, but Input
+Monitoring has been seen to drop anyway. So after a `make install`, run
+`zmk-vim-mode doctor`. If a keyboard shows *not permitted*, remove
+`~/.local/bin/zmk-vim-mode` under Input Monitoring, add it again, and run
+`zmk-vim-mode restart`.
+
+### Starting and stopping the daemon
+
+The daemon runs as a user service: a launchd agent on macOS, a systemd user
+unit on Linux. It starts at login, and the service manager starts it again if
+it exits. Three commands control it on either platform, so you never need
+`launchctl` or `systemctl` for it:
+
+```bash
+zmk-vim-mode restart   # after granting a permission, or when doctor says the daemon is out of date
+zmk-vim-mode stop      # stays stopped until the next login, or the next start
+zmk-vim-mode start
+```
+
+`start` and `restart` wait for the daemon to answer, then list the keyboards
+and whether each is writable. `make install` restarts the daemon itself, so an
+upgrade needs none of them. The daemon's log is `~/Library/Logs/zmk-vim-mode.log`
+on macOS; on Linux, `journalctl --user -u zmk-vim-mode`.
 
 ### Editors
 
@@ -591,7 +629,10 @@ never leaves the old binary running:
 git pull && make install
 ```
 
-Rebuild the firmware too when the module has changed.
+On macOS, run `zmk-vim-mode doctor` afterwards: a keyboard marked *not
+permitted* lost its Input Monitoring grant in the rebuild, and
+[macOS permissions](#macos-permissions) says how to restore it. Rebuild the
+firmware too when the module has changed.
 
 `make uninstall` stops and removes the service and the binary. It leaves your
 configuration alone, so these stay until you remove them:
@@ -615,6 +656,8 @@ zmk-vim-mode devices            keyboards the daemon can write to, and the last 
 zmk-vim-mode set <mode>         manual override: off, normal, insert, visual, cmdline, raw, legacy or auto;
                                 --ttl 30s lets it lapse, --sticky keeps it when another app takes focus,
                                 repeating the same mode returns to auto, unless --no-toggle
+zmk-vim-mode restart            restart the user service, then list the keyboards and whether each is writable
+zmk-vim-mode start | stop       start the user service, or stop it until the next login
 zmk-vim-mode doctor             daemon, devices, permissions, the editor setups and the status bar indicator
 zmk-vim-mode install [flags]    service, PATH entry, Neovim spec, --vscode, --obsidian, --intellij, --atspi, --udev, --tmux,
                                 --hammerspoon (macOS menu bar), --omarchy (Omarchy bar widget)
@@ -644,20 +687,19 @@ it finds.
 | `zmk-vim-mode: command not found` | `~/.local/bin` is not on `PATH` | `make install` appends the line to your shell profile, but only a **new** shell reads it: `exec $SHELL`. A profile that writes `"~/bin"` inside double quotes leaves an unexpanded tilde, which names nothing — use `$HOME` |
 | grants lost again after a rebuild | the binary was signed ad-hoc | no signing identity existed at build time (or the build had no terminal to ask on): `make codesign-cert`, then `make install` |
 | `devices`: no keyboards | the keyboard serves another host | `zmk-vim-mode hid-scan` lists what this Mac sees; a ZMK keyboard talks to one BLE profile at a time |
-| `hid-scan` shows it, `devices` does not | daemon still on the old binary | `make install` (it restarts the agent) |
-| `NOT writable`, *not permitted* | Input Monitoring missing for **this** build | remove and re-add `~/.local/bin/zmk-vim-mode`, then `launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode` |
+| `hid-scan` shows it, `devices` does not | daemon still on the old binary | `zmk-vim-mode restart` |
+| `NOT writable`, *not permitted*, or the keyboard stopped following after `make install` | Input Monitoring missing for **this** build | under Input Monitoring, remove `~/.local/bin/zmk-vim-mode` and add it again, then `zmk-vim-mode restart` |
 | writes succeed, layers do not move | the keyboard is acting on another endpoint | ZMK keeps indicators per endpoint and only the selected one raises the event: check the keyboard's output (USB vs BLE) |
-| `bootstrap`: `5: Input/output error` | the agent is already loaded | `launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode` |
-| VSCode's terminal or sidebar keeps the vim layers | no Accessibility permission, so no window titles | add `~/.local/bin/zmk-vim-mode` under Accessibility, then `launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode`; `doctor` reports what the **daemon** was granted, which is the only answer that counts |
+| VSCode's terminal or sidebar keeps the vim layers | no Accessibility permission, so no window titles | add `~/.local/bin/zmk-vim-mode` under Accessibility, then `zmk-vim-mode restart`; `doctor` reports what the **daemon** was granted, which is the only answer that counts |
 | Obsidian reports nothing | the plugin is in the vault but not enabled | Obsidian rewrites its plugin list on exit, so `install --obsidian` cannot enable it while Obsidian runs: quit Obsidian and run it again, or enable *ZMK Vim Mode* in Settings → Community plugins |
-| nothing works, unclear why | — | run it in the foreground from a terminal that already has Input Monitoring: `launchctl bootout gui/$UID/dev.rafaelromao.zmk-vim-mode; zmk-vim-mode daemon --log-level debug` |
+| nothing works, unclear why | — | `zmk-vim-mode stop`, then run it in the foreground from a terminal that already has Input Monitoring: `zmk-vim-mode daemon --log-level debug`; `zmk-vim-mode start` when you are done |
 
 ### Linux
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | `zmk-vim-mode: command not found` | `~/.local/bin` is not on `PATH` | `make install` appends it to `~/.bashrc` (or your shell's profile), but only a **new** shell reads it: `exec $SHELL` |
-| daemon not reachable | the user service is not running | `systemctl --user enable --now zmk-vim-mode.service`; its log: `journalctl --user -u zmk-vim-mode -n 40` |
+| daemon not reachable | the user service is not running | `zmk-vim-mode start`; `systemctl --user enable zmk-vim-mode.service` also starts it at login; its log: `journalctl --user -u zmk-vim-mode -n 40` |
 | `devices`: no keyboards | firmware without the module, or the keyboard is on another host | flash the module (it turns HID indicators on); check the keyboard is connected here, since a ZMK keyboard talks to one BLE profile at a time, and that the udev rule is installed |
 | `devices`: `NOT writable` | the udev rule is missing, or the keyboard connected before it was installed | `make install` installs it (the one `sudo` prompt); reconnect USB, or re-pair a Bluetooth keyboard, so the rule applies to its new device nodes |
 | writable at the desktop, not over SSH | the rule's `uaccess` needs an active local session | use the group form documented in `contrib/udev/60-zmk-vim-mode.rules` |

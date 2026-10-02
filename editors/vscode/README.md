@@ -10,7 +10,7 @@ instant focus returns to the text.
 `make install` already does this. To do it on its own — **Linux**:
 
 ```bash
-zmk-vim-mode install --vscode --atspi && systemctl --user restart zmk-vim-mode
+zmk-vim-mode install --vscode --atspi && zmk-vim-mode restart
 ```
 
 **macOS** — there is no accessibility bus and no systemctl, and the agent is
@@ -144,7 +144,7 @@ hint without the bus.
 | terminal / sidebar keep the vim layers | title marker missing or VSCode not restarted | `install --vscode`, restart VSCode, check `hyprctl activewindow -j` |
 | mouse-opened palette keeps the vim layers | bus off, or renderer flag missing | `install --vscode --atspi`, restart daemon and VSCode; `atspi-watch` must list `code` and print events |
 | a widget gets the wrong verdict | classifier does not know it | paste the `atspi-watch` line; rules live in `internal/focus/atspi/classify.go` |
-| `doctor`: daemon version differs from CLI | `make install` replaced the binary, not the process | `systemctl --user restart zmk-vim-mode` |
+| `doctor`: daemon version differs from CLI | `make install` replaced the binary, not the process | `zmk-vim-mode restart` |
 | companion command missing from the palette | extension not installed/loaded | `install --vscode` again, *Developer: Show Running Extensions* |
 
 ## Limits

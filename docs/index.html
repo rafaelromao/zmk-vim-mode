@@ -541,7 +541,8 @@ x q m w z   <b>k</b> f ' ; .</pre>
 <span class="p">$ </span>make install</code></pre>
         <p>That builds the daemon, runs it as a user service, and sets up the editors and the status
           bar it finds. On macOS, add the daemon under Input Monitoring and Accessibility: both
-          panes open at the end of <code>make install</code>.</p>
+          panes open at the end of <code>make install</code>. Then run
+          <code>zmk-vim-mode restart</code>, so the daemon picks the grants up.</p>
       </li>
       <li>
         <h3>Check, then drive it by hand</h3>
