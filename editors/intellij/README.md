@@ -55,7 +55,9 @@ cd editors/intellij
 ```
 
 This uses the `gradle.properties` in the repo, which holds the values for
-whatever machine last edited it — check it first:
+whatever machine last edited it — check it first. A path there may start
+with `~/` for your home directory; the build expands it, so the file never
+has to name your user:
 
 | property | where to find it |
 |---|---|

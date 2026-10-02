@@ -67,9 +67,33 @@ func resolve(p string) string {
 func pathSnippet(profile, dir, home string) string {
 	d := underHome(dir, home)
 	if filepath.Base(profile) == "config.fish" {
-		return fmt.Sprintf("\n%s\nfish_add_path %s\n", pathMarker, d)
+		return fmt.Sprintf("\n%s\nfish_add_path \"%s\"\n", pathMarker, inDoubleQuotes(d, "\\\"$"))
 	}
-	return fmt.Sprintf("\n%s\nexport PATH=\"%s:$PATH\"\n", pathMarker, d)
+	return fmt.Sprintf("\n%s\n%s\n", pathMarker, exportPATH(d))
+}
+
+// exportPATH is the sh/bash/zsh line that puts d in front of PATH.
+func exportPATH(d string) string {
+	return fmt.Sprintf("export PATH=\"%s:$PATH\"", inDoubleQuotes(d, "\\\"$`"))
+}
+
+// inDoubleQuotes escapes the characters in special so p can sit inside a
+// shell's double quotes: a $ or ` in a directory name would otherwise run as
+// code in every new shell. A leading $HOME, which underHome writes on purpose,
+// is left to expand.
+func inDoubleQuotes(p, special string) string {
+	prefix := ""
+	if p == "$HOME" || strings.HasPrefix(p, "$HOME/") {
+		prefix, p = "$HOME", strings.TrimPrefix(p, "$HOME")
+	}
+	var b strings.Builder
+	for _, r := range p {
+		if strings.ContainsRune(special, r) {
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	return prefix + b.String()
 }
 
 // onPath reports whether dir is already an entry of pathEnv. Entries are
@@ -109,8 +133,8 @@ func EnsurePATH(w io.Writer, dir string) error {
 	if profile == "" {
 		fmt.Fprintf(w, "path       : %s is not on PATH, and $SHELL (%s) is not one I know how to edit.\n",
 			displayDir(dir, home), os.Getenv("SHELL"))
-		fmt.Fprintf(w, "             add this to your shell profile yourself:  export PATH=\"%s:$PATH\"\n",
-			underHome(dir, home))
+		fmt.Fprintf(w, "             add this to your shell profile yourself:  %s\n",
+			exportPATH(underHome(dir, home)))
 		return nil
 	}
 	if b, err := os.ReadFile(profile); err == nil && strings.Contains(string(b), pathMarker) {

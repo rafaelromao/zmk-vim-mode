@@ -4,6 +4,7 @@
 package install
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io"
 	"os"
@@ -106,6 +107,25 @@ const launchdPlist = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `
 
+// systemdArg makes p a single word of a unit's command line. systemd expands
+// % (specifiers) and $ (variables) anywhere on the line, so both are doubled;
+// anything that splits or quotes a word, or starts a C-style escape, puts the
+// word in double quotes, where those escapes are applied.
+func systemdArg(p string) string {
+	esc := strings.NewReplacer(`%`, `%%`, `$`, `$$`).Replace(p)
+	if !strings.ContainsAny(p, " \t\n\"'\\") {
+		return esc
+	}
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\t", `\t`).Replace(esc) + `"`
+}
+
+// xmlText escapes s for the text of a plist <string>.
+func xmlText(s string) string {
+	var b strings.Builder
+	_ = xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
 // ServicePath returns the path of the user service file for this platform.
 func ServicePath() (string, error) {
 	home, err := os.UserHomeDir()
@@ -145,7 +165,7 @@ func Run(w io.Writer, o Options) error {
 		var content string
 		if runtime.GOOS == "darwin" {
 			home, _ := os.UserHomeDir()
-			content = fmt.Sprintf(launchdPlist, exe, filepath.Join(home, "Library", "Logs", "zmk-vim-mode.log"))
+			content = fmt.Sprintf(launchdPlist, xmlText(exe), xmlText(filepath.Join(home, "Library", "Logs", "zmk-vim-mode.log")))
 		} else {
 			// --atspi is sticky: a plain `make install` must not silently turn it
 			// off. Uninstall, then install without it, to drop it.
@@ -160,7 +180,7 @@ func Run(w io.Writer, o Options) error {
 			if atspi {
 				extra = " --atspi"
 			}
-			content = fmt.Sprintf(systemdUnit, exe, extra)
+			content = fmt.Sprintf(systemdUnit, systemdArg(exe), extra)
 		}
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			return err

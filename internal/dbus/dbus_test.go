@@ -28,6 +28,102 @@ func TestSplitSig(t *testing.T) {
 	}
 }
 
+// Signatures come from the peer. Each of these once crashed the decoder (an
+// index past the end of the signature) or hung it (an array of empty structs
+// never advances), so each must now be refused up front.
+func TestSplitSigRefusesMalformedSignatures(t *testing.T) {
+	for _, sig := range []string{"(", ")", "a", "a{s}", "a{}", "a{vs}", "a{sv", "a{ssv}", "{sv}", "()", "a()", "(s", "z"} {
+		if first, rest, err := splitSig(sig); err == nil {
+			t.Errorf("splitSig(%q) accepted it as (%q, %q)", sig, first, rest)
+		}
+	}
+}
+
+// variantWire is a variant as it sits in a message: signature length,
+// signature, NUL, then value. The trailing zeros make sure running out of
+// bytes cannot hide a bad index behind an EOF error.
+func variantWire(sig string, value []byte) []byte {
+	b := append([]byte{byte(len(sig))}, sig...)
+	b = append(b, 0)
+	b = append(b, value...)
+	return append(b, make([]byte, 64)...)
+}
+
+func TestMalformedVariantSignaturesAreErrors(t *testing.T) {
+	cases := map[string][]byte{
+		"(": nil,
+		// pad to 4, then an array length of 0
+		"a": {0, 0, 0, 0, 0},
+		// pad to 8, length 16, pad to 16, then the key string "x"
+		"a{s}": {0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 'x', 0},
+		// pad to 8, then a length of 8 that empty structs never consume
+		"a()": {0, 0, 0, 8, 0, 0, 0},
+		"ss":  nil,
+	}
+	for sig, value := range cases {
+		func() {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Errorf("variant %q panicked: %v", sig, p)
+				}
+			}()
+			d := &decoder{buf: variantWire(sig, value), order: binary.LittleEndian}
+			if v, err := d.value("v"); err == nil {
+				t.Errorf("variant %q decoded to %#v", sig, v)
+			}
+		}()
+	}
+}
+
+func TestMalformedBodySignatureIsAnError(t *testing.T) {
+	// a{s} reaches the decoder with no value type; a() is an array of empty
+	// structs. The body itself is a plausible array of one string.
+	body := []byte{6, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 'x', 0}
+	for _, sig := range []string{"a{s}", "a()"} {
+		msg, err := encodeMessage(TypeSignal, 0, 1, map[byte]any{fieldSignature: signature(sig)}, body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m, err := readMessage(bytes.NewReader(msg)); err == nil {
+			t.Errorf("body signature %q decoded to %#v", sig, m.Body)
+		}
+	}
+}
+
+// A variant may hold a variant, so the data sets the depth. Unbounded, a few
+// megabytes of nested variants overflow the stack and kill the process.
+func TestVariantNestingIsBounded(t *testing.T) {
+	nested := func(levels int) []byte {
+		var b []byte
+		for i := 0; i < levels; i++ {
+			b = append(b, 1, 'v', 0)
+		}
+		return append(b, 1, 'y', 0, 7)
+	}
+	// The outer call opens one variant per header, plus one for the "y".
+	d := &decoder{buf: nested(maxDepth - 1), order: binary.LittleEndian}
+	if _, err := d.value("v"); err != nil {
+		t.Fatalf("%d nested variants: %v", maxDepth, err)
+	}
+	d = &decoder{buf: nested(maxDepth), order: binary.LittleEndian}
+	if _, err := d.value("v"); err == nil {
+		t.Fatalf("%d nested variants decoded", maxDepth+1)
+	}
+	d = &decoder{buf: nested(2_000_000), order: binary.LittleEndian}
+	if _, err := d.value("v"); err == nil {
+		t.Fatal("two million nested variants decoded")
+	}
+}
+
+func TestArrayElementsMayNotOverrunTheArray(t *testing.T) {
+	// as with a declared length of 4, but its one string is 6 bytes long.
+	b := []byte{4, 0, 0, 0, 1, 0, 0, 0, 'x', 0}
+	d := &decoder{buf: b, order: binary.LittleEndian}
+	if v, err := d.value("as"); err == nil {
+		t.Fatalf("decoded %#v", v)
+	}
+}
+
 func TestStringEncoding(t *testing.T) {
 	var e encoder
 	if err := e.value("s", "ab"); err != nil {

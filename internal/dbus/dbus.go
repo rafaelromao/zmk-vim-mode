@@ -339,7 +339,7 @@ func (c *Conn) write(typ byte, serial uint32, fields map[byte]any, body []byte) 
 
 func (c *Conn) readLoop() {
 	for {
-		m, err := readMessage(c.c)
+		m, err := readMessageSafe(c.c)
 		if err != nil {
 			c.fail(err)
 			return
@@ -404,37 +404,72 @@ func alignment(t byte) int {
 }
 
 // splitSig returns the first complete single type of sig and the rest.
+//
+// Signatures arrive from the peer, so this is also where they are validated:
+// the decoder indexes into whatever it is handed, and an array without an
+// element type, a dict entry without exactly one basic key and one value, or
+// an empty struct (which takes no space, so an array of them never ends)
+// would crash it or hang it.
 func splitSig(sig string) (string, string, error) {
+	n, err := typeLen(sig)
+	if err != nil {
+		return "", "", err
+	}
+	return sig[:n], sig[n:], nil
+}
+
+// typeLen returns the length of the single complete type sig starts with.
+func typeLen(sig string) (int, error) {
 	if sig == "" {
-		return "", "", errors.New("empty signature")
+		return 0, errors.New("empty signature")
 	}
-	switch sig[0] {
-	case 'a':
-		inner, rest, err := splitSig(sig[1:])
-		return "a" + inner, rest, err
-	case '(', '{':
-		close := byte(')')
-		if sig[0] == '{' {
-			close = '}'
+	switch c := sig[0]; {
+	case basicType(c) || c == 'v':
+		return 1, nil
+	case c == 'a' && len(sig) > 1 && sig[1] == '{':
+		// a{kv}: a dict entry exists only as an array element, with a basic
+		// key and exactly one value.
+		if len(sig) < 3 || !basicType(sig[2]) {
+			return 0, fmt.Errorf("dict entry in %q needs a basic key type", sig)
 		}
-		depth := 0
-		for i := 0; i < len(sig); i++ {
-			switch sig[i] {
-			case '(', '{':
-				depth++
-			case ')', '}':
-				depth--
-				if depth == 0 {
-					if sig[i] != close {
-						return "", "", fmt.Errorf("mismatched brackets in %q", sig)
-					}
-					return sig[:i+1], sig[i+1:], nil
-				}
+		n, err := typeLen(sig[3:])
+		if err != nil {
+			return 0, err
+		}
+		end := 3 + n
+		if end >= len(sig) || sig[end] != '}' {
+			return 0, fmt.Errorf("dict entry in %q must hold one key and one value", sig)
+		}
+		return end + 1, nil
+	case c == 'a':
+		n, err := typeLen(sig[1:])
+		if err != nil {
+			return 0, fmt.Errorf("array in %q: %w", sig, err)
+		}
+		return 1 + n, nil
+	case c == '(':
+		i := 1
+		for i < len(sig) && sig[i] != ')' {
+			n, err := typeLen(sig[i:])
+			if err != nil {
+				return 0, err
 			}
+			i += n
 		}
-		return "", "", fmt.Errorf("unterminated container in %q", sig)
+		if i >= len(sig) {
+			return 0, fmt.Errorf("unterminated struct in %q", sig)
+		}
+		if i == 1 {
+			return 0, fmt.Errorf("empty struct in %q", sig)
+		}
+		return i + 1, nil
 	}
-	return sig[:1], sig[1:], nil
+	return 0, fmt.Errorf("unsupported type %q in %q", sig[0], sig)
+}
+
+// basicType reports whether c is a type code that may key a dict entry.
+func basicType(c byte) bool {
+	return strings.IndexByte("ybnqiuxtdsog", c) >= 0
 }
 
 type encoder struct {
@@ -714,7 +749,16 @@ type decoder struct {
 	buf   []byte
 	pos   int
 	order binary.ByteOrder
+	depth int // arrays, structs and variants currently open
 }
+
+// maxDepth bounds how deeply containers may nest while decoding. The D-Bus
+// specification caps a signature at 32 nested arrays and 32 nested structs,
+// and nothing a real peer sends comes near that. The bound is needed because a
+// variant may hold another variant: there the data, not the signature, sets
+// the depth, and a message of nested variants would otherwise recurse until
+// the stack runs out, which no recover() can catch.
+const maxDepth = 64
 
 func (d *decoder) align(n int) error {
 	p := (d.pos + n - 1) / n * n
@@ -771,6 +815,17 @@ func (d *decoder) sig() (string, error) {
 
 // value decodes one complete type sig.
 func (d *decoder) value(sig string) (any, error) {
+	if sig == "" {
+		return nil, errors.New("empty signature")
+	}
+	switch sig[0] {
+	case 'v', 'a', '(':
+		if d.depth >= maxDepth {
+			return nil, fmt.Errorf("containers nested deeper than %d", maxDepth)
+		}
+		d.depth++
+		defer func() { d.depth-- }()
+	}
 	switch sig[0] {
 	case 'y':
 		b, err := d.need(1)
@@ -827,8 +882,14 @@ func (d *decoder) value(sig string) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if s == "" {
-			return nil, errors.New("empty variant signature")
+		// The signature comes off the wire, and only one complete, valid
+		// type may be handed on to value().
+		n, err := typeLen(s)
+		if err != nil {
+			return nil, fmt.Errorf("variant signature %q: %w", s, err)
+		}
+		if n != len(s) {
+			return nil, fmt.Errorf("variant signature %q holds more than one type", s)
 		}
 		v, err := d.value(s)
 		return Variant{s, v}, err
@@ -882,6 +943,7 @@ func (d *decoder) array(sig string) (any, error) {
 			if err := d.align(8); err != nil {
 				return nil, err
 			}
+			before := d.pos
 			k, err := d.value(ksig)
 			if err != nil {
 				return nil, err
@@ -890,21 +952,46 @@ func (d *decoder) array(sig string) (any, error) {
 			if err != nil {
 				return nil, err
 			}
+			if d.pos == before {
+				return nil, fmt.Errorf("array %q: an entry took no space", sig)
+			}
 			out[fmt.Sprint(k)] = v
+		}
+		if d.pos > end {
+			return nil, fmt.Errorf("array %q: entries overrun its length", sig)
 		}
 		d.pos = end
 		return out, nil
 	}
 	out := []any{}
 	for d.pos < end {
+		before := d.pos
 		v, err := d.value(elem)
 		if err != nil {
 			return nil, err
 		}
+		if d.pos == before {
+			return nil, fmt.Errorf("array %q: an element took no space", sig)
+		}
 		out = append(out, v)
+	}
+	if d.pos > end {
+		return nil, fmt.Errorf("array %q: elements overrun its length", sig)
 	}
 	d.pos = end
 	return out, nil
+}
+
+// readMessageSafe is readMessage for the read loop. The decoder walks bytes a
+// peer chose, so a bug in it must end this one connection with an error,
+// which the callers already reconnect from, rather than the whole daemon.
+func readMessageSafe(r io.Reader) (m *Message, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			m, err = nil, fmt.Errorf("undecodable message: %v", p)
+		}
+	}()
+	return readMessage(r)
 }
 
 // readMessage reads and decodes one message from r.

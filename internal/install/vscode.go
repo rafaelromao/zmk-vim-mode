@@ -313,6 +313,39 @@ func listExtensions(bin string) map[string]bool {
 	return set
 }
 
+// neovimExtension is vscode-neovim's Marketplace id, lower-cased the way
+// listExtensions keys it.
+const neovimExtension = "asvetliakov.vscode-neovim"
+
+// extensionVersion returns the installed version of ext, or "" when the CLI
+// does not say.
+func extensionVersion(bin, ext string) string {
+	out, err := exec.Command(bin, "--list-extensions", "--show-versions").Output()
+	if err != nil {
+		return ""
+	}
+	return versionIn(string(out), ext)
+}
+
+// versionIn finds ext in `code --list-extensions --show-versions` output,
+// whose lines read publisher.name@version.
+func versionIn(listing, ext string) string {
+	for _, l := range strings.Split(listing, "\n") {
+		id, ver, ok := strings.Cut(strings.TrimSpace(l), "@")
+		if ok && strings.EqualFold(id, ext) {
+			return ver
+		}
+	}
+	return ""
+}
+
+func withVersion(name, version string) string {
+	if version == "" {
+		return name
+	}
+	return name + " " + version
+}
+
 // RendererFlag is the Chromium switch without which Electron never builds the
 // accessibility tree of its web content: the bus flags alone reach GTK and Qt,
 // not VSCode's DOM. Arch's `code` wrapper appends the lines of
@@ -422,7 +455,15 @@ func InstallVSCode(w io.Writer, atspi bool) error {
 		fmt.Fprintln(w, "extensions : no `code` CLI in PATH; install the companion by hand (editors/vscode/README.md)")
 		return nil
 	}
-	vsix, err := WriteVSIX(filepath.Join(os.TempDir(), "zmk-vim-mode"))
+	// A directory of our own, made fresh each run: on Linux the temp dir is
+	// shared, and at a fixed path there another user could create the
+	// directory first and swap the package between our write and the install.
+	tmp, err := os.MkdirTemp("", "zmk-vim-mode-vsix-")
+	if err != nil {
+		return fmt.Errorf("package companion: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+	vsix, err := WriteVSIX(tmp)
 	if err != nil {
 		return fmt.Errorf("package companion: %w", err)
 	}
@@ -432,16 +473,18 @@ func InstallVSCode(w io.Writer, atspi bool) error {
 		if err != nil {
 			fmt.Fprintf(w, "%-11s: companion install failed: %v\n%s", bin, err, out)
 		} else {
-			fmt.Fprintf(w, "%-11s: companion installed from %s\n", bin, TrimHome(vsix))
+			fmt.Fprintf(w, "%-11s: companion %s installed\n", bin, filepath.Base(vsix))
 		}
-		if exts["asvetliakov.vscode-neovim"] {
-			fmt.Fprintf(w, "%-11s: vscode-neovim present\n", bin)
+		// vscode-neovim comes from the Marketplace at its current version,
+		// so say which one that was.
+		if exts[neovimExtension] {
+			fmt.Fprintf(w, "%-11s: %s present\n", bin, withVersion("vscode-neovim", extensionVersion(bin, neovimExtension)))
 		} else {
-			out, err := exec.Command(bin, "--install-extension", "asvetliakov.vscode-neovim").CombinedOutput()
+			out, err := exec.Command(bin, "--install-extension", neovimExtension).CombinedOutput()
 			if err != nil {
 				fmt.Fprintf(w, "%-11s: vscode-neovim install failed (network?): %v\n%s", bin, err, out)
 			} else {
-				fmt.Fprintf(w, "%-11s: vscode-neovim installed\n", bin)
+				fmt.Fprintf(w, "%-11s: %s installed\n", bin, withVersion("vscode-neovim", extensionVersion(bin, neovimExtension)))
 			}
 		}
 		if exts["vscodevim.vim"] {

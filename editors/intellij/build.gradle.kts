@@ -15,19 +15,24 @@ repositories {
     intellijPlatform { defaultRepositories() }
 }
 
+// A leading "~/" in gradle.properties is the home directory, so the checked-in
+// file can name paths that work on any machine without naming anyone's.
+fun expandHome(path: String): String =
+    if (path == "~" || path.startsWith("~/")) System.getProperty("user.home") + path.removePrefix("~") else path
+
 dependencies {
     intellijPlatform {
         // Builds against the IDE you already have, so the platform itself is
         // never downloaded. Point it at your own installation; on Linux that
         // is the directory the Toolbox unpacked.
-        local(providers.gradleProperty("platformPath").get())
+        local(expandHome(providers.gradleProperty("platformPath").get()))
 
         // IdeaVim from its installed directory rather than the Marketplace:
         // it is already on disk, it is guaranteed to be the version actually
         // running, and it needs no network -- which matters behind a proxy
         // that intercepts TLS, since the JDK has its own truststore and will
         // refuse the handshake the rest of the system accepts.
-        localPlugin(providers.gradleProperty("ideaVimPath").get())
+        localPlugin(expandHome(providers.gradleProperty("ideaVimPath").get()))
     }
 }
 

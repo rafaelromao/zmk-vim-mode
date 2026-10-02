@@ -87,6 +87,70 @@ func TestIntelliJGradlePropertiesKeepsSpacesUnquoted(t *testing.T) {
 	}
 }
 
+// The values come from directory names on disk. A line break must not start a
+// property of its own, a backslash must not start an escape, and non-ASCII
+// must survive whichever encoding Gradle reads the file in.
+func TestIntelliJGradlePropertiesEscapesValues(t *testing.T) {
+	ide := IntelliJIDE{
+		Home:    "/opt/idea\nsinceBuild=1",
+		Build:   "IU-262.10315.125",
+		IdeaVim: `/home/u/odd\dir/IdeaVim`,
+		JBR:     "/opt/Romão/jbr",
+	}
+	got := IntelliJGradleProperties(ide)
+	for _, want := range []string{
+		`platformPath=/opt/idea\nsinceBuild=1` + "\n",
+		`ideaVimPath=/home/u/odd\\dir/IdeaVim` + "\n",
+		`org.gradle.java.installations.paths=/opt/Rom\u00e3o/jbr` + "\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("gradle.properties missing %q:\n%s", want, got)
+		}
+	}
+	if n := strings.Count("\n"+got, "\nsinceBuild="); n != 1 {
+		t.Errorf("%d sinceBuild lines:\n%s", n, got)
+	}
+	if v := propValue("\U0001F600"); v != `\ud83d\ude00` {
+		t.Errorf("a character outside the BMP is a surrogate pair: %q", v)
+	}
+}
+
+// Gradle runs any build logic it finds in the project, and the installer
+// installs the last zip in build/distributions: neither may outlive a build.
+func TestResetWorkDirLeavesNothingBehind(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "intellij")
+	for _, p := range []string{"buildSrc/build.gradle.kts", "settings.gradle", "build/distributions/zzz.zip"} {
+		p = filepath.Join(dir, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := resetWorkDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("after reset: %v %v", entries, err)
+	}
+}
+
+func TestIntelliJWorkDirIgnoresARelativeXDGCacheHome(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("macOS builds under ~/Library/Caches")
+	}
+	t.Setenv("XDG_CACHE_HOME", "cache")
+	if got, want := intellijWorkDir("/home/u"), "/home/u/.cache/zmk-vim-mode/intellij"; got != want {
+		t.Fatalf("relative XDG_CACHE_HOME: %q, want %q", got, want)
+	}
+	t.Setenv("XDG_CACHE_HOME", "/var/cache/u")
+	if got, want := intellijWorkDir("/home/u"), "/var/cache/u/zmk-vim-mode/intellij"; got != want {
+		t.Fatalf("absolute XDG_CACHE_HOME: %q, want %q", got, want)
+	}
+}
+
 // An IDE with no build.txt is not an IDE, and one product must be reported
 // once however many search directories reach it.
 func TestFindIntelliJ(t *testing.T) {

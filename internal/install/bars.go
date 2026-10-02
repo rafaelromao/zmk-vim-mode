@@ -20,9 +20,10 @@ import (
 const binaryPlaceholder = `"__ZMK_VIM_MODE_BIN__"`
 
 // withBinary writes bin into an asset in place of the placeholder, as a
-// double-quoted string both Lua and QML read the same way.
+// double-quoted string both Lua and QML read the same way. A raw line break
+// would end the string in either language, so it is escaped too.
 func withBinary(b []byte, bin string) []byte {
-	quoted := `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(bin) + `"`
+	quoted := `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`).Replace(bin) + `"`
 	return bytes.ReplaceAll(b, []byte(binaryPlaceholder), []byte(quoted))
 }
 

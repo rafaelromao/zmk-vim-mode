@@ -85,6 +85,10 @@ func TestWithBinaryEscapes(t *testing.T) {
 	if want := `bin = "/o d/\"q\"\\z"`; got != want {
 		t.Errorf("got %s, want %s", got, want)
 	}
+	got = string(withBinary([]byte(`bin = "__ZMK_VIM_MODE_BIN__"`), "/o\nos.execute('x')\r/z"))
+	if want := `bin = "/o\nos.execute('x')\r/z"`; got != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
 }
 
 func TestEnsureSpoonLoaderCreates(t *testing.T) {

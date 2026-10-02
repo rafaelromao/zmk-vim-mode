@@ -133,3 +133,16 @@ func readAll(r interface{ Read([]byte) (int, error) }) ([]byte, error) {
 		}
 	}
 }
+
+func TestVersionInListing(t *testing.T) {
+	listing := "ms-python.python@2026.14.0\nAsvetliakov.VSCode-Neovim@1.18.24\n\nrafaelromao.zmk-vim-mode@0.1.0\n"
+	if v := versionIn(listing, neovimExtension); v != "1.18.24" {
+		t.Fatalf("vscode-neovim: %q", v)
+	}
+	if v := versionIn(listing, "nobody.absent"); v != "" {
+		t.Fatalf("absent: %q", v)
+	}
+	if got := withVersion("vscode-neovim", ""); got != "vscode-neovim" {
+		t.Fatalf("no version: %q", got)
+	}
+}

@@ -42,12 +42,32 @@ func TestPathSnippet(t *testing.T) {
 		t.Errorf("snippet must not use a tilde: %q", zsh)
 	}
 	fish := pathSnippet(filepath.Join(home, ".config", "fish", "config.fish"), dir, home)
-	if !strings.Contains(fish, "fish_add_path $HOME/.local/bin") {
+	if !strings.Contains(fish, `fish_add_path "$HOME/.local/bin"`) {
 		t.Errorf("fish snippet = %q", fish)
 	}
 	// A directory outside home stays absolute.
 	if out := pathSnippet(filepath.Join(home, ".zshrc"), "/opt/zmk/bin", home); !strings.Contains(out, `"/opt/zmk/bin:$PATH"`) {
 		t.Errorf("out-of-home snippet = %q", out)
+	}
+}
+
+// The directory name lands inside double quotes in a file every new shell
+// runs: what would expand or execute there must be escaped, while the $HOME
+// the snippet writes on purpose must still expand.
+func TestPathSnippetEscapesTheDirectory(t *testing.T) {
+	home := "/home/u"
+	odd := "/opt/a\"b$(touch x)`id`\\c d"
+	zsh := pathSnippet(filepath.Join(home, ".zshrc"), odd, home)
+	if want := "export PATH=\"/opt/a\\\"b\\$(touch x)\\`id\\`\\\\c d:$PATH\"\n"; !strings.HasSuffix(zsh, want) {
+		t.Errorf("zsh snippet = %q, want suffix %q", zsh, want)
+	}
+	fish := pathSnippet(filepath.Join(home, ".config", "fish", "config.fish"), odd, home)
+	if want := "fish_add_path \"/opt/a\\\"b\\$(touch x)`id`\\\\c d\"\n"; !strings.HasSuffix(fish, want) {
+		t.Errorf("fish snippet = %q, want suffix %q", fish, want)
+	}
+	under := pathSnippet(filepath.Join(home, ".zshrc"), filepath.Join(home, "b$in"), home)
+	if want := `export PATH="$HOME/b\$in:$PATH"`; !strings.Contains(under, want) {
+		t.Errorf("under-home snippet = %q, want %q", under, want)
 	}
 }
 
