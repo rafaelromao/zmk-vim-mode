@@ -1,0 +1,4 @@
+# The source archives GitHub serves -- what install.sh downloads, and a release's "Source code"
+# links -- leave out the showcase video kit: over 100 MB of recordings the daemon never needs.
+# A clone still has it.
+/showcase export-ignore
