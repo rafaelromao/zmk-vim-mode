@@ -16,7 +16,7 @@ func platformChecks(daemonAX *bool) []check {
 		}
 		return []check{{"accessibility", warn,
 			"not granted to the daemon: window titles are invisible, so VSCode's tool windows keep the vim layers",
-			"System Settings → Privacy & Security → Accessibility → add ~/.local/bin/zmk-vim-mode, then: launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode"}}
+			"System Settings → Privacy & Security → Accessibility → add ~/.local/bin/zmk-vim-mode, then: zmk-vim-mode restart"}}
 	}
 	// No daemon to ask: fall back to this process, and prompt while a human is
 	// here to answer.

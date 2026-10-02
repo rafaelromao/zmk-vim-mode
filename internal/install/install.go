@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // Options selects what to install/print.
@@ -133,9 +134,9 @@ func ServicePath() (string, error) {
 		return "", err
 	}
 	if runtime.GOOS == "darwin" {
-		return filepath.Join(home, "Library", "LaunchAgents", "dev.rafaelromao.zmk-vim-mode.plist"), nil
+		return filepath.Join(home, "Library", "LaunchAgents", AgentLabel+".plist"), nil
 	}
-	return filepath.Join(home, ".config", "systemd", "user", "zmk-vim-mode.service"), nil
+	return filepath.Join(home, ".config", "systemd", "user", UnitName), nil
 }
 
 // Run performs the installation.
@@ -191,21 +192,14 @@ func Run(w io.Writer, o Options) error {
 			// image otherwise, and on macOS that also means the old process
 			// identity, so a re-granted Input Monitoring permission would not
 			// apply to it either.
-			// launchd needs bootstrap to load an agent and kickstart to
-			// restart a loaded one; using the wrong one fails confusingly
-			// ("Input/output error" for a bootstrap of something loaded), so
-			// pick it here rather than leaving it to the reader.
-			domain := fmt.Sprintf("gui/%d", os.Getuid())
-			label := domain + "/dev.rafaelromao.zmk-vim-mode"
-			if exec.Command("launchctl", "print", label).Run() == nil {
-				if err := exec.Command("launchctl", "kickstart", "-k", label).Run(); err != nil {
-					fmt.Fprintf(w, "\ncould not restart the agent (%v); run it yourself:\n  launchctl kickstart -k %s\n", err, label)
-				} else {
-					fmt.Fprintln(w, "restarted the agent (it now runs the new binary)")
-				}
-			} else if out, err := exec.Command("launchctl", "bootstrap", domain, path).CombinedOutput(); err != nil {
-				fmt.Fprintf(w, "\ncould not load the agent (%v: %s); run it yourself:\n  launchctl bootstrap %s %s\n",
-					err, strings.TrimSpace(string(out)), domain, path)
+			// The agent is unloaded and loaded again, as `zmk-vim-mode
+			// restart` does: launchd has refused to kickstart a rebuilt
+			// binary, and loading also makes it read the plist written above.
+			s := &service{goos: "darwin", plist: path, run: runCommand, sleep: time.Sleep}
+			if wasLoaded, err := s.reload(); err != nil {
+				fmt.Fprintf(w, "\ncould not restart the agent (%v); run: zmk-vim-mode restart\n", err)
+			} else if wasLoaded {
+				fmt.Fprintln(w, "restarted the agent (it now runs the new binary)")
 			} else {
 				fmt.Fprintln(w, "loaded the agent")
 			}
@@ -213,14 +207,17 @@ func Run(w io.Writer, o Options) error {
 			// SIP-protected: nothing outside System Settings may grant them,
 			// so opening the right pane is as far as automation goes.
 			fmt.Fprintln(w, "\nmacOS ties Input Monitoring and Accessibility to the binary's identity,")
-			fmt.Fprintln(w, "so a rebuilt daemon loses both. In each pane, remove the old zmk-vim-mode")
-			fmt.Fprintln(w, "entry with − and add it again:")
+			fmt.Fprintln(w, "so a rebuilt daemon can lose either. In each pane, remove the old")
+			fmt.Fprintln(w, "zmk-vim-mode entry with − and add it again:")
 			fmt.Fprintf(w, "  %s\n", exe)
 			if o.OpenPrivacy {
 				openPrivacyPanes(w)
 			} else {
 				fmt.Fprintln(w, "  System Settings → Privacy & Security → Input Monitoring, and → Accessibility")
 			}
+			fmt.Fprintln(w, "then restart the daemon so it picks them up. It lists the keyboards when it")
+			fmt.Fprintln(w, "is back, and `writable` means Input Monitoring took effect:")
+			fmt.Fprintln(w, "  zmk-vim-mode restart")
 		} else {
 			// Rewriting the unit without telling systemd leaves it acting on a
 			// stale copy, and its warning is easy to miss in build output.
@@ -231,15 +228,16 @@ func Run(w io.Writer, o Options) error {
 			}
 			// Same reason as on macOS: a running unit keeps the old binary
 			// until it is restarted, and a stale daemon is hard to spot.
-			if exec.Command("systemctl", "--user", "is-active", "--quiet", "zmk-vim-mode.service").Run() == nil {
-				if err := exec.Command("systemctl", "--user", "restart", "zmk-vim-mode.service").Run(); err != nil {
-					fmt.Fprintf(w, "\ncould not restart the service (%v); run: systemctl --user restart zmk-vim-mode.service\n", err)
+			if exec.Command("systemctl", "--user", "is-active", "--quiet", UnitName).Run() == nil {
+				if err := exec.Command("systemctl", "--user", "restart", UnitName).Run(); err != nil {
+					fmt.Fprintf(w, "\ncould not restart the service (%v); run: zmk-vim-mode restart\n", err)
 				} else {
 					fmt.Fprintln(w, "restarted the service (it now runs the new binary)")
 				}
 			} else {
-				fmt.Fprintln(w, "\nstart it with:")
-				fmt.Fprintln(w, "  systemctl --user enable --now zmk-vim-mode.service")
+				// enable as well as start, so it also comes up at login.
+				fmt.Fprintln(w, "\nstart it, now and at every login, with:")
+				fmt.Fprintln(w, "  systemctl --user enable --now "+UnitName)
 			}
 		}
 	}
@@ -315,9 +313,9 @@ func Uninstall(w io.Writer) error {
 		return err
 	}
 	if runtime.GOOS == "darwin" {
-		_ = exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/dev.rafaelromao.zmk-vim-mode", os.Getuid())).Run()
+		_ = exec.Command("launchctl", "bootout", agentTarget()).Run()
 	} else {
-		_ = exec.Command("systemctl", "--user", "disable", "--now", "zmk-vim-mode.service").Run()
+		_ = exec.Command("systemctl", "--user", "disable", "--now", UnitName).Run()
 	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err

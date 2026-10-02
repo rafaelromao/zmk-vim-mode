@@ -66,7 +66,7 @@ func Run(w io.Writer, socket, cliVersion string) error {
 			(time.Duration(st.UptimeS)*time.Second), st.Mode, st.Code, st.Reason), "")
 		if st.Version != "" && cliVersion != "" && st.Version != cliVersion {
 			add("daemon version", warn, fmt.Sprintf("running %s, this CLI is %s", st.Version, cliVersion),
-				"make install replaces the binary but not the process: systemctl --user restart zmk-vim-mode")
+				"the binary was replaced but the running process was not: zmk-vim-mode restart")
 		}
 		if st.Frontmost != nil && !st.Frontmost.Known {
 			add("focus backend", warn, "frontmost app unknown; decisions trust editor clients",
@@ -104,7 +104,7 @@ func Run(w io.Writer, socket, cliVersion string) error {
 					// a udev rule is advice for the wrong operating system.
 					hint = "install the udev rule: zmk-vim-mode install --udev"
 					if runtime.GOOS == "darwin" {
-						hint = "System Settings → Privacy & Security → Input Monitoring → remove ~/.local/bin/zmk-vim-mode, add it again, then: launchctl kickstart -k gui/$UID/dev.rafaelromao.zmk-vim-mode"
+						hint = "System Settings → Privacy & Security → Input Monitoring → remove ~/.local/bin/zmk-vim-mode, add it again, then: zmk-vim-mode restart"
 					}
 					r = bad
 				}
@@ -131,7 +131,7 @@ func Run(w io.Writer, socket, cliVersion string) error {
 			if runtime.GOOS == "linux" {
 				if !strings.Contains(string(unit), "--atspi") {
 					add("accessibility bus", info, "off: focus inside VSCode is guessed, mouse-opened quick inputs are missed",
-						"zmk-vim-mode install --atspi, then systemctl --user restart zmk-vim-mode")
+						"zmk-vim-mode install --atspi (it restarts the service with the flag)")
 				} else {
 					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 					on, err := atspi.Enabled(ctx)
@@ -213,17 +213,16 @@ func Run(w io.Writer, socket, cliVersion string) error {
 	return nil
 }
 
-// serviceHint tells the user how to find out *why* the daemon is not there,
-// not just how to start it again: a socket that is missing usually means the
-// daemon exited, and the reason is in the service log.
+// serviceHint says how to bring the daemon back and, since the service
+// restarts a daemon that exits, where to find out why it would not stay up:
+// the service log, or the daemon itself run in the foreground.
 func serviceHint() string {
+	serviceLog := "journalctl --user -u zmk-vim-mode -n 40"
 	if runtime.GOOS == "darwin" {
-		return "run it in the foreground to see the error: zmk-vim-mode daemon --log-level debug" +
-			" (service: launchctl bootstrap gui/$UID ~/Library/LaunchAgents/dev.rafaelromao.zmk-vim-mode.plist," +
-			" log: ~/Library/Logs/zmk-vim-mode.log)"
+		serviceLog = "~/Library/Logs/zmk-vim-mode.log"
 	}
-	return "run it in the foreground to see the error: zmk-vim-mode daemon --log-level debug" +
-		" (service: systemctl --user status zmk-vim-mode; log: journalctl --user -u zmk-vim-mode -n 40)"
+	return "zmk-vim-mode start; if it does not stay up, the reason is in " + serviceLog +
+		", or run it in the foreground: zmk-vim-mode stop; zmk-vim-mode daemon --log-level debug"
 }
 
 func hasBinary(name string) bool {

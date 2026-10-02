@@ -38,6 +38,9 @@ Usage:
   zmk-vim-mode status [--json|--bar]    show decision, frontmost app, clients, devices;
                                         --bar prints one JSON line for a status bar (Waybar-style)
   zmk-vim-mode devices                  list keyboards the daemon can write to
+  zmk-vim-mode start | stop | restart   control the installed service (launchd on macOS, systemd on Linux);
+                                        start and restart wait for the daemon, then list the keyboards
+                                        and whether each is writable; stop lasts until the next login
   zmk-vim-mode install [--nvim] [--tmux] [--udev] [--vscode] [--obsidian] [--intellij] [--atspi]
                        [--hammerspoon] [--omarchy]
                                         install the user service; print editor/tmux snippets;
@@ -90,6 +93,8 @@ func main() {
 		err = runStatus(args)
 	case "devices":
 		err = runDevices(args)
+	case "start", "stop", "restart":
+		err = runService(cmd, args)
 	case "install":
 		err = runInstall(args)
 	case "uninstall":
@@ -270,7 +275,7 @@ func runStatus(args []string) error {
 		return enc.Encode(st)
 	}
 	if st.Version != "" && st.Version != Version {
-		fmt.Printf("daemon   : %s (this CLI is %s — restart the service after make install)\n", st.Version, Version)
+		fmt.Printf("daemon   : %s (this CLI is %s — run: zmk-vim-mode restart)\n", st.Version, Version)
 	}
 	fmt.Printf("decision : %s (code %d) — %s\n", st.Mode, st.Code, st.Reason)
 	if st.Frontmost != nil {
@@ -341,6 +346,63 @@ func runDevices(args []string) error {
 		return nil
 	}
 	printDevices(reply.Devices)
+	return nil
+}
+
+// serviceTimeout bounds the wait for a daemon that was just started: the
+// service manager returns as soon as the process exists, before it listens.
+// keyboardWait bounds the wait for its first keyboard after that.
+const (
+	serviceTimeout = 5 * time.Second
+	keyboardWait   = 3 * time.Second
+)
+
+// runService starts, stops or restarts the installed user service. After a
+// start or restart it waits for the daemon to answer and lists the keyboards:
+// a restart is usually what makes a new permission take effect, and the
+// writable column is what says whether it did.
+func runService(cmd string, args []string) error {
+	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
+	sock := fs.String("socket", server.DefaultSocketPath(), "unix socket path")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	var err error
+	switch cmd {
+	case "start":
+		err = install.Start(os.Stdout)
+	case "stop":
+		return install.Stop(os.Stdout)
+	case "restart":
+		err = install.Restart(os.Stdout)
+	}
+	if err != nil {
+		return err
+	}
+	reply, err := server.Request(*sock, proto.Msg{V: proto.Version, T: proto.TStatus}, serviceTimeout)
+	if err != nil {
+		return fmt.Errorf("the daemon is not answering: %w; `zmk-vim-mode doctor` says why", err)
+	}
+	if reply.Status == nil {
+		return errors.New("malformed status reply")
+	}
+	st := reply.Status
+	// A daemon that has just started answers before it has found the
+	// keyboards (on macOS they arrive a moment later), so give them a little
+	// time before reporting none.
+	for deadline := time.Now().Add(keyboardWait); len(st.Devices) == 0 && time.Now().Before(deadline); {
+		time.Sleep(200 * time.Millisecond)
+		if r, err := server.Request(*sock, proto.Msg{V: proto.Version, T: proto.TStatus}, time.Second); err == nil && r.Status != nil {
+			st = r.Status
+		}
+	}
+	fmt.Printf("daemon   : up %s, %s\n", time.Duration(st.UptimeS)*time.Second, st.Version)
+	if len(st.Devices) == 0 {
+		fmt.Println("keyboards: none found; `zmk-vim-mode doctor` says why")
+		return nil
+	}
+	fmt.Println("keyboards:")
+	printDevices(st.Devices)
 	return nil
 }
 
