@@ -93,16 +93,16 @@ tells the keyboard.
 1. **Keyboard.** Add the module to your zmk-config and the `vim_sync` node and
    four vim layers to your keymap, as in [Keyboard setup](#keyboard-setup), then
    build and flash (on a split, the central half or the dongle).
-2. **Computer.** Clone and install:
+2. **Computer.** Install the latest release:
 
    ```bash
-   git clone https://github.com/rafaelromao/zmk-vim-mode
-   cd zmk-vim-mode
-   make install
+   curl -fsSL https://raw.githubusercontent.com/rafaelromao/zmk-vim-mode/main/install.sh | sh
    ```
 
-   That builds the daemon, runs it as a user service, and sets up the editors
-   and the status bar it finds. [Host setup](#host-setup) has the details.
+   That fetches it, builds the daemon, runs it as a user service, and sets up
+   the editors and the status bar it finds. It builds from source, so it needs
+   Go and `make` (see [Requirements](#requirements)).
+   [Host setup](#host-setup) has the details, and how to install from a clone.
 3. **macOS only:** add the daemon under Input Monitoring and Accessibility. Both
    panes open at the end of `make install` ([why](#macos-permissions)). Then
    restart the daemon, so it picks the grants up:
@@ -163,6 +163,9 @@ manifest:
   self:
     path: config
 ```
+
+`revision: main` follows the module's main branch; a release's tag, such as
+`revision: v1.0.0`, pins it to that release.
 
 Nothing else in the build changes. The module switches itself on, along with
 `CONFIG_ZMK_HID_INDICATORS`, the HID LED support it relies on, as soon as the
@@ -402,12 +405,25 @@ Two details keep the chords honest:
 ### Install
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/rafaelromao/zmk-vim-mode/main/install.sh | sh
+```
+
+That puts the latest release's source in `~/.local/share/zmk-vim-mode` and
+runs `make install` there. `ZMK_VIM_MODE_REF=v1.0.0` before `sh` installs that
+release instead, and `ZMK_VIM_MODE_REF=main` the main branch;
+`ZMK_VIM_MODE_HOME` moves the tree. `zmk-vim-mode version` says which one you
+have. The daemon is built from source either way, so the
+[requirements](#requirements) apply. What you run is whatever that release
+holds, with no signature to check: read [install.sh](install.sh) first if that
+matters to you, or install from a clone, which `git pull` then updates:
+
+```bash
 git clone https://github.com/rafaelromao/zmk-vim-mode
 cd zmk-vim-mode
 make install
 ```
 
-One command, both platforms. It:
+`make install` is one command, both platforms. It:
 
 - builds the binary, installs it in `~/.local/bin`, and adds that directory to
   your shell profile when it is not already on `PATH`;
@@ -440,7 +456,8 @@ Five things it cannot do for you:
   `FocusLost` inside tmux;
 - on Linux, **bind the keyboard's
   [vim-mode chords](#entering-and-leaving-vim-mode-by-hand)** in Hyprland:
-  source `contrib/hyprland-bind.conf` from your config, or copy its two
+  source `contrib/hyprland-bind.conf` from your config (it is in
+  `~/.local/share/zmk-vim-mode` when you used the installer), or copy its two
   `bind` lines;
 - on macOS, **grant the two permissions** below — it opens the panes, but only
   System Settings itself may write TCC.
@@ -622,8 +639,9 @@ quick input is open. No D-Bus library is involved: `internal/dbus` is a
 
 ### Upgrading and uninstalling
 
-To upgrade, pull and install again. `make install` restarts the service, so it
-never leaves the old binary running:
+To upgrade, run the installer again: it fetches the newest release and runs
+`make install`, which restarts the service, so it never leaves the old binary
+running. A clone pulls and installs again instead:
 
 ```bash
 git pull && make install
@@ -634,8 +652,10 @@ permitted* lost its Input Monitoring grant in the rebuild, and
 [macOS permissions](#macos-permissions) says how to restore it. Rebuild the
 firmware too when the module has changed.
 
-`make uninstall` stops and removes the service and the binary. It leaves your
-configuration alone, so these stay until you remove them:
+`make uninstall` stops and removes the service and the binary; for the
+installer's tree that is `make -C ~/.local/share/zmk-vim-mode uninstall`, and
+the tree itself is yours to delete afterwards. It leaves your configuration
+alone, so these stay until you remove them:
 
 - the editor integrations: the Neovim spec, the VSCode extension and settings,
   the Obsidian and IntelliJ plugins;
@@ -665,7 +685,7 @@ zmk-vim-mode install [flags]    service, PATH entry, Neovim spec, --vscode, --ob
 zmk-vim-mode uninstall          remove the service (config is left alone)
 zmk-vim-mode atspi-watch        Linux: accessibility-bus focus events with the classifier's verdict
 zmk-vim-mode hid-scan [--all]   macOS: HID keyboards this host sees and the LEDs they expose
-zmk-vim-mode version
+zmk-vim-mode version            the release it was built from, or the branch and commit
 ```
 
 `set` is the escape hatch for anything the daemon cannot detect (an SSH

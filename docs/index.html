@@ -59,9 +59,7 @@
       entirely when keys must pass through untouched. Stock vim, no remaps: the editor tells the
       keyboard, and the keyboard changes layers.</p>
     <div class="cta">
-      <pre class="term copyable"><code><span class="p">$ </span>git clone https://github.com/rafaelromao/zmk-vim-mode
-<span class="p">$ </span>cd zmk-vim-mode
-<span class="p">$ </span>make install</code></pre>
+      <pre class="term copyable"><code><span class="p">$ </span>curl -fsSL https://raw.githubusercontent.com/rafaelromao/zmk-vim-mode/main/install.sh | sh</code></pre>
       <a class="btn" href="#install">Quick start</a>
       <a class="btn ghost" href="https://github.com/rafaelromao/zmk-vim-mode">Source on GitHub</a>
     </div>
@@ -536,13 +534,14 @@ x q m w z   <b>k</b> f ' ; .</pre>
       </li>
       <li>
         <h3>The computer</h3>
-        <pre class="copyable"><code><span class="p">$ </span>git clone https://github.com/rafaelromao/zmk-vim-mode
-<span class="p">$ </span>cd zmk-vim-mode
-<span class="p">$ </span>make install</code></pre>
-        <p>That builds the daemon, runs it as a user service, and sets up the editors and the status
-          bar it finds. On macOS, add the daemon under Input Monitoring and Accessibility: both
-          panes open at the end of <code>make install</code>. Then run
-          <code>zmk-vim-mode restart</code>, so the daemon picks the grants up.</p>
+        <pre class="copyable"><code><span class="p">$ </span>curl -fsSL https://raw.githubusercontent.com/rafaelromao/zmk-vim-mode/main/install.sh | sh</code></pre>
+        <p>That fetches the latest release into <code>~/.local/share/zmk-vim-mode</code> and runs
+          <code>make install</code> there: it builds the daemon from source (with Go, <code>make</code>,
+          and on macOS the Xcode Command Line Tools), runs it as a user service, and sets up the
+          editors and the status bar it finds. From a clone, <code>make install</code> does the
+          same. On macOS, add the daemon under Input Monitoring and Accessibility: both panes open
+          at the end of the install. Then run <code>zmk-vim-mode restart</code>, so the daemon
+          picks the grants up.</p>
       </li>
       <li>
         <h3>Check, then drive it by hand</h3>
