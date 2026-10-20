@@ -135,7 +135,7 @@ func runDaemon(args []string) error {
 	fs.Var(&legacy, "legacy-app", "extra legacy app class, optionally kind:class (repeatable)")
 	fs.Var(&terminals, "terminal-app", "extra terminal app class (repeatable)")
 	fs.Var(&guis, "gui-nvim-app", "extra Neovim GUI app class (repeatable)")
-	noTitle := fs.Bool("no-title-heuristic", false, "disable 'nvim in window title → legacy' fallback")
+	noTitle := fs.Bool("no-title-heuristic", false, "disable 'window title starts with nvim/vim or ends with \" - NVIM\" → legacy' fallback")
 	vid := fs.String("vid", "", "vendor id to drive, hex (default ZMK's 1d50)")
 	pid := fs.String("pid", "", "product id to drive, hex (default ZMK's 615e)")
 	name := fs.String("device-name", "", "only drive keyboards whose name contains this")

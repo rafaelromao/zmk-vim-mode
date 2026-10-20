@@ -211,8 +211,8 @@ Rebuild + flash centrals/dongles (`./init.sh` → `b <kbd>`) — the one unavoid
   (d) Context classifier for non-Neovim apps (§4). (e) Manual override `set`.
 - **Decision** (pure `Decide(rules, snapshot)`, table-tested), priority: active override → frontmost app has a
   connected editor client → `legacy_apps` (with AT-SPI context if available: vim → 4, raw → 6; else 4) →
-  `terminal_apps ∪ gui_nvim_apps` → highest-ranked Neovim client's mode → title heuristic (`nvim` in title → 4,
-  Hyprland only) → 0. Client ranking: tri-state `focused` (unknown/true/false; unknown ranks above explicit
+  `terminal_apps ∪ gui_nvim_apps` → highest-ranked Neovim client's mode → title heuristic (title starts with
+  `nvim`/`vim` or ends with ` - NVIM` → 4, Hyprland only) → 0. Client ranking: tri-state `focused` (unknown/true/false; unknown ranks above explicit
   false so a no-focus-events setup degrades to "most recently active wins"), then latest focus seq, `nested`,
   latest event seq. Frontmost *unknown* (focus backend down) fails **open** (trust clients), never OFF.
 - **Reconciler.** `SetDesired(code)` coalesces 10 ms, writes to all matching devices, dedupes per device;

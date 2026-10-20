@@ -109,8 +109,9 @@ type Rules struct {
 	GUINvimApps []string
 	// LegacyApps are vim-enabled editors without an intrinsic mode feed.
 	LegacyApps []AppRule
-	// TitleLegacy: substrings that, when found in a terminal window title with
-	// no connected client, mean a plugin-less nvim (SSH) → Legacy. Empty disables.
+	// TitleLegacy: commands that, when a terminal window title starts with one
+	// (or ends with vim's default titlestring, " - NVIM") and no nvim client has
+	// an opinion, mean a plugin-less nvim (SSH) → Legacy. Empty disables.
 	TitleLegacy []string
 }
 
@@ -132,7 +133,7 @@ func DefaultRules() Rules {
 			{Kind: "obsidian", Classes: []string{"obsidian", "md.obsidian", "md.obsidian.*"}},
 			{Kind: "intellij", Classes: []string{"jetbrains-*", "com.jetbrains.*"}},
 		},
-		TitleLegacy: []string{"nvim", "neovim", "git rebase -i"},
+		TitleLegacy: []string{"nvim", "vim", "neovim", "git rebase -i"},
 	}
 }
 
@@ -370,13 +371,28 @@ func matchClass(patterns []string, class string) bool {
 	return false
 }
 
-func titleMatches(subs []string, title string) bool {
-	if title == "" {
+// vimTitleSuffixes end Neovim's and Vim's default 'titlestring'
+// ("x.go (~/src) - Nvim", "x.go - VIM"), lowercased.
+var vimTitleSuffixes = []string{" - nvim", " - vim"}
+
+// titleMatches reports whether a terminal title names a running vim: it starts
+// with one of cmds as a whole word ("nvim ~/x.go", "git rebase -i HEAD~3"), or
+// it ends with vim's own titlestring. A substring match would also catch a tmux
+// window named after its cwd ("host:nvim"), a path ("~/telescope.nvim") or a
+// topic title that mentions Neovim. No cmds disables the heuristic.
+func titleMatches(cmds []string, title string) bool {
+	if title == "" || len(cmds) == 0 {
 		return false
 	}
-	t := strings.ToLower(title)
-	for _, s := range subs {
-		if s != "" && strings.Contains(t, strings.ToLower(s)) {
+	t := strings.ToLower(strings.TrimSpace(title))
+	for _, c := range cmds {
+		c = strings.ToLower(c)
+		if c != "" && (t == c || strings.HasPrefix(t, c+" ")) {
+			return true
+		}
+	}
+	for _, s := range vimTitleSuffixes {
+		if strings.HasSuffix(t, s) {
 			return true
 		}
 	}
