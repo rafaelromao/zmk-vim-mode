@@ -314,6 +314,11 @@ func (d *Daemon) handleSet(m proto.Msg) *proto.Msg {
 		active = d.store.SetOverride(o, !m.NoToggle)
 	}
 	dec := d.store.Decision()
+	// Name the request, not only its outcome: the decision line alone says
+	// "override" whether a hotkey, a keyboard notification or a script set it.
+	// The class only; titles stay at debug level.
+	d.log.Info("set", "requested", m.Mode, "sticky", m.Sticky, "no_toggle", m.NoToggle, "ttl_ms", m.TTLMs,
+		"override", active, "frontmost", d.store.Snapshot().Frontmost.Class, "mode", dec.Mode.String(), "reason", dec.Reason)
 	reason := dec.Reason
 	if !active && m.Mode != "auto" && m.Mode != "" {
 		reason = "override toggled off; " + reason
