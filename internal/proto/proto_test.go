@@ -7,7 +7,7 @@ import (
 
 func TestRoundTrip(t *testing.T) {
 	cases := []Msg{
-		{V: 1, T: THello, Client: "nvim", PID: 42, Mode: "normal", Focused: Bool(true), Nested: false, Tmux: true, Plugin: "0.1.0"},
+		{V: 1, T: THello, Client: "nvim", PID: 42, Session: "42:session-token", Mode: "normal", Focused: Bool(true), Nested: false, Tmux: true, Plugin: "0.1.0"},
 		{T: TMode, Mode: "insert", TTLMs: 400},
 		{T: TFocus, Focused: Bool(false), Mode: "insert"},
 		{T: TBye},
@@ -30,7 +30,7 @@ func TestRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("decode %q: %v", b, err)
 		}
-		if out.T != in.T || out.Mode != in.Mode || out.Client != in.Client || out.PID != in.PID ||
+		if out.T != in.T || out.Mode != in.Mode || out.Client != in.Client || out.PID != in.PID || out.Session != in.Session ||
 			out.TTLMs != in.TTLMs || out.Sticky != in.Sticky || out.NoToggle != in.NoToggle || out.Err != in.Err || out.V != in.V {
 			t.Fatalf("round trip mismatch:\n in=%+v\nout=%+v", in, out)
 		}

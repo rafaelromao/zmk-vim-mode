@@ -10,26 +10,30 @@ import (
 // Store is the mutable, goroutine-safe holder of everything Decide needs.
 // It re-evaluates on every input and calls onChange when the decided code changes.
 type Store struct {
-	mu       sync.Mutex
-	rules    Rules
-	clients  map[uint64]*Client
-	front    focus.App
-	widgets  map[int]focus.Widget // by pid, from the accessibility bus
-	override *Override
-	seq      uint64
-	now      func() time.Time
-	onChange func(Decision)
-	last     *Decision
+	mu      sync.Mutex
+	rules   Rules
+	clients map[uint64]*Client
+	// Remember Neovim process identities across socket reconnects. A new
+	// process may clear manual Off; reconnecting the disabled one must not.
+	nvimSessions map[nvimSession]struct{}
+	front        focus.App
+	widgets      map[int]focus.Widget // by pid, from the accessibility bus
+	override     *Override
+	seq          uint64
+	now          func() time.Time
+	onChange     func(Decision)
+	last         *Decision
 }
 
 // NewStore creates a Store. onChange may be nil.
 func NewStore(rules Rules, onChange func(Decision)) *Store {
 	return &Store{
-		rules:    rules,
-		clients:  map[uint64]*Client{},
-		widgets:  map[int]focus.Widget{},
-		now:      time.Now,
-		onChange: onChange,
+		rules:        rules,
+		clients:      map[uint64]*Client{},
+		nvimSessions: map[nvimSession]struct{}{},
+		widgets:      map[int]focus.Widget{},
+		now:          time.Now,
+		onChange:     onChange,
 	}
 }
 
@@ -61,18 +65,33 @@ func (s *Store) SetClock(now func() time.Time) {
 
 // HelloInfo is what a client announces on connect.
 type HelloInfo struct {
-	Kind   string
-	App    string
-	PID    int
-	Mode   Mode
-	Focus  Focus
-	Nested bool
-	TTL    time.Duration
+	Kind    string
+	App     string
+	PID     int
+	Session string
+	Mode    Mode
+	Focus   Focus
+	Nested  bool
+	TTL     time.Duration
+}
+
+type nvimSession struct {
+	PID   int
+	Token string
 }
 
 // Hello registers (or re-registers) a client.
 func (s *Store) Hello(id uint64, h HelloInfo) {
 	s.mu.Lock()
+	if h.Kind == "nvim" && h.PID > 0 {
+		// Older plugins omit Session and retain PID-based compatibility.
+		key := nvimSession{PID: h.PID, Token: h.Session}
+		_, seen := s.nvimSessions[key]
+		s.nvimSessions[key] = struct{}{}
+		if !seen && s.override.Active(s.now()) && s.override.Mode == Off {
+			s.override = nil
+		}
+	}
 	s.seq++
 	now := s.now()
 	c := &Client{ID: id, Kind: h.Kind, App: h.App, PID: h.PID, Mode: h.Mode, Focus: h.Focus,

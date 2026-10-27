@@ -368,6 +368,9 @@ home-row mods and the four vim layers, is in
 
 ### Entering and leaving vim mode by hand
 
+See the [state machine and macOS validation checklist](docs/manual-state-machine.md)
+for the complete transition contract and platform troubleshooting handoff.
+
 The host must hear when a combo turns vim mode on or off, or its next decision
 can disagree with the keyboard. The keymap announces changes with two chords,
 which the host binds:
@@ -386,11 +389,19 @@ Entering uses F20 rather than Esc because macOS reserves Cmd+Opt+Esc for Force
 Quit: the modifiers still arrive, but macOS drops the Esc keydown, so a
 Hyper+Esc notification never reaches the host.
 
+On Linux, XKB maps physical F20 to `XF86AudioMicMute`. The Hyprland example
+binds `code:198` (evdev F20 + 8), not the symbolic `F20`, so that remapping
+does not swallow the enable notification.
+
 `manual` follows an editor that reports a mode, but falls back to legacy where
 the host would otherwise be off. That is what makes entering vim mode by hand
 work in a plain terminal: there is no editor to report a mode, so the indicator
 shows VIM and the keyboard keeps inferring its own modes. In Neovim the plugin
 still reports normal/insert, so it takes over as usual.
+
+Manual disable stays off across focus changes and updates from the current
+editor. Opening a new Neovim process clears that off override and restores
+automatic tracking. Reconnecting the same Neovim process does not clear it.
 
 Neither may toggle. The keyboard only announces a state it is already in, so a
 repeated chord must confirm that state: `--no-toggle` keeps an override already

@@ -227,7 +227,7 @@ func (d *Daemon) OnMessage(id server.ConnID, m proto.Msg) (*proto.Msg, bool) {
 		}
 		mode := parseMode(m.Mode, d.log)
 		d.store.Hello(id, state.HelloInfo{
-			Kind: m.Client, App: m.App, PID: m.PID, Mode: mode, Focus: toFocus(m.Focused),
+			Kind: m.Client, App: m.App, PID: m.PID, Session: m.Session, Mode: mode, Focus: toFocus(m.Focused),
 			Nested: m.Nested, TTL: time.Duration(m.TTLMs) * time.Millisecond,
 		})
 		d.mu.Lock()

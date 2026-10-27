@@ -57,6 +57,7 @@ type Msg struct {
 	Client  string `json:"client,omitempty"` // nvim | vscode | obsidian | intellij
 	App     string `json:"app,omitempty"`    // host application kind: "" (terminal-hosted nvim), vscode, obsidian, intellij
 	PID     int    `json:"pid,omitempty"`
+	Session string `json:"session,omitempty"` // stable for one editor process, including reconnects
 	Mode    string `json:"mode,omitempty"`    // off|normal|insert|visual|cmdline|raw|none ("none" or absent = no opinion); CLI set also: legacy|manual|auto
 	Focused *bool  `json:"focused,omitempty"` // nil = unknown
 	Nested  bool   `json:"nested,omitempty"`  // nvim running inside another nvim's :terminal

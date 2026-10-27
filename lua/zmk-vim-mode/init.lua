@@ -8,6 +8,13 @@ local vscode = require("zmk-vim-mode.vscode")
 
 local M = {}
 
+-- Survives reconnects and module reloads, but changes for a new Neovim
+-- process even if the OS reuses its PID.
+if not vim.g.zmk_vim_mode_session then
+  vim.g.zmk_vim_mode_session = tostring(vim.fn.getpid()) .. ":" .. tostring(vim.uv.hrtime())
+end
+local session = vim.g.zmk_vim_mode_session
+
 M.version = "0.1.0"
 
 M.defaults = {
@@ -133,6 +140,7 @@ local function hello()
     client = "nvim",
     app = vim.g.vscode ~= nil and "vscode" or nil,
     pid = vim.fn.getpid(),
+    session = session,
     mode = M.effective_state() or "normal",
     focused = S.focused,
     nested = vim.env.NVIM ~= nil,

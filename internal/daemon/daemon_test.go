@@ -131,3 +131,30 @@ func TestManualEnableLifecycle(t *testing.T) {
 		t.Fatalf("re-enable follows editor again: %+v", st)
 	}
 }
+
+func TestNewNvimSessionRestoresTrackingAfterDisable(t *testing.T) {
+	d, err := New(Options{Rules: state.DefaultRules(), Focus: noop.Watcher{}, Backend: nullBackend{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.store.SetFrontmost(focus.App{Known: true, Class: "com.mitchellh.ghostty", PID: 100})
+	d.handleSet(proto.Msg{Mode: "off", Sticky: true, NoToggle: true})
+	hello := proto.Msg{V: proto.Version, T: proto.THello, Client: "nvim", PID: 101, Session: "first-process", Mode: "normal", Focused: proto.Bool(true)}
+	r, closeConn := d.OnMessage(1, hello)
+	if closeConn || r == nil || r.T != proto.TWelcome || d.status().Mode != "normal" || d.status().Override != nil {
+		t.Fatalf("new session should restore tracking: reply=%+v status=%+v", r, d.status())
+	}
+	d.handleSet(proto.Msg{Mode: "off", Sticky: true, NoToggle: true})
+	d.OnMessage(1, proto.Msg{T: proto.TMode, Mode: "insert"})
+	d.OnClose(1)
+	d.OnMessage(2, hello)
+	if st := d.status(); st.Mode != "off" || st.Override == nil {
+		t.Fatalf("same session update/reconnect should stay disabled: %+v", st)
+	}
+	d.OnClose(2)
+	hello.Session = "replacement-process"
+	d.OnMessage(3, hello)
+	if st := d.status(); st.Mode != "normal" || st.Override != nil {
+		t.Fatalf("replacement Neovim should restore tracking: %+v", st)
+	}
+}

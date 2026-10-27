@@ -22,7 +22,13 @@ terminal. On Linux a compositor binding does the same job
 (`contrib/hyprland-bind.conf`). Entering uses F20 because macOS reserves
 Cmd+Opt+Esc for Force Quit and drops the Esc before the host sees it.
 
+Manual disable survives focus changes and current-editor updates. A new Neovim
+process restores automatic tracking; reconnecting the same process does not.
+
 ## Install
+
+For the expected enable/disable/new-session sequence and the macOS validation
+handoff, see the [shared state machine](../../docs/manual-state-machine.md).
 
 `make install` does it on macOS; `zmk-vim-mode install --hammerspoon` does it
 alone. It:
