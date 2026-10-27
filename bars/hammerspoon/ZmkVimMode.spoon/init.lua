@@ -64,9 +64,9 @@ obj.iconFont = nil
 --- ZmkVimMode.chords
 --- Variable
 --- Whether to follow the keyboard's vim-mode chords. Defaults to true: Hyper+Esc
---- (vim mode entered by hand) runs `zmk-vim-mode set legacy --sticky
---- --no-toggle`, Meh+Esc (left by hand, cancel included) runs `zmk-vim-mode set
---- auto`. Both are idempotent, so a repeated chord never undoes the other. Set
+--- (vim mode entered by hand) runs `zmk-vim-mode set auto`, Meh+Esc (left by
+--- hand, cancel included) runs `zmk-vim-mode set raw --sticky --no-toggle`.
+--- Both are idempotent, so a repeated chord never undoes the other. Set
 --- it to false when something else already binds them.
 obj.chords = true
 
@@ -76,8 +76,8 @@ local ICON = "\238\154\174"
 
 -- The keyboard's chords and what each asks of the daemon.
 local CHORDS = {
-  { mods = { "cmd", "alt", "ctrl", "shift" }, key = "escape", args = { "set", "legacy", "--sticky", "--no-toggle" } },
-  { mods = { "alt", "ctrl", "shift" }, key = "escape", args = { "set", "auto" } },
+  { mods = { "cmd", "alt", "ctrl", "shift" }, key = "escape", args = { "set", "auto" } },
+  { mods = { "alt", "ctrl", "shift" }, key = "escape", args = { "set", "raw", "--sticky", "--no-toggle" } },
 }
 
 -- Where make install and Homebrew put the binary. Hammerspoon does not inherit

@@ -368,15 +368,14 @@ home-row mods and the four vim layers, is in
 
 ### Entering and leaving vim mode by hand
 
-A combo that turns NORMAL on is legacy mode entered from the keyboard, and the
-host has to hear about it. Otherwise the daemon's next decision, made when focus
-moves to another app for instance, switches the layers back. The keymap
-announces it with two chords, which the host binds:
+The host must hear when a combo turns vim mode on or off, or its next decision
+can disagree with the keyboard. The keymap announces changes with two chords,
+which the host binds:
 
 | Chord | The keymap sends it | The host runs |
 |---|---|---|
-| Hyper+Esc | after turning NORMAL on by hand | `zmk-vim-mode set legacy --sticky --no-toggle` |
-| Meh+Esc | after leaving by hand, cancel included | `zmk-vim-mode set auto` |
+| Hyper+Esc | after turning NORMAL on by hand | `zmk-vim-mode set auto` |
+| Meh+Esc | after leaving by hand, cancel included | `zmk-vim-mode set raw --sticky --no-toggle` |
 
 On macOS the [menu bar Spoon](#status-bar-indicator) binds both, and
 `make install` sets it up. On Hyprland, `contrib/hyprland-bind.conf` does,
@@ -385,7 +384,7 @@ alone.
 
 Neither may toggle. The keyboard only announces a state it is already in, so a
 repeated chord must confirm that state: `--no-toggle` keeps an override already
-in legacy, and `auto` does nothing when there is none. That makes it safe for a
+in raw, and `auto` does nothing when there is none. That makes it safe for a
 cancel key to send Meh+Esc whenever it drops the vim layers.
 
 Two details keep the chords honest:

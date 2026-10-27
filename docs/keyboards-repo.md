@@ -72,9 +72,8 @@ kept in a separate `vim_legacy.dtsi`, on the theory that they could be deleted
 once every editor reported its mode. They cannot, so they live with everything
 else, the codes and macros in `vim.dtsi` and the combos in `combos.dtsi`:
 
-- **manual activation is legacy mode.** The combos enter exactly this state,
-  and the notification chords exist so the host agrees with a decision made on
-  the keyboard. Remove legacy and the combos go with it.
+- **manual activation starts the normal layer.** Its notification returns the
+  host to automatic editor tracking, which can also select legacy when needed.
 - **vim over SSH** has no plugin on the remote side: the host recognises it by
   the window title alone and sends code 4.
 - a known editor whose client has not connected yet, or is disabled, falls
@@ -96,10 +95,8 @@ Notes on the choices:
   "already in vim → `&none`" branch looks idempotent, but the listener clears
   every managed layer *before* invoking a code's bindings, so from code 4 the
   guard can never fire: it would always take the notify branch and send
-  Esc **and** Hyper+Esc. Since the host binds Hyper+Esc to
-  `zmk-vim-mode set legacy --sticky --no-toggle`, every automatic legacy
-  decision (focusing VSCode without its plugin, say) would come straight back
-  as a sticky manual override. Code 4 therefore selects `VIM_NORMAL`
+  Esc **and** Hyper+Esc, spuriously announcing a manual activation to the host.
+  Code 4 therefore selects `VIM_NORMAL`
   declaratively and binds a plain `&kp ESC` (`&vim_mode_on_host`);
   `&vim_mode_on` stays for the combos, where nothing has pre-cleared the layers
   and the guard does work. Code 7 is the same state with no binding at all, so
@@ -112,8 +109,8 @@ Notes on the choices:
   host, and legacy apps never had leader tracking. Removing it renumbered every
   layer above it in `config.dtsi`.
 - **The two chords are idempotent.** The host binds Hyper+Esc to
-  `zmk-vim-mode set legacy --sticky --no-toggle` and Meh+Esc to
-  `zmk-vim-mode set auto`: the keyboard only announces a state it is already
+  `zmk-vim-mode set auto` and Meh+Esc to
+  `zmk-vim-mode set raw --sticky --no-toggle`: the keyboard only announces a state it is already
   in, so a repeated chord confirms it and never flips it. The Hyprland binds
   live in the author's dotfiles (`contrib/hyprland-bind.conf` is the same pair);
   on macOS the [ZmkVimMode Spoon](../bars/hammerspoon/README.md) binds them.
