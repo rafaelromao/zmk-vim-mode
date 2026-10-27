@@ -12,7 +12,7 @@
 --- it.
 ---
 --- It also catches the two chords a keymap sends when vim mode is entered or
---- left by hand on the keyboard, Hyper+Esc and Meh+Esc, and passes them on to
+--- left by hand on the keyboard, Hyper+F20 and Meh+Esc, and passes them on to
 --- the daemon, which would otherwise overrule the keyboard at its next decision.
 --- On Hyprland a compositor binding does the same job.
 ---
@@ -63,9 +63,9 @@ obj.iconFont = nil
 
 --- ZmkVimMode.chords
 --- Variable
---- Whether to follow the keyboard's vim-mode chords. Defaults to true: Hyper+Esc
---- (vim mode entered by hand) runs `zmk-vim-mode set auto`, Meh+Esc (left by
---- hand, cancel included) runs `zmk-vim-mode set off --sticky --no-toggle`.
+--- Whether to follow the keyboard's vim-mode chords. Defaults to true: Hyper+F20
+--- (vim mode entered by hand) runs `zmk-vim-mode set manual --no-toggle`, Meh+Esc
+--- (left by hand, cancel included) runs `zmk-vim-mode set off --sticky --no-toggle`.
 --- Both are idempotent, so a repeated chord never undoes the other. Set
 --- it to false when something else already binds them.
 obj.chords = true
@@ -76,7 +76,7 @@ local ICON = "\238\154\174"
 
 -- The keyboard's chords and what each asks of the daemon.
 local CHORDS = {
-  { mods = { "cmd", "alt", "ctrl", "shift" }, key = "escape", args = { "set", "auto" } },
+  { mods = { "cmd", "alt", "ctrl", "shift" }, key = "f20", args = { "set", "manual", "--no-toggle" } },
   { mods = { "alt", "ctrl", "shift" }, key = "escape", args = { "set", "off", "--sticky", "--no-toggle" } },
 }
 

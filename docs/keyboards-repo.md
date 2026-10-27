@@ -67,13 +67,15 @@ needs is at `:8`.
 ### 2a. Legacy mode is not a temporary fallback
 
 Codes 4 and 7, the enter/leave combos (`cb_vim_mode`, `cb_enter_vim`,
-`cb_leave_vim`) and the Hyper+Esc / Meh+Esc notification macros were briefly
+`cb_leave_vim`) and the Hyper+F20 / Meh+Esc notification macros were briefly
 kept in a separate `vim_legacy.dtsi`, on the theory that they could be deleted
 once every editor reported its mode. They cannot, so they live with everything
 else, the codes and macros in `vim.dtsi` and the combos in `combos.dtsi`:
 
-- **manual activation starts the normal layer.** Its notification returns the
-  host to automatic editor tracking, which can also select legacy when needed.
+- **manual activation starts the normal layer.** Its notification hands the host
+  back to an editor that reports a mode, and falls back to legacy where none
+  does (a plain terminal), so the keyboard's own layer stays in step with the
+  bar.
 - **vim over SSH** has no plugin on the remote side: the host recognises it by
   the window title alone and sends code 4.
 - a known editor whose client has not connected yet, or is disabled, falls
@@ -95,7 +97,7 @@ Notes on the choices:
   "already in vim → `&none`" branch looks idempotent, but the listener clears
   every managed layer *before* invoking a code's bindings, so from code 4 the
   guard can never fire: it would always take the notify branch and send
-  Esc **and** Hyper+Esc, spuriously announcing a manual activation to the host.
+  Esc **and** Hyper+F20, spuriously announcing a manual activation to the host.
   Code 4 therefore selects `VIM_NORMAL`
   declaratively and binds a plain `&kp ESC` (`&vim_mode_on_host`);
   `&vim_mode_on` stays for the combos, where nothing has pre-cleared the layers
@@ -108,12 +110,15 @@ Notes on the choices:
   The plugin now reports a pending leader as `raw`, which does the same from the
   host, and legacy apps never had leader tracking. Removing it renumbered every
   layer above it in `config.dtsi`.
-- **The two chords are idempotent.** The host binds Hyper+Esc to
-  `zmk-vim-mode set auto` and Meh+Esc to
-  `zmk-vim-mode set off --sticky --no-toggle`: the keyboard only announces a state it is already
-  in, so a repeated chord confirms it and never flips it. The Hyprland binds
-  live in the author's dotfiles (`contrib/hyprland-bind.conf` is the same pair);
-  on macOS the [ZmkVimMode Spoon](../bars/hammerspoon/README.md) binds them.
+- **The two chords are idempotent.** The host binds Hyper+F20 to
+  `zmk-vim-mode set manual --no-toggle` and Meh+Esc to
+  `zmk-vim-mode set off --sticky --no-toggle`: the keyboard only announces a
+  state it is already in, so a repeated chord confirms it and never flips it.
+  `manual` follows an editor that reports a mode, and shows legacy when the host
+  would otherwise be off, so a plain terminal keeps the VIM indicator. The
+  Hyprland binds live in the author's dotfiles (`contrib/hyprland-bind.conf` is
+  the same pair); on macOS the [ZmkVimMode Spoon](../bars/hammerspoon/README.md)
+  binds them.
 - **Every exit by hand tells the host.** `tc_cancel` runs `&vim_leave_notify`
   before `&mc_base_reset` and its `&vim_off` (`zmk/features/smart.dtsi:23`,
   `:46`), and the leader key does the same before `&leader`

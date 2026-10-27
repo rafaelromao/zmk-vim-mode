@@ -64,9 +64,13 @@ func FromStatus(st *proto.Status) View {
 		tip += "\n" + st.Reason
 	}
 	if o := st.Override; o != nil && o.Mode != "" {
-		tip += "\noverride: " + o.Mode
-		if o.Sticky {
-			tip += " (sticky)"
+		if o.Manual {
+			tip += "\nmanual: legacy while no editor reports"
+		} else {
+			tip += "\noverride: " + o.Mode
+			if o.Sticky {
+				tip += " (sticky)"
+			}
 		}
 	}
 	return View{Text: label, Tooltip: tip, Class: st.Mode}

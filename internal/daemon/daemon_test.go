@@ -67,6 +67,10 @@ func TestHandleSetLogsTheRequest(t *testing.T) {
 			proto.Msg{V: 1, T: proto.TSet, Mode: "legacy", TTLMs: 30000},
 			map[string]any{"requested": "legacy", "sticky": false, "no_toggle": false, "ttl_ms": 30000.0,
 				"override": false, "mode": "off"}},
+		{"manual fallback in a terminal",
+			proto.Msg{V: 1, T: proto.TSet, Mode: "manual", NoToggle: true},
+			map[string]any{"requested": "manual", "sticky": false, "no_toggle": true, "ttl_ms": 0.0,
+				"override": true, "frontmost": "com.mitchellh.ghostty", "mode": "legacy", "reason": "manual; no editor mode"}},
 		{"auto",
 			proto.Msg{V: 1, T: proto.TSet, Mode: "auto"},
 			map[string]any{"requested": "auto", "override": false, "mode": "off"}},
@@ -88,5 +92,42 @@ func TestHandleSetLogsTheRequest(t *testing.T) {
 		if strings.Contains(buf.String(), title) {
 			t.Errorf("%s: window title logged at info level:\n%s", s.name, buf.String())
 		}
+	}
+}
+
+func TestManualEnableLifecycle(t *testing.T) {
+	d, err := New(Options{Rules: state.DefaultRules(), Focus: noop.Watcher{}, Backend: nullBackend{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.store.SetFrontmost(focus.App{Known: true, Class: "com.mitchellh.ghostty", PID: 100})
+	set := func(mode string) {
+		t.Helper()
+		r := d.handleSet(proto.Msg{Mode: mode, NoToggle: true, Sticky: mode == "off"})
+		if r.T != proto.TOK {
+			t.Fatalf("set %s: %+v", mode, r)
+		}
+	}
+	set("off")
+	set("manual")
+	if st := d.status(); st.Mode != "legacy" || st.Override == nil || !st.Override.Manual {
+		t.Fatalf("manual enable in terminal: %+v", st)
+	}
+	d.store.Hello(1, state.HelloInfo{Kind: "nvim", Mode: state.Insert, Focus: state.FocusYes})
+	if st := d.status(); st.Mode != "insert" || st.Override == nil || !st.Override.Manual {
+		t.Fatalf("manual follows editor: %+v", st)
+	}
+	d.store.SetMode(1, state.Off, 0)
+	if st := d.status(); st.Mode != "off" {
+		t.Fatalf("explicit editor off must be respected: %+v", st)
+	}
+	set("off")
+	d.store.SetMode(1, state.Normal, 0)
+	if st := d.status(); st.Mode != "off" {
+		t.Fatalf("disable stays off despite editor updates: %+v", st)
+	}
+	set("manual")
+	if st := d.status(); st.Mode != "normal" {
+		t.Fatalf("re-enable follows editor again: %+v", st)
 	}
 }

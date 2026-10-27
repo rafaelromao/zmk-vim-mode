@@ -374,7 +374,7 @@ which the host binds:
 
 | Chord | The keymap sends it | The host runs |
 |---|---|---|
-| Hyper+Esc | after turning NORMAL on by hand | `zmk-vim-mode set auto` |
+| Hyper+F20 | after turning NORMAL on by hand | `zmk-vim-mode set manual --no-toggle` |
 | Meh+Esc | after leaving by hand, cancel included | `zmk-vim-mode set off --sticky --no-toggle` |
 
 On macOS the [menu bar Spoon](#status-bar-indicator) binds both, and
@@ -382,10 +382,20 @@ On macOS the [menu bar Spoon](#status-bar-indicator) binds both, and
 once your config sources it; `make install` leaves the compositor's config
 alone.
 
+Entering uses F20 rather than Esc because macOS reserves Cmd+Opt+Esc for Force
+Quit: the modifiers still arrive, but macOS drops the Esc keydown, so a
+Hyper+Esc notification never reaches the host.
+
+`manual` follows an editor that reports a mode, but falls back to legacy where
+the host would otherwise be off. That is what makes entering vim mode by hand
+work in a plain terminal: there is no editor to report a mode, so the indicator
+shows VIM and the keyboard keeps inferring its own modes. In Neovim the plugin
+still reports normal/insert, so it takes over as usual.
+
 Neither may toggle. The keyboard only announces a state it is already in, so a
 repeated chord must confirm that state: `--no-toggle` keeps an override already
-off, and `auto` does nothing when there is none. That makes it safe for a
-cancel key to send Meh+Esc whenever it drops the vim layers.
+in that state. That makes it safe for a cancel key to send Meh+Esc whenever it
+drops the vim layers.
 
 Two details keep the chords honest:
 
@@ -394,7 +404,7 @@ Two details keep the chords honest:
   combo does nothing, and sends nothing, while a vim layer is already on.
 - **Don't give code 4 that guard.** The module clears every managed layer
   before it runs a code's bindings, so the guard would always find vim mode off
-  and send Hyper+Esc straight back to the host. Code 4 taps a plain Esc, as in
+  and send Hyper+F20 straight back to the host. Code 4 taps a plain Esc, as in
   the node above.
 
 [docs/keyboards-repo.md](docs/keyboards-repo.md) shows a keymap that does both.
@@ -672,7 +682,7 @@ zmk-vim-mode daemon [--atspi]   run the daemon (normally via the user service)
 zmk-vim-mode status             current decision, frontmost app, widget focus, clients, devices
                                 --json: the daemon's full state; --bar: one line for a status bar
 zmk-vim-mode devices            keyboards the daemon can write to, and the last code sent to each
-zmk-vim-mode set <mode>         manual override: off, normal, insert, visual, cmdline, raw, legacy or auto;
+zmk-vim-mode set <mode>         manual override: off, normal, insert, visual, cmdline, raw, legacy, manual or auto;
                                 --ttl 30s lets it lapse, --sticky keeps it when another app takes focus,
                                 repeating the same mode returns to auto, unless --no-toggle
 zmk-vim-mode restart            restart the user service, then list the keyboards and whether each is writable

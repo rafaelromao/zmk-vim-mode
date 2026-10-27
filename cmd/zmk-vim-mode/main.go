@@ -228,7 +228,7 @@ func runSet(args []string) error {
 		mode = fs.Arg(0)
 	}
 	if mode == "" {
-		return errors.New("usage: zmk-vim-mode set <off|normal|insert|visual|cmdline|raw|legacy|auto> [--ttl 30s] [--sticky] [--no-toggle]")
+		return errors.New("usage: zmk-vim-mode set <off|normal|insert|visual|cmdline|raw|legacy|manual|auto> [--ttl 30s] [--sticky] [--no-toggle]")
 	}
 	reply, err := server.Request(*sock, proto.Msg{V: proto.Version, T: proto.TSet, Mode: mode,
 		TTLMs: int(ttl.Milliseconds()), Sticky: *sticky, NoToggle: *noToggle}, 2*time.Second)
@@ -297,7 +297,7 @@ func runStatus(args []string) error {
 		fmt.Printf("focus    : %s (%s, via the accessibility bus)\n", where, st.Widget.Detail)
 	}
 	if st.Override != nil {
-		fmt.Printf("override : %s", st.Override.Mode)
+		fmt.Printf("override : %s", overrideLabel(st.Override))
 		if st.Override.LeftMs > 0 {
 			fmt.Printf(" (%s left)", (time.Duration(st.Override.LeftMs) * time.Millisecond).Round(time.Second))
 		}
@@ -328,6 +328,13 @@ func runStatus(args []string) error {
 	printDevices(st.Devices)
 	fmt.Printf("uptime   : %s\n", (time.Duration(st.UptimeS) * time.Second))
 	return nil
+}
+
+func overrideLabel(o *proto.OverrideInfo) string {
+	if o.Manual {
+		return "manual (editor tracking with legacy fallback)"
+	}
+	return o.Mode
 }
 
 func runDevices(args []string) error {

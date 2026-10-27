@@ -57,7 +57,7 @@ type Msg struct {
 	Client  string `json:"client,omitempty"` // nvim | vscode | obsidian | intellij
 	App     string `json:"app,omitempty"`    // host application kind: "" (terminal-hosted nvim), vscode, obsidian, intellij
 	PID     int    `json:"pid,omitempty"`
-	Mode    string `json:"mode,omitempty"`    // off|normal|insert|visual|cmdline|raw|none ("none" or absent = no opinion); CLI set also: legacy|auto
+	Mode    string `json:"mode,omitempty"`    // off|normal|insert|visual|cmdline|raw|none ("none" or absent = no opinion); CLI set also: legacy|manual|auto
 	Focused *bool  `json:"focused,omitempty"` // nil = unknown
 	Nested  bool   `json:"nested,omitempty"`  // nvim running inside another nvim's :terminal
 	Tmux    bool   `json:"tmux,omitempty"`
@@ -128,6 +128,9 @@ type OverrideInfo struct {
 	Mode   string `json:"mode"`
 	LeftMs int64  `json:"left_ms,omitempty"` // 0 = no TTL
 	Sticky bool   `json:"sticky,omitempty"`
+	// Manual is set by `set manual`: legacy stands in only while the automatic
+	// decision would be off, so the status can say why it is active.
+	Manual bool `json:"manual,omitempty"`
 }
 
 // Device describes one keyboard the daemon writes LED codes to.

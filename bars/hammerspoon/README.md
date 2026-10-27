@@ -13,11 +13,14 @@ overruling it:
 
 | Chord | Sent when | Runs |
 |---|---|---|
-| Hyper+Esc (⌘⌃⌥⇧ Esc) | vim mode entered with a combo | `zmk-vim-mode set auto` |
+| Hyper+F20 (⌘⌃⌥⇧ F20) | vim mode entered with a combo | `zmk-vim-mode set manual --no-toggle` |
 | Meh+Esc (⌃⌥⇧ Esc) | vim mode left, cancel included | `zmk-vim-mode set off --sticky --no-toggle` |
 
-Both are idempotent, so a chord sent twice never undoes the other one. On
-Linux a compositor binding does the same job (`contrib/hyprland-bind.conf`).
+Both are idempotent, so a chord sent twice never undoes the other one. Manual
+mode follows an editor that reports a mode and falls back to legacy in a plain
+terminal. On Linux a compositor binding does the same job
+(`contrib/hyprland-bind.conf`). Entering uses F20 because macOS reserves
+Cmd+Opt+Esc for Force Quit and drops the Esc before the host sees it.
 
 ## Install
 
@@ -58,7 +61,7 @@ local vim = hs.loadSpoon("ZmkVimMode")
 vim.interval = 1      -- seconds between looks at the daemon
 vim.iconFont = nil    -- a Nerd Font family; nil takes the first one installed
 vim.socket = nil      -- the daemon's socket; Hammerspoon does not see ZMK_VIM_MODE_SOCKET
-vim.chords = true     -- pass Hyper+Esc / Meh+Esc on to the daemon; false if something else binds them
+vim.chords = true     -- pass Hyper+F20 / Meh+Esc on to the daemon; false if something else binds them
 vim:start()
 ```
 

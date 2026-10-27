@@ -57,6 +57,11 @@ type Override struct {
 	Mode   Mode
 	Until  time.Time // zero = no TTL
 	Sticky bool      // survive frontmost-app changes
+	// FallbackLegacy is the `manual` mode: follow the automatic decision when
+	// one exists (an editor reports a mode), and show legacy when the host
+	// would otherwise be off. A plain terminal is off, so a keyboard entered
+	// by hand keeps working there; Neovim still reports normal/insert.
+	FallbackLegacy bool
 }
 
 // Active reports whether the override still applies at now.
@@ -186,8 +191,21 @@ func decision(m Mode, reason string, client uint64) Decision {
 func Decide(r Rules, s Snapshot) Decision {
 	now := s.Now
 	if s.Override.Active(now) {
+		if s.Override.FallbackLegacy {
+			d := decideAuto(r, s)
+			if d.Mode == Off && d.ClientID == 0 {
+				return decision(Legacy, "manual; no editor mode", 0)
+			}
+			return d
+		}
 		return decision(s.Override.Mode, "override", 0)
 	}
+	return decideAuto(r, s)
+}
+
+// decideAuto is the automatic decision, ignoring any manual override.
+func decideAuto(r Rules, s Snapshot) Decision {
+	now := s.Now
 	front := s.Frontmost
 	if !front.Known {
 		if c, ok := best(opinionated(clientsOfApp(s.Clients, ""), now)); ok {

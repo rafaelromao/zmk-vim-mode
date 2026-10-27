@@ -302,6 +302,15 @@ func (d *Daemon) handleSet(m proto.Msg) *proto.Msg {
 	switch mode := m.Mode; mode {
 	case "auto", "":
 		d.store.SetOverride(nil, false)
+	case "manual":
+		// A keyboard notification: follow an editor that reports a mode, but
+		// keep showing legacy where the host would otherwise be off (a plain
+		// terminal), because the keyboard really is in vim mode there.
+		o := &state.Override{Mode: state.Legacy, FallbackLegacy: true, Sticky: m.Sticky}
+		if m.TTLMs > 0 {
+			o.Until = time.Now().Add(time.Duration(m.TTLMs) * time.Millisecond)
+		}
+		active = d.store.SetOverride(o, !m.NoToggle)
 	default:
 		mm, ok := state.ParseMode(mode)
 		if !ok || mm == state.None {
@@ -359,7 +368,7 @@ func (d *Daemon) status() *proto.Status {
 		st.Clients = append(st.Clients, ci)
 	}
 	if o := snap.Override; o != nil && o.Active(snap.Now) {
-		oi := &proto.OverrideInfo{Mode: o.Mode.String(), Sticky: o.Sticky}
+		oi := &proto.OverrideInfo{Mode: o.Mode.String(), Sticky: o.Sticky, Manual: o.FallbackLegacy}
 		if !o.Until.IsZero() {
 			oi.LeftMs = time.Until(o.Until).Milliseconds()
 		}

@@ -157,7 +157,7 @@ func (s *Store) SetFrontmost(a focus.App) {
 // already in must never undo it.
 func (s *Store) SetOverride(o *Override, toggle bool) (nowActive bool) {
 	s.mu.Lock()
-	if toggle && o != nil && s.override.Active(s.now()) && s.override.Mode == o.Mode {
+	if toggle && o != nil && s.override.Active(s.now()) && s.override.Mode == o.Mode && s.override.FallbackLegacy == o.FallbackLegacy {
 		s.override = nil
 	} else {
 		s.override = o
