@@ -28,7 +28,7 @@ obj.__index = obj
 
 -- Metadata
 obj.name = "ZmkVimMode"
-obj.version = "1.0"
+obj.version = "1.0.1"
 obj.author = "Rafael Romão"
 obj.homepage = "https://github.com/rafaelromao/zmk-vim-mode"
 obj.license = "MIT - https://opensource.org/licenses/MIT"

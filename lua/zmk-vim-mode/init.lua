@@ -15,7 +15,7 @@ if not vim.g.zmk_vim_mode_session then
 end
 local session = vim.g.zmk_vim_mode_session
 
-M.version = "0.1.0"
+M.version = "1.0.1"
 
 M.defaults = {
   -- Socket path. XDG is deliberately ignored so systemd/launchd/tmux agree.

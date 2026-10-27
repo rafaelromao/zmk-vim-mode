@@ -17,7 +17,7 @@
 
 const { Plugin, MarkdownView, Platform, Notice } = require('obsidian');
 
-const PLUGIN = '0.1.0';
+const PLUGIN = '1.0.1';
 const RECONNECT_MIN = 250;
 const RECONNECT_MAX = 5000;
 
