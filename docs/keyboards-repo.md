@@ -110,7 +110,7 @@ Notes on the choices:
   layer above it in `config.dtsi`.
 - **The two chords are idempotent.** The host binds Hyper+Esc to
   `zmk-vim-mode set auto` and Meh+Esc to
-  `zmk-vim-mode set raw --sticky --no-toggle`: the keyboard only announces a state it is already
+  `zmk-vim-mode set off --sticky --no-toggle`: the keyboard only announces a state it is already
   in, so a repeated chord confirms it and never flips it. The Hyprland binds
   live in the author's dotfiles (`contrib/hyprland-bind.conf` is the same pair);
   on macOS the [ZmkVimMode Spoon](../bars/hammerspoon/README.md) binds them.

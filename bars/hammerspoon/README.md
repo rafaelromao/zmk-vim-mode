@@ -14,7 +14,7 @@ overruling it:
 | Chord | Sent when | Runs |
 |---|---|---|
 | Hyper+Esc (⌘⌃⌥⇧ Esc) | vim mode entered with a combo | `zmk-vim-mode set auto` |
-| Meh+Esc (⌃⌥⇧ Esc) | vim mode left, cancel included | `zmk-vim-mode set raw --sticky --no-toggle` |
+| Meh+Esc (⌃⌥⇧ Esc) | vim mode left, cancel included | `zmk-vim-mode set off --sticky --no-toggle` |
 
 Both are idempotent, so a chord sent twice never undoes the other one. On
 Linux a compositor binding does the same job (`contrib/hyprland-bind.conf`).

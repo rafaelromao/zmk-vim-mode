@@ -375,7 +375,7 @@ which the host binds:
 | Chord | The keymap sends it | The host runs |
 |---|---|---|
 | Hyper+Esc | after turning NORMAL on by hand | `zmk-vim-mode set auto` |
-| Meh+Esc | after leaving by hand, cancel included | `zmk-vim-mode set raw --sticky --no-toggle` |
+| Meh+Esc | after leaving by hand, cancel included | `zmk-vim-mode set off --sticky --no-toggle` |
 
 On macOS the [menu bar Spoon](#status-bar-indicator) binds both, and
 `make install` sets it up. On Hyprland, `contrib/hyprland-bind.conf` does,
@@ -384,7 +384,7 @@ alone.
 
 Neither may toggle. The keyboard only announces a state it is already in, so a
 repeated chord must confirm that state: `--no-toggle` keeps an override already
-in raw, and `auto` does nothing when there is none. That makes it safe for a
+off, and `auto` does nothing when there is none. That makes it safe for a
 cancel key to send Meh+Esc whenever it drops the vim layers.
 
 Two details keep the chords honest:
