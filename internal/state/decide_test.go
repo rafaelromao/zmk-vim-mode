@@ -153,12 +153,36 @@ func TestDecide(t *testing.T) {
 	}
 }
 
+// vimTitles are terminal titles of a running vim, as a shell's title
+// integration or vim's own titlestring sets them.
+var vimTitles = []string{"nvim ~/x.go", "nvim", "vim notes.md", "x.go - NVIM", "main.go (~/src) - Nvim", "git rebase -i HEAD~3"}
+
+func TestTitleHeuristic(t *testing.T) {
+	r := DefaultRules()
+	for _, title := range vimTitles {
+		d := Decide(r, Snapshot{Frontmost: focus.App{Known: true, Class: "ghostty", Title: title}, Now: t0})
+		if d.Mode != Legacy {
+			t.Errorf("%q: got %s (%s); want legacy", title, d.Mode, d.Reason)
+		}
+	}
+	// Titles that only mention vim: a tmux window named after its cwd, cwd
+	// titles, a topic title.
+	for _, title := range []string{"archbox:nvim", "~/projects/telescope.nvim", "✳ Neovim plugin reconnect", "~/.config/nvim"} {
+		d := Decide(r, Snapshot{Frontmost: focus.App{Known: true, Class: "ghostty", Title: title}, Now: t0})
+		if d.Mode != Off {
+			t.Errorf("%q: got %s (%s); want off", title, d.Mode, d.Reason)
+		}
+	}
+}
+
 func TestTitleHeuristicDisabled(t *testing.T) {
 	r := DefaultRules()
 	r.TitleLegacy = nil
-	d := Decide(r, Snapshot{Frontmost: focus.App{Known: true, Class: "ghostty", Title: "nvim"}, Now: t0})
-	if d.Mode != Off {
-		t.Fatalf("expected off, got %s", d.Mode)
+	for _, title := range vimTitles {
+		d := Decide(r, Snapshot{Frontmost: focus.App{Known: true, Class: "ghostty", Title: title}, Now: t0})
+		if d.Mode != Off {
+			t.Errorf("%q: expected off, got %s", title, d.Mode)
+		}
 	}
 }
 
