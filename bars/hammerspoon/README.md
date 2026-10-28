@@ -16,7 +16,7 @@ overruling it:
 | Hyper+F20 (⌘⌃⌥⇧ F20) | vim mode entered with a combo | `zmk-vim-mode set manual --no-toggle` |
 | Meh+Esc (⌃⌥⇧ Esc) | vim mode left, cancel included | `zmk-vim-mode set off --sticky --no-toggle` |
 
-Both are idempotent, so a chord sent twice never undoes the other one. Manual
+Both are idempotent, so repeating a chord confirms its requested state. Manual
 mode follows an editor that reports a mode and falls back to legacy in a plain
 terminal. On Linux a compositor binding does the same job
 (`contrib/hyprland-bind.conf`). Entering uses F20 because macOS reserves
@@ -27,8 +27,9 @@ process restores automatic tracking; reconnecting the same process does not.
 
 ## Install
 
-For the expected enable/disable/new-session sequence and the macOS validation
-handoff, see the [shared state machine](../../docs/manual-state-machine.md).
+Manual tracking has been manually validated on both macOS and Omarchy. For
+the expected enable/disable/new-session sequence and troubleshooting checklist,
+see the [shared state machine](../../docs/manual-state-machine.md).
 
 `make install` does it on macOS; `zmk-vim-mode install --hammerspoon` does it
 alone. It:
@@ -86,3 +87,4 @@ installed looks for the binary in `~/.local/bin`, `/opt/homebrew/bin` and
 For work on the Spoon itself, symlink the directory into `Spoons/` instead: the
 installer leaves a symlinked Spoon alone rather than writing into your
 checkout. `make test-lua` covers what it decides to show.
+

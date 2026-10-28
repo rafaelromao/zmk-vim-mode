@@ -202,5 +202,19 @@ that differs between layers. `zmk-vim-mode devices` must list the keyboard
 first; if it does not, see `scripts/spike-linux.sh` on Linux and
 `zmk-vim-mode hid-scan` on macOS.
 
-Then the chords: the vim-mode combo makes `zmk-vim-mode status` show
-`override : legacy sticky`, and cancel takes the override away again.
+Then test the chords in a plain terminal without an editor client:
+
+- The vim-mode combo sends Hyper+F20 and runs `set manual --no-toggle`.
+  `status --json` shows a legacy decision with `override.manual: true`
+  and no `sticky` field (false values are omitted); the bar shows VIM. With a reporting editor, the
+  same manual override follows its actual mode instead.
+- Cancel sends Meh+Esc and runs `set off --sticky --no-toggle`. The decision
+  becomes off, the override is sticky, and the indicator hides. Repeating
+  either notification confirms its state rather than toggling it away.
+- Disabled survives application changes and same-process Neovim reconnects.
+  A new Neovim session clears it and restores automatic tracking.
+- Run `zmk-vim-mode set auto` to clear the override after the check.
+
+The [shared state machine](manual-state-machine.md) records the complete
+contract and manual validation on both Omarchy and macOS.
+

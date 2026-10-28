@@ -346,12 +346,58 @@ x q m w z   <b>k</b> f ' ; .</pre>
         <p>A vim-like app that reports nothing, such as a JetBrains IDE without the plugin, gets
           <span class="chip plain">legacy</span>: the keyboard turns NORMAL on and follows the mode
           itself, from the keys that change it. For what nothing can detect, like vim over ssh or a
-          shared screen, <code>zmk-vim-mode set</code> pins the mode by hand, and setting the same
-          mode again hands it back to the daemon. A combo on the keyboard can do the same from the
-          other end: it turns NORMAL on and
-          <a href="https://github.com/rafaelromao/zmk-vim-mode#entering-and-leaving-vim-mode-by-hand">tells the host</a>,
-          and cancel hands the mode back.</p>
+          shared screen, enable <a href="#manual">manual tracking</a> from the keyboard or with
+          <code>zmk-vim-mode set manual</code>. It follows editor reports when available and
+          falls back to keyboard-side inference otherwise.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="manual" aria-labelledby="manual-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="manual-h">Enter Vim mode by hand, keep editor tracking</h2>
+      <a class="tag" href="#manual">zmk-vim-mode-manual</a>
+    </div>
+    <div class="prose">
+      <p>A keyboard combo can turn Vim layers on in a plain terminal, over SSH or in a shared
+        screen. Manual tracking keeps them active when no editor reports a mode, while still
+        following Normal, Insert, Visual, command-line, raw and explicit off reports.</p>
+    </div>
+    <div class="table">
+      <table>
+        <thead><tr><th scope="col">control</th><th scope="col">behavior</th></tr></thead>
+        <tbody>
+          <tr><td><code>set auto</code></td><td>Follow the focused editor; a plain terminal without a client is off.</td></tr>
+          <tr><td><code>set manual</code></td><td>Follow editor reports; fall back to legacy when automatic detection returns off without a reporting client.</td></tr>
+          <tr><td><code>set legacy</code></td><td>Force keyboard-side mode inference, even when an editor reports a mode.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>The keymap announces entry with <strong>Hyper+F20</strong> (Super/Cmd, Ctrl, Alt and
+        Shift), bound to <code>zmk-vim-mode set manual --no-toggle</code>. Leaving, including
+        cancel, sends <strong>Meh+Esc</strong> (Ctrl, Alt and Shift), bound to
+        <code>zmk-vim-mode set off --sticky --no-toggle</code>. Repeating either notification
+        confirms the requested state.</p>
+      <p>Manual tracking clears when a different application instance takes focus; switching
+        windows within the same application class and PID keeps it. Disabled stays off across
+        application changes, editor updates and same-session reconnects. A new Neovim session
+        restores automatic tracking, even if it connects in the background; the focused app
+        then determines the result. <code>set auto</code> clears any override immediately.</p>
+      <p>Manual tracking uses the existing <a href="#how">LED codes</a>. Its legacy fallback
+        uses code 4 (Scroll Lock on, Kana and Compose off), or code 7 for a silent reassertion.
+        The bar shows <strong>VIM</strong> during fallback and the actual mode while an editor
+        reports; the tooltip identifies manual tracking.</p>
+      <p>Hammerspoon binds the notifications on macOS. On Omarchy, source
+        <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/contrib/hyprland-bind.conf"><code>contrib/hyprland-bind.conf</code></a>
+        in Hyprland; <code>make install</code> leaves compositor configuration alone. The Linux
+        binding uses physical <code>code:198</code> because XKB maps F20 to mic mute. macOS uses
+        F20 because Cmd+Opt+Esc is reserved for Force Quit.</p>
+      <p>Manual tracking has been manually validated on both Omarchy and macOS. See the
+        <a href="https://github.com/rafaelromao/zmk-vim-mode/blob/main/docs/manual-state-machine.md">state machine and troubleshooting checklist</a>
+        for the full contract.</p>
     </div>
   </div>
 </section>
@@ -623,3 +669,4 @@ x q m w z   <b>k</b> f ' ; .</pre>
 <div class="sr-only" id="live" role="status" aria-live="polite"></div>
 </body>
 </html>
+

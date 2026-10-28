@@ -368,8 +368,9 @@ home-row mods and the four vim layers, is in
 
 ### Entering and leaving vim mode by hand
 
-See the [state machine and macOS validation checklist](docs/manual-state-machine.md)
-for the complete transition contract and platform troubleshooting handoff.
+See the [state machine and validation checklist](docs/manual-state-machine.md)
+for the complete transition contract and platform troubleshooting. Manual
+tracking has been manually validated on both Omarchy and macOS.
 
 The host must hear when a combo turns vim mode on or off, or its next decision
 can disagree with the keyboard. The keymap announces changes with two chords,
@@ -399,9 +400,23 @@ work in a plain terminal: there is no editor to report a mode, so the indicator
 shows VIM and the keyboard keeps inferring its own modes. In Neovim the plugin
 still reports normal/insert, so it takes over as usual.
 
+Unlike `set legacy`, which forces keyboard-side inference even when an editor
+reports a mode, `set manual` keeps following those reports, including explicit
+`off` and `raw`. It introduces no new LED code: the legacy fallback uses code 4
+(Scroll Lock on, Kana and Compose off), or code 7 for a silent reassertion;
+reported editor modes use their existing codes. The indicator shows the
+resulting mode, and its tooltip identifies manual tracking.
+
+The enable notification creates a non-sticky override: switching to a different
+application instance clears it. Switching windows within the same application
+class and PID does not. `set auto` clears any override immediately.
+
 Manual disable stays off across focus changes and updates from the current
 editor. Opening a new Neovim process clears that off override and restores
 automatic tracking. Reconnecting the same Neovim process does not clear it.
+A new Neovim session connecting in the background also clears it; the focused
+application then
+determines the automatic result.
 
 Neither may toggle. The keyboard only announces a state it is already in, so a
 repeated chord must confirm that state: `--no-toggle` keeps an override already
@@ -918,3 +933,4 @@ which depends on nothing but `stdint`, so they are unit-tested on the host
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
