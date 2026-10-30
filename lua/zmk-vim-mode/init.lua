@@ -106,9 +106,9 @@ function M.effective_state()
   if coarse == nil then
     return nil
   end
-  -- Insert-like prompts (pickers, vim.ui.input) stay insert: typing works and
-  -- Esc → normal is the right behaviour there.
-  if coarse == "normal" or coarse == "visual" then
+  -- A raw context stays raw in every editing mode: a picker's prompt takes
+  -- filter text, not vim input, and raw passes both the text and Esc through.
+  if coarse == "normal" or coarse == "visual" or coarse == "insert" then
     local raw, reason = context.is_raw(S.opts)
     if raw then
       log("raw context:", reason)
