@@ -18,11 +18,14 @@ type Store struct {
 	nvimSessions map[nvimSession]struct{}
 	front        focus.App
 	widgets      map[int]focus.Widget // by pid, from the accessibility bus
-	override     *Override
-	seq          uint64
-	now          func() time.Time
-	onChange     func(Decision)
-	last         *Decision
+	// Processes whose window titles have carried their app's view marker:
+	// the setting is applied there, so a window without it is a dialog.
+	marked   map[int]bool
+	override *Override
+	seq      uint64
+	now      func() time.Time
+	onChange func(Decision)
+	last     *Decision
 }
 
 // NewStore creates a Store. onChange may be nil.
@@ -32,6 +35,7 @@ func NewStore(rules Rules, onChange func(Decision)) *Store {
 		clients:      map[uint64]*Client{},
 		nvimSessions: map[nvimSession]struct{}{},
 		widgets:      map[int]focus.Widget{},
+		marked:       map[int]bool{},
 		now:          time.Now,
 		onChange:     onChange,
 	}
@@ -163,6 +167,9 @@ func (s *Store) SetFrontmost(a focus.App) {
 	s.mu.Lock()
 	changed := !s.front.SameIdentity(a)
 	s.front = a
+	if rule, ok := legacyRule(s.rules, a.Class); ok && rule.TitleView != nil && a.PID != 0 && rule.TitleView.MatchString(a.Title) {
+		s.marked[a.PID] = true
+	}
 	if changed && s.override != nil && !s.override.Sticky {
 		s.override = nil
 	}
@@ -216,7 +223,8 @@ func (s *Store) snapshotLocked() Snapshot {
 			wd = &cp
 		}
 	}
-	return Snapshot{Frontmost: s.front, Widget: wd, Clients: cs, Override: o, Now: s.now()}
+	marked := s.front.PID != 0 && s.marked[s.front.PID]
+	return Snapshot{Frontmost: s.front, Widget: wd, Clients: cs, Override: o, TitleMarked: marked, Now: s.now()}
 }
 
 // Decision returns the current decision (computing it if needed).

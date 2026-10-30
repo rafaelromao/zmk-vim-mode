@@ -83,6 +83,8 @@ func TestDecide(t *testing.T) {
 			Snapshot{Frontmost: vscodeTitled("mouse.dtsi - keyboards [terminal]"), Clients: []Client{embedded}}, Raw, CodeRaw, 0},
 		{"vscode title without marker (setting not applied) → clients decide",
 			Snapshot{Frontmost: vscodeTitled("main.go — zmk — Visual Studio Code"), Clients: []Client{embedded}}, Insert, CodeInsert, 9},
+		{"vscode window without marker from a process that showed one → a native dialog → raw",
+			Snapshot{Frontmost: vscodeTitled("Visual Studio Code"), TitleMarked: true, Clients: []Client{embedded}}, Raw, CodeRaw, 0},
 		{"vscode title marker not at the end is ignored",
 			Snapshot{Frontmost: vscodeTitled("[Terminal] main.go — zmk"), Clients: []Client{embedded}}, Insert, CodeInsert, 9},
 		{"a11y: focus in a quick input → raw, whatever the clients say",

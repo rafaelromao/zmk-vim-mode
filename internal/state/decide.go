@@ -156,7 +156,10 @@ type Snapshot struct {
 	Widget   *focus.Widget
 	Clients  []Client
 	Override *Override
-	Now      time.Time
+	// TitleMarked: the frontmost process has shown its app's view marker in
+	// a window title before, so the marker setting is applied.
+	TitleMarked bool
+	Now         time.Time
 }
 
 // AppKind returns the client kind that may report for a window class, or ""
@@ -237,6 +240,11 @@ func decideAuto(r Rules, s Snapshot) Decision {
 					}
 				}
 				return decision(Raw, "tool window focused: "+view, 0)
+			}
+			// A window of the same process without the marker is not a
+			// workbench window: it is a native dialog ("Save changes?").
+			if rule.TitleView != nil && s.TitleMarked && !rule.TitleView.MatchString(front.Title) {
+				return decision(Raw, "dialog window: "+front.Title, 0)
 			}
 			inEditor := false
 			if rule.Widget != "" && s.Widget != nil && front.PID != 0 && s.Widget.PID == front.PID {
