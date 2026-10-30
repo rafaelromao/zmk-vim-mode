@@ -227,10 +227,17 @@ func decideAuto(r Rules, s Snapshot) Decision {
 	}
 	if rule, ok := legacyRule(r, front.Class); ok {
 		if rule.Kind != "" {
+			appClients := clientsOfApp(s.Clients, rule.Kind)
 			if view, ok := toolWindow(rule, front.Title); ok {
+				// vscode-neovim's ":" and "/" prompt is a quick input, a widget
+				// outside any view; the embedded Neovim knows it is its own.
+				if view == outsideAnyView {
+					if c, ok := cmdlineClient(appClients, now); ok {
+						return clientDecision(c, "client "+rule.Kind+" command line")
+					}
+				}
 				return decision(Raw, "tool window focused: "+view, 0)
 			}
-			appClients := clientsOfApp(s.Clients, rule.Kind)
 			inEditor := false
 			if rule.Widget != "" && s.Widget != nil && front.PID != 0 && s.Widget.PID == front.PID {
 				if !s.Widget.Editor {
@@ -263,6 +270,17 @@ func decideAuto(r Rules, s Snapshot) Decision {
 	return decision(Off, "non-editor app "+front.Class, 0)
 }
 
+// outsideAnyView is toolWindow's name for an empty title marker: focus is in
+// a widget that belongs to no view (a quick input, a viewlet's search box).
+const outsideAnyView = "widget outside any view"
+
+// cmdlineClient returns the embedded editor that reports its command line,
+// when one does.
+func cmdlineClient(cs []Client, now time.Time) (Client, bool) {
+	c, ok := best(opinionated(notOwn(cs), now))
+	return c, ok && c.Mode == Cmdline
+}
+
 // toolWindow reads the focused view off the title and reports whether it is
 // something other than the text editor.
 func toolWindow(rule AppRule, title string) (string, bool) {
@@ -275,7 +293,7 @@ func toolWindow(rule AppRule, title string) (string, bool) {
 	}
 	view := strings.TrimSpace(m[1])
 	if view == "" {
-		view = "widget outside any view"
+		view = outsideAnyView
 	}
 	for _, e := range rule.EditorViews {
 		if strings.EqualFold(view, strings.TrimSpace(e)) {
