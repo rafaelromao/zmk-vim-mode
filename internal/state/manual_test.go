@@ -112,3 +112,16 @@ func TestManualAndLegacyAreDistinctOverrides(t *testing.T) {
 		}
 	}
 }
+
+// A Save As dialog opened while vim mode was entered by hand must not get
+// the legacy layers: the manual fallback only fills in where the host is off.
+func TestManualKeepsSystemDialogRaw(t *testing.T) {
+	s := Snapshot{
+		Frontmost: app("xdg-desktop-portal-gtk"),
+		Override:  &Override{Mode: Legacy, FallbackLegacy: true},
+		Now:       t0,
+	}
+	if d := Decide(DefaultRules(), s); d.Mode != Raw {
+		t.Fatalf("manual over a file chooser: got %s (%s), want raw", d.Mode, d.Reason)
+	}
+}

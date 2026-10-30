@@ -118,6 +118,11 @@ type Rules struct {
 	// (or ends with vim's default titlestring, " - NVIM") and no nvim client has
 	// an opinion, mean a plugin-less nvim (SSH) → Legacy. Empty disables.
 	TitleLegacy []string
+	// DialogApps are system dialogs other apps open in a window of their own:
+	// the desktop portal's file chooser behind every Save As and Open File.
+	// They take typed text, never vim keys, so they are Raw -- not Off, which
+	// a manual override would turn into Legacy.
+	DialogApps []string
 }
 
 // DefaultRules returns the built-in classification for Hyprland app_ids and
@@ -139,6 +144,7 @@ func DefaultRules() Rules {
 			{Kind: "intellij", Classes: []string{"jetbrains-*", "com.jetbrains.*"}},
 		},
 		TitleLegacy: []string{"nvim", "vim", "neovim", "git rebase -i"},
+		DialogApps:  []string{"xdg-desktop-portal-*"},
 	}
 }
 
@@ -176,8 +182,8 @@ func decision(m Mode, reason string, client uint64) Decision {
 
 // Decide computes the desired keyboard state. It is a pure function.
 //
-// Priority: manual override → frontmost app with a connected client of the
-// matching kind → legacy app → terminal/GUI-nvim app with the best-ranked
+// Priority: manual override → system dialog (Raw) → frontmost app with a
+// connected client of the matching kind → legacy app → terminal/GUI-nvim app with the best-ranked
 // Neovim client → title heuristic → OFF. An unknown frontmost (focus backend
 // down) fails open and trusts the clients.
 //
@@ -215,6 +221,9 @@ func decideAuto(r Rules, s Snapshot) Decision {
 			return clientDecision(c, "frontmost unknown; trusting client")
 		}
 		return decision(Off, "frontmost unknown; no clients", 0)
+	}
+	if matchClass(r.DialogApps, front.Class) {
+		return decision(Raw, "system dialog "+front.Class, 0)
 	}
 	if rule, ok := legacyRule(r, front.Class); ok {
 		if rule.Kind != "" {

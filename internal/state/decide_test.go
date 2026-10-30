@@ -47,6 +47,8 @@ func TestDecide(t *testing.T) {
 			Snapshot{Frontmost: focus.App{}}, Off, CodeOff, 0},
 		{"browser + focused client → off (veto)",
 			Snapshot{Frontmost: browser, Clients: []Client{nvim(1, Insert, FocusYes, 1, 1)}}, Off, CodeOff, 0},
+		{"file chooser portal → raw, whatever the clients say",
+			Snapshot{Frontmost: app("xdg-desktop-portal-gtk"), Clients: []Client{nvim(1, Normal, FocusYes, 1, 1)}}, Raw, CodeRaw, 0},
 		{"vscode, no vscode client → legacy",
 			Snapshot{Frontmost: vscode, Clients: []Client{nvim(1, Insert, FocusYes, 1, 1)}}, Legacy, CodeLegacy, 0},
 		{"vscode with vscode client → client mode",
