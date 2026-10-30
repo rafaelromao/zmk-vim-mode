@@ -55,9 +55,15 @@ class ZmkVimModePlugin extends Plugin {
     this.registerEvent(this.app.workspace.on('layout-change', refresh));
     // Focus moving between the text, the vim dialog, the title, the sidebar...
     this.registerDomEvent(document, 'focusin', () => this.report());
+    // ...and between windows: Settings opens a window of its own, where no
+    // focusin reaches this document.
+    this.registerDomEvent(window, 'focus', () => this.report());
+    this.registerDomEvent(window, 'blur', () => this.report());
     this.registerEvent(
       this.app.workspace.on('window-open', (win) => {
         this.registerDomEvent(win.doc, 'focusin', () => this.report());
+        this.registerDomEvent(win.win, 'focus', () => this.report());
+        this.registerDomEvent(win.win, 'blur', () => this.report());
       }),
     );
 
@@ -147,6 +153,9 @@ class ZmkVimModePlugin extends Plugin {
       return 'raw';
     }
     const doc = (view.containerEl && view.containerEl.ownerDocument) || document;
+    if (typeof doc.hasFocus === 'function' && !doc.hasFocus()) {
+      return 'raw'; // another window has the keys: Settings, a dialog
+    }
     const active = doc.activeElement;
     const editorEl = view.contentEl || view.containerEl;
     if (!active || !editorEl || !editorEl.contains(active)) {
