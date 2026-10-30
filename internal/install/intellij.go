@@ -360,8 +360,9 @@ func buildIntelliJPlugin(w io.Writer, dir string, ide IntelliJIDE) (string, erro
 
 // unzipInto unpacks a plugin distribution into the IDE's plugin directory,
 // which is exactly what "Install Plugin from Disk" does. The zip's own top
-// directory is kept, so the plugin replaces its previous version rather than
-// scattering files.
+// directory is kept, and any previous install of it removed first: the jar is
+// named after the version, so unpacking over an older install would leave both
+// jars for the IDE to load.
 func unzipInto(zipPath, pluginsDir string) (string, error) {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -378,7 +379,15 @@ func unzipInto(zipPath, pluginsDir string) (string, error) {
 		if root == "" {
 			root = strings.Split(name, string(os.PathSeparator))[0]
 		}
-		target := filepath.Join(pluginsDir, name)
+	}
+	if root == "" || root == "." {
+		return "", fmt.Errorf("%s: no plugin directory at the top of the zip", zipPath)
+	}
+	if err := os.RemoveAll(filepath.Join(pluginsDir, root)); err != nil {
+		return "", err
+	}
+	for _, f := range r.File {
+		target := filepath.Join(pluginsDir, filepath.Clean(filepath.FromSlash(f.Name)))
 		if f.FileInfo().IsDir() {
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return "", err
@@ -391,9 +400,6 @@ func unzipInto(zipPath, pluginsDir string) (string, error) {
 		if err := copyZipEntry(f, target); err != nil {
 			return "", err
 		}
-	}
-	if root == "" {
-		return "", fmt.Errorf("%s: empty zip", zipPath)
 	}
 	return filepath.Join(pluginsDir, root), nil
 }

@@ -291,6 +291,42 @@ func TestUnzipIntoReturnsPluginRoot(t *testing.T) {
 	}
 }
 
+// A release renames the jar (zmk-vim-mode-intellij-<version>.jar), so
+// unpacking over the previous install must not leave the old jar beside the
+// new one: the IDE would load both.
+func TestUnzipIntoReplacesPreviousVersion(t *testing.T) {
+	dir := t.TempDir()
+	plugins := filepath.Join(dir, "plugins")
+	old := filepath.Join(plugins, "zmk-vim-mode-intellij", "lib", "zmk-vim-mode-intellij-0.1.0.jar")
+	mustWrite(t, old, "old jar")
+
+	zipPath := filepath.Join(dir, "plugin.zip")
+	f, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	w, _ := zw.Create("zmk-vim-mode-intellij/lib/zmk-vim-mode-intellij-1.0.1.jar")
+	if _, err := w.Write([]byte("new jar")); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	root, err := unzipInto(zipPath, plugins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Errorf("previous version's jar survived the install: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "lib", "zmk-vim-mode-intellij-1.0.1.jar")); err != nil {
+		t.Errorf("new jar not unpacked: %v", err)
+	}
+}
+
 func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
