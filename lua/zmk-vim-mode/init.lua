@@ -80,6 +80,17 @@ local function socket_path()
   return home .. "/.local/state/zmk-vim-mode/daemon.sock"
 end
 
+---Whether a which-key menu is on screen (its windows have filetype "wk").
+---@return boolean
+local function which_key_open()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "wk" then
+      return true
+    end
+  end
+  return false
+end
+
 ---Current effective state: leader-pending → raw; raw context → raw; else the
 ---coarse mode map. Returns nil when the state should not change.
 ---@return string|nil
@@ -93,9 +104,13 @@ function M.effective_state()
     end
   end
 
-  -- A pending <leader> means a menu/prompt is about to take the keys.
-  if S.opts.leader_raw and S.leader_pending and (mode:sub(1, 1) == "n" or mode:sub(1, 1) == "v") then
-    return "raw"
+  -- A pending <leader> means a menu/prompt is about to take the keys. Once
+  -- which-key shows its menu the sequence is no longer pending as far as
+  -- Neovim is concerned, so the open menu itself keeps the keys raw.
+  if S.opts.leader_raw and (mode:sub(1, 1) == "n" or mode:sub(1, 1) == "v") then
+    if S.leader_pending or which_key_open() then
+      return "raw"
+    end
   end
   -- A VSCode quick input opened from a mapping has the keys until further notice.
   if S.vscode_raw then
@@ -106,9 +121,9 @@ function M.effective_state()
   if coarse == nil then
     return nil
   end
-  -- Insert-like prompts (pickers, vim.ui.input) stay insert: typing works and
-  -- Esc → normal is the right behaviour there.
-  if coarse == "normal" or coarse == "visual" then
+  -- A raw context stays raw in every editing mode: a picker's prompt takes
+  -- filter text, not vim input, and raw passes both the text and Esc through.
+  if coarse == "normal" or coarse == "visual" or coarse == "insert" then
     local raw, reason = context.is_raw(S.opts)
     if raw then
       log("raw context:", reason)
@@ -421,8 +436,13 @@ function M.setup(opts)
     clear_leader()
     M.report()
   end)
-  au({ "BufEnter", "WinEnter", "FileType", "TermEnter", "TermLeave", "CmdlineLeave" }, function()
+  au({ "BufEnter", "WinEnter", "FileType", "TermEnter", "TermLeave", "CmdlineLeave", "BufWinEnter" }, function()
     M.report()
+  end)
+  -- A menu window (which-key) closing changes the state without entering
+  -- another window; the window is still listed while WinClosed runs.
+  au("WinClosed", function()
+    vim.schedule(M.report)
   end)
   au("SafeState", function()
     clear_leader()

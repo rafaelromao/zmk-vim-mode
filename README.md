@@ -131,7 +131,7 @@ reports, and the keyboard switches layers to match:
 | **insert** | typing (Neovim's Replace counts as insert) | `VIM_INSERT`, usually transparent: your base layout |
 | **visual** | selecting | `VIM_VISUAL` on top of `VIM_NORMAL` |
 | **cmdline** | typing a `:` command or a search | `VIM_CMDLINE` |
-| **raw** | the letters are commands of something else: a file explorer, a picker, a terminal job, a pending `<leader>` | no vim layers: keys pass through untouched |
+| **raw** | the letters are commands of something else: a file explorer, a picker, a terminal job, a pending `<leader>`; or plain text outside the editor, such as a Save As dialog | no vim layers: keys pass through untouched |
 | **legacy** | a vim-like editor that reports nothing: vim over SSH, Helix, an IDE without the plugin | `VIM_NORMAL`, and the keyboard follows the mode itself |
 | **off** | any other app | no vim layers |
 

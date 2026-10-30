@@ -7,7 +7,7 @@ GO ?= go
 NVIM ?= nvim
 CC ?= cc
 
-.PHONY: all build test test-go test-lua test-firmware fmt vet lint install uninstall doctor clean cross codesign-cert codesign-ensure
+.PHONY: all build test test-go test-lua test-js test-firmware fmt vet lint install uninstall doctor clean cross codesign-cert codesign-ensure
 
 all: build
 
@@ -73,13 +73,17 @@ cross: ## cross-compile for the Omarchy box (linux/amd64 and linux/arm64)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BIN)-linux-amd64 ./cmd/zmk-vim-mode
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(BIN)-linux-arm64 ./cmd/zmk-vim-mode
 
-test: test-go test-lua test-firmware ## run every test suite
+test: test-go test-lua test-js test-firmware ## run every test suite
 
 test-go: ## Go unit tests (socket tests skip where bind is not permitted)
 	$(GO) test ./...
 
 test-lua: ## Neovim plugin tests, headless
 	$(NVIM) --clean --headless -l tests/lua/run.lua
+
+test-js: ## editor plugin tests in Node (skipped without node)
+	@if command -v node >/dev/null 2>&1; then node --test editors/obsidian/main_test.js; \
+	else echo "node not found; skipping editor plugin tests"; fi
 
 test-firmware: ## host-side tests for the ZMK module's decode/timing policy
 	@mkdir -p build

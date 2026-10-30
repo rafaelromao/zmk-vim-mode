@@ -84,7 +84,7 @@ class ZmkVimModeService : Disposable {
 
                 override fun focusLost(editor: Editor) {
                     vimHasTheKeys = false
-                    client.report("raw")
+                    reportCurrentMode()
                 }
             }, this)
         } catch (e: Throwable) {
@@ -104,16 +104,20 @@ class ZmkVimModeService : Disposable {
         else -> true
     }
 
-    /** Read IdeaVim's current mode and send it. */
+    /**
+     * Read IdeaVim's current mode and send it. Outside the editor that is raw,
+     * except for IdeaVim's own ":" and "/" prompt: it is a text field of its
+     * own, so focus leaves the editor for it, but the keys are still vim's.
+     */
     fun reportCurrentMode() {
-        if (!vimHasTheKeys) return client.report("raw")
         val name = try {
             injector.vimState.mode.javaClass.simpleName
         } catch (e: Throwable) {
             LOG.debug("IdeaVim state unavailable: ${e.message}")
             null
         }
-        client.report(Modes.wireName(name))
+        val mode = Modes.wireName(name)
+        client.report(if (vimHasTheKeys || mode == "cmdline") mode else "raw")
     }
 
     override fun dispose() = client.stop()

@@ -118,6 +118,11 @@ type Rules struct {
 	// (or ends with vim's default titlestring, " - NVIM") and no nvim client has
 	// an opinion, mean a plugin-less nvim (SSH) → Legacy. Empty disables.
 	TitleLegacy []string
+	// DialogApps are system dialogs other apps open in a window of their own:
+	// the desktop portal's file chooser behind every Save As and Open File.
+	// They take typed text, never vim keys, so they are Raw -- not Off, which
+	// a manual override would turn into Legacy.
+	DialogApps []string
 }
 
 // DefaultRules returns the built-in classification for Hyprland app_ids and
@@ -139,6 +144,7 @@ func DefaultRules() Rules {
 			{Kind: "intellij", Classes: []string{"jetbrains-*", "com.jetbrains.*"}},
 		},
 		TitleLegacy: []string{"nvim", "vim", "neovim", "git rebase -i"},
+		DialogApps:  []string{"xdg-desktop-portal-*"},
 	}
 }
 
@@ -150,7 +156,10 @@ type Snapshot struct {
 	Widget   *focus.Widget
 	Clients  []Client
 	Override *Override
-	Now      time.Time
+	// TitleMarked: the frontmost process has shown its app's view marker in
+	// a window title before, so the marker setting is applied.
+	TitleMarked bool
+	Now         time.Time
 }
 
 // AppKind returns the client kind that may report for a window class, or ""
@@ -176,8 +185,8 @@ func decision(m Mode, reason string, client uint64) Decision {
 
 // Decide computes the desired keyboard state. It is a pure function.
 //
-// Priority: manual override → frontmost app with a connected client of the
-// matching kind → legacy app → terminal/GUI-nvim app with the best-ranked
+// Priority: manual override → system dialog (Raw) → frontmost app with a
+// connected client of the matching kind → legacy app → terminal/GUI-nvim app with the best-ranked
 // Neovim client → title heuristic → OFF. An unknown frontmost (focus backend
 // down) fails open and trusts the clients.
 //
@@ -216,12 +225,27 @@ func decideAuto(r Rules, s Snapshot) Decision {
 		}
 		return decision(Off, "frontmost unknown; no clients", 0)
 	}
+	if matchClass(r.DialogApps, front.Class) {
+		return decision(Raw, "system dialog "+front.Class, 0)
+	}
 	if rule, ok := legacyRule(r, front.Class); ok {
 		if rule.Kind != "" {
+			appClients := clientsOfApp(s.Clients, rule.Kind)
 			if view, ok := toolWindow(rule, front.Title); ok {
+				// vscode-neovim's ":" and "/" prompt is a quick input, a widget
+				// outside any view; the embedded Neovim knows it is its own.
+				if view == outsideAnyView {
+					if c, ok := cmdlineClient(appClients, now); ok {
+						return clientDecision(c, "client "+rule.Kind+" command line")
+					}
+				}
 				return decision(Raw, "tool window focused: "+view, 0)
 			}
-			appClients := clientsOfApp(s.Clients, rule.Kind)
+			// A window of the same process without the marker is not a
+			// workbench window: it is a native dialog ("Save changes?").
+			if rule.TitleView != nil && s.TitleMarked && !rule.TitleView.MatchString(front.Title) {
+				return decision(Raw, "dialog window: "+front.Title, 0)
+			}
 			inEditor := false
 			if rule.Widget != "" && s.Widget != nil && front.PID != 0 && s.Widget.PID == front.PID {
 				if !s.Widget.Editor {
@@ -254,6 +278,17 @@ func decideAuto(r Rules, s Snapshot) Decision {
 	return decision(Off, "non-editor app "+front.Class, 0)
 }
 
+// outsideAnyView is toolWindow's name for an empty title marker: focus is in
+// a widget that belongs to no view (a quick input, a viewlet's search box).
+const outsideAnyView = "widget outside any view"
+
+// cmdlineClient returns the embedded editor that reports its command line,
+// when one does.
+func cmdlineClient(cs []Client, now time.Time) (Client, bool) {
+	c, ok := best(opinionated(notOwn(cs), now))
+	return c, ok && c.Mode == Cmdline
+}
+
 // toolWindow reads the focused view off the title and reports whether it is
 // something other than the text editor.
 func toolWindow(rule AppRule, title string) (string, bool) {
@@ -266,7 +301,7 @@ func toolWindow(rule AppRule, title string) (string, bool) {
 	}
 	view := strings.TrimSpace(m[1])
 	if view == "" {
-		view = "widget outside any view"
+		view = outsideAnyView
 	}
 	for _, e := range rule.EditorViews {
 		if strings.EqualFold(view, strings.TrimSpace(e)) {

@@ -29,8 +29,10 @@ object Modes {
             name.startsWith("NORMAL") -> "normal"
             // Replace types over existing text; on the keyboard that is
             // insert's shape, and it is what the daemon reports for Neovim's R.
-            name.startsWith("INSERT") || name.startsWith("REPLACE") -> "insert"
-            name.startsWith("VISUAL") || name.startsWith("SELECT") -> "visual"
+            // Select mode does too: typing replaces the selection, which is
+            // how an inline rename (Shift+F6) takes the new name.
+            name.startsWith("INSERT") || name.startsWith("REPLACE") || name.startsWith("SELECT") -> "insert"
+            name.startsWith("VISUAL") -> "visual"
             name.startsWith("CMD_LINE") || name.startsWith("COMMAND_LINE") -> "cmdline"
             // A mode we do not model: normal is the safe guess, and the
             // keyboard's own inference corrects it on the next keystroke.
