@@ -2,7 +2,7 @@
   "name": "zmk-vim-mode",
   "displayName": "ZMK Vim Mode",
   "description": "Tells the zmk-vim-mode daemon when VSCode's text editor does not have keyboard focus, so a ZMK keyboard drops its vim layers.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "rafaelromao",
   "license": "MIT",
   "repository": {

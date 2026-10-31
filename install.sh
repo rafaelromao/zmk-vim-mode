@@ -8,7 +8,7 @@
 # and the status bar it finds. Nothing here runs as root: on Linux `make install` asks for sudo once,
 # for the udev rule, and only where there is a terminal to ask on. $ZMK_VIM_MODE_HOME moves the
 # tree; $ZMK_VIM_MODE_REF picks what is installed: `latest`, the newest release (the default), a
-# release's tag such as v1.0.1, or a branch such as main.
+# release's tag such as v1.0.2, or a branch such as main.
 #
 # The daemon is built from source, so this needs Go 1.26 or newer and make, and on macOS the Xcode
 # Command Line Tools for cgo.

@@ -165,7 +165,7 @@ manifest:
 ```
 
 `revision: main` follows the module's main branch; a release's tag, such as
-`revision: v1.0.1`, pins it to that release.
+`revision: v1.0.2`, pins it to that release.
 
 Nothing else in the build changes. The module switches itself on, along with
 `CONFIG_ZMK_HID_INDICATORS`, the HID LED support it relies on, as soon as the
@@ -444,7 +444,7 @@ curl -fsSL https://raw.githubusercontent.com/rafaelromao/zmk-vim-mode/main/insta
 ```
 
 That puts the latest release's source in `~/.local/share/zmk-vim-mode` and
-runs `make install` there. `ZMK_VIM_MODE_REF=v1.0.1` before `sh` installs that
+runs `make install` there. `ZMK_VIM_MODE_REF=v1.0.2` before `sh` installs that
 release instead, and `ZMK_VIM_MODE_REF=main` the main branch;
 `ZMK_VIM_MODE_HOME` moves the tree. `zmk-vim-mode version` says which one you
 have. The daemon is built from source either way, so the
