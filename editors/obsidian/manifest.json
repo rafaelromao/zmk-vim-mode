@@ -1,7 +1,7 @@
 {
   "id": "zmk-vim-mode",
   "name": "ZMK Vim Mode",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "1.4.0",
   "description": "Reports the editor's vim mode and focus to the zmk-vim-mode daemon, which drives a ZMK keyboard's vim layers.",
   "author": "Rafael Romão",

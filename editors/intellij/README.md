@@ -69,7 +69,7 @@ has to name your user:
 That last one exists because the build needs the JDK the IDE runs on (25 for
 2026.2) and you probably have a different one; the IDE ships exactly that JVM,
 so Gradle is pointed at it rather than downloading another. The result is
-`build/distributions/zmk-vim-mode-intellij-1.0.1.zip` — install it with
+`build/distributions/zmk-vim-mode-intellij-1.0.2.zip` — install it with
 Settings → Plugins → ⚙ → *Install Plugin from Disk…*, then restart.
 
 The Kotlin version in `build.gradle.kts` has to be able to read the metadata
