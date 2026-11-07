@@ -108,6 +108,11 @@ class ZmkVimModeService : Disposable {
      * Read IdeaVim's current mode and send it. Outside the editor that is raw,
      * except for IdeaVim's own ":" and "/" prompt: it is a text field of its
      * own, so focus leaves the editor for it, but the keys are still vim's.
+     *
+     * Operator-pending is deliberately not sent. Sending "none" retracts the
+     * client's opinion, the daemon falls back to legacy, and code 4 injects
+     * Esc, cancelling the operator the keyboard is mid-gesture on. Silence
+     * keeps the previous mode, as the Neovim plugin does.
      */
     fun reportCurrentMode() {
         val name = try {
@@ -117,6 +122,12 @@ class ZmkVimModeService : Disposable {
             null
         }
         val mode = Modes.wireName(name)
+        if (mode == null) {
+            // Focus left the editor while the mode was unreadable: raw still
+            // has to win, or the next keys are treated as vim commands.
+            if (!vimHasTheKeys) client.report("raw")
+            return
+        }
         client.report(if (vimHasTheKeys || mode == "cmdline") mode else "raw")
     }
 
