@@ -476,6 +476,9 @@ func InstallIntelliJ(w io.Writer) error {
 		installed++
 	}
 	if installed > 0 {
+		if err := InstallIdeaVimRC(w, home); err != nil {
+			fmt.Fprintf(w, "ideavimrc  : not written: %v\n", err)
+		}
 		if intellijRunning() {
 			fmt.Fprintln(w, "an IDE is running, and plugins are only scanned at startup: restart it.")
 		}

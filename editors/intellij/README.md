@@ -45,6 +45,28 @@ not quick; later runs are incremental.
 
 An IDE without IdeaVim is reported and skipped, not guessed at.
 
+### Word-delete in normal mode
+
+Once a plugin is installed, the installer also creates or patches your
+`ideavimrc` (the one IdeaVim reads: `~/.ideavimrc`, or
+`~/.config/ideavim/ideavimrc` if that is the one that exists). IdeaVim claims
+Ctrl+Backspace and Ctrl+Delete in every mode and `sethandler` cannot give them
+back, yet it has no normal-mode command for either — so a keyboard layer that
+sends them for word-delete (the TEXT layer's Delete and Backspace on Linux) did
+nothing there. The block it adds, between `>>> zmk-vim-mode` and
+`<<< zmk-vim-mode` marker lines:
+
+```vim
+nnoremap <C-BS>  "_db
+nnoremap <C-Del> "_dw
+xnoremap <C-BS>  "_d
+xnoremap <C-Del> "_d
+```
+
+Running the install again replaces the block in place. If you already map
+either key yourself, the file is left untouched and the installer says so.
+Reload with `:source ~/.ideavimrc` or restart the IDE.
+
 ### Building it by hand
 
 Only needed if you are changing the plugin, or the installer could not.
