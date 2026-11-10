@@ -16,25 +16,27 @@ const (
 	ideaVimRCEnd   = `" <<< zmk-vim-mode`
 )
 
-// ideaVimRCBlock gives Ctrl+Backspace and Ctrl+Delete a meaning in normal and
-// visual mode. IdeaVim claims both keys in every mode (VimShortcutKeyAction's
-// VIM_ONLY_EDITOR_KEYS) and sethandler cannot hand them back to the IDE, but
-// it has no normal-mode command for them, so the keyboard's TEXT layer, which
-// sends them for word-delete, did nothing. The black-hole register keeps the
-// deleted text out of the yank register, as the IDE's own word-delete does.
+// ideaVimRCBlock gives Ctrl+Backspace and Ctrl+Delete a meaning in normal,
+// visual and insert modes. IdeaVim claims both keys in every mode through
+// VimShortcutKeyAction's VIM_ONLY_EDITOR_KEYS; sethandler cannot hand them back, but
+// they can do nothing in normal and insert modes, even when the keyboard's
+// TEXT layer sends them for word-delete. Insert mode uses Vim's backward
+// word-delete and a one-command normal-mode forward delete. Explicit deletes
+// use the black-hole register to keep the yank register intact.
 const ideaVimRCBlock = ideaVimRCBegin + `
-" IdeaVim owns <C-BS> and <C-Del> in every mode but maps nothing to them in
-" normal mode; the keyboard's TEXT layer sends them for word-delete.
+" IdeaVim owns <C-BS> and <C-Del>; explicitly map word-delete in each editing mode.
 nnoremap <C-BS>  "_db
 nnoremap <C-Del> "_dw
 xnoremap <C-BS>  "_d
 xnoremap <C-Del> "_d
+inoremap <C-BS> <C-W>
+inoremap <C-Del> <C-O>"_dw
 ` + ideaVimRCEnd + "\n"
 
 // userMapsWordDelete matches a mapping of either key outside our block. The
 // user's own wins: later definitions override earlier ones, and appending ours
 // would silently replace theirs.
-var userMapsWordDelete = regexp.MustCompile(`(?mi)^\s*[nvxo]?(?:nore)?map\s+(?:<[a-z]+>\s+)*<C-(?:BS|Del)>`)
+var userMapsWordDelete = regexp.MustCompile(`(?mi)^\s*[nvxoi]?(?:nore)?map\s+(?:<[a-z]+>\s+)*<C-(?:BS|Del)>`)
 
 // ApplyIdeaVimRC returns src with the managed block present and current. The
 // block is replaced where it already is, and appended otherwise. When the user
@@ -125,7 +127,7 @@ func InstallIdeaVimRC(w io.Writer, home string) error {
 	if existed {
 		verb = "updated"
 	}
-	fmt.Fprintf(w, "ideavimrc  : %s %s — Ctrl+Backspace / Ctrl+Delete delete words in normal mode (`:source %s` or restart)\n",
+	fmt.Fprintf(w, "ideavimrc  : %s %s — Ctrl+Backspace / Ctrl+Delete delete words in normal, visual and insert modes (`:source %s` or restart)\n",
 		TrimHome(p), verb, TrimHome(p))
 	return nil
 }

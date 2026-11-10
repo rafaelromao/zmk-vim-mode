@@ -25,6 +25,29 @@ func TestApplyIdeaVimRCEmptyFileIsJustTheBlock(t *testing.T) {
 	}
 }
 
+func TestApplyIdeaVimRCIncludesInsertWordDelete(t *testing.T) {
+	out, conflict, err := ApplyIdeaVimRC("")
+	if err != nil || conflict {
+		t.Fatalf("err=%v conflict=%v", err, conflict)
+	}
+	for _, mapping := range []string{"inoremap <C-BS> <C-W>", `inoremap <C-Del> <C-O>"_dw`} {
+		if !strings.Contains(out, mapping+"\n") {
+			t.Errorf("missing insert mapping %q in:\n%s", mapping, out)
+		}
+	}
+}
+
+func TestApplyIdeaVimRCPreservesInsertMappingOutsideManagedBlock(t *testing.T) {
+	for _, mapping := range []string{"inoremap <C-BS> <C-U>\n", "imap <C-Del> <Del>\n"} {
+		for _, src := range []string{mapping, mapping + ideaVimRCBlock, ideaVimRCBlock + mapping} {
+			out, conflict, err := ApplyIdeaVimRC(src)
+			if err != nil || !conflict || out != src {
+				t.Errorf("%q: conflict=%v err=%v out=%q", src, conflict, err, out)
+			}
+		}
+	}
+}
+
 func TestApplyIdeaVimRCIsIdempotent(t *testing.T) {
 	once, _, _ := ApplyIdeaVimRC("set number\n")
 	twice, conflict, err := ApplyIdeaVimRC(once)
@@ -42,6 +65,9 @@ func TestApplyIdeaVimRCReplacesStaleBlockInPlace(t *testing.T) {
 	want := "set number\n" + ideaVimRCBlock + "set relativenumber\n"
 	if out != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
+	}
+	if !strings.Contains(out, "inoremap <C-BS> <C-W>\n") {
+		t.Fatal("stale block was not upgraded with insert word-delete")
 	}
 }
 
