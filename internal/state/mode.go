@@ -73,7 +73,7 @@ const (
 	CodeLegacy       uint8 = 4 // transition into a legacy app: firmware runs &vim_mode_on (one ESC)
 	CodeCmdline      uint8 = 5
 	CodeRaw          uint8 = 6
-	CodeLegacySilent uint8 = 7 // re-assert of Legacy after a clobber/reconnect: NORMAL layer, no bindings
+	CodeLegacySilent uint8 = 7 // Legacy without injected Esc (startup-safe transition or re-assert)
 )
 
 // Code returns the LED code for m.

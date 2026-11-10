@@ -264,7 +264,13 @@ func decideAuto(r Rules, s Snapshot) Decision {
 				return clientDecision(c, "client "+rule.Kind)
 			}
 		}
-		return decision(Legacy, "legacy app "+front.Class, 0)
+		d := decision(Legacy, "legacy app "+front.Class, 0)
+		if rule.Kind == "intellij" {
+			// The IDE can take focus while its project is still loading, before
+			// the plugin connects. Do not inject Esc into that loading frame.
+			d.Code = CodeLegacySilent
+		}
+		return d
 	}
 	if matchClass(r.TerminalApps, front.Class) || matchClass(r.GUINvimApps, front.Class) {
 		if c, ok := best(opinionated(clientsOfApp(s.Clients, ""), now)); ok {
