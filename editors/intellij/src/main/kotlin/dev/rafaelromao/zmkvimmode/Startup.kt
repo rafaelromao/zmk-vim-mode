@@ -134,7 +134,7 @@ class ZmkVimModeService : Disposable {
     override fun dispose() = client.stop()
 
     companion object {
-        const val PLUGIN_VERSION = "1.0.2"
+        const val PLUGIN_VERSION = "1.0.3"
 
         fun getInstance(): ZmkVimModeService =
             ApplicationManager.getApplication().getService(ZmkVimModeService::class.java)
